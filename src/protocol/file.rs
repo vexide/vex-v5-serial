@@ -6,7 +6,7 @@ use crate::{
     },
 };
 
-use super::Command;
+use super::Packet;
 
 /// Initializes a file transfer between the brain and host
 #[derive(Copy, Clone)]
@@ -24,7 +24,7 @@ pub struct FileTransferInit {
     pub name: [u8; 24],
 }
 
-impl Command for FileTransferInit {
+impl Packet for FileTransferInit {
     type Response = FileTransferInitResponse;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
@@ -131,7 +131,7 @@ pub struct FileTransferInitResponse {
 #[derive(Copy, Clone)]
 pub struct FileTransferExit(pub FileTransferComplete);
 
-impl Command for FileTransferExit {
+impl Packet for FileTransferExit {
     type Response = ();
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
@@ -170,7 +170,7 @@ impl Command for FileTransferExit {
 #[derive(Copy, Clone)]
 pub struct FileTransferSetLink(pub [u8; 24], pub FileTransferVID, pub FileTransferOptions);
 
-impl Command for FileTransferSetLink {
+impl Packet for FileTransferSetLink {
     type Response = ();
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
@@ -214,7 +214,7 @@ impl Command for FileTransferSetLink {
 #[derive(Copy, Clone)]
 pub struct FileTransferRead(pub u32, pub u16);
 
-impl Command for FileTransferRead {
+impl Packet for FileTransferRead {
     type Response = Vec<u8>;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
@@ -268,7 +268,7 @@ impl Command for FileTransferRead {
 #[derive(Copy, Clone)]
 pub struct FileTransferWrite<'a>(pub u32, pub &'a [u8]);
 
-impl<'a> Command for FileTransferWrite<'a> {
+impl<'a> Packet for FileTransferWrite<'a> {
     type Response = ();
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
@@ -328,7 +328,7 @@ pub struct GetFileMetadataByName<'a>(
     pub FileTransferOptions,
 );
 
-impl<'a> Command for GetFileMetadataByName<'a> {
+impl<'a> Packet for GetFileMetadataByName<'a> {
     type Response = FileMetadataByName;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {

@@ -1,11 +1,11 @@
 //! Implements commands that deal directly with the V5 system
 
-use super::Command;
+use super::Packet;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GetSystemVersion();
 
-impl Command for GetSystemVersion {
+impl Packet for GetSystemVersion {
     type Response = V5SystemVersion;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {

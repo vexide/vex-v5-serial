@@ -1,6 +1,6 @@
 //! Implements a command for setting the controller's channel
 
-use super::Command;
+use super::Packet;
 use crate::v5::V5ControllerChannel;
 
 /// Switches the controller's channel
@@ -25,7 +25,7 @@ use crate::v5::V5ControllerChannel;
 #[derive(Copy, Clone)]
 pub struct SwitchChannel(pub V5ControllerChannel);
 
-impl Command for SwitchChannel {
+impl Packet for SwitchChannel {
     type Response = ();
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {

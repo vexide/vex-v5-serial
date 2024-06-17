@@ -1,6 +1,6 @@
 //! Implements two structures: One for reading key-value entries on the brain, and one for writing key-value entries to the brain.
 
-use super::Command;
+use super::Packet;
 
 /// Reads in a key-value entry from the brain.
 ///
@@ -24,7 +24,7 @@ use super::Command;
 #[derive(Copy, Clone)]
 pub struct KVRead<'a>(pub &'a str);
 
-impl<'a> Command for KVRead<'a> {
+impl<'a> Packet for KVRead<'a> {
     type Response = String;
 
     /// Encodes a request for the value of a key-value store.
@@ -84,7 +84,7 @@ impl<'a> Command for KVRead<'a> {
 #[derive(Copy, Clone)]
 pub struct KVWrite<'a>(pub &'a str, pub &'a str);
 
-impl<'a> Command for KVWrite<'a> {
+impl<'a> Packet for KVWrite<'a> {
     type Response = ();
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {

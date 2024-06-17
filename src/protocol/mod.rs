@@ -19,7 +19,7 @@ mod remote;
 pub use remote::SwitchChannel;
 
 /// A command trait that every command implements
-pub trait Command {
+pub trait Packet {
     type Response;
     /// Encodes the client (computer) -> host (vexos) request
     ///

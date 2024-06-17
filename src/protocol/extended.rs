@@ -3,7 +3,7 @@
 use crate::checks::VexExtPacketChecks;
 use crate::errors::VexACKType;
 
-use super::Command;
+use super::Packet;
 
 /// Encodes an Extended command
 /// Depended on by all extended commands.
@@ -65,7 +65,7 @@ impl<'a> Extended<'a> {
     }
 }
 
-impl<'a> Command for Extended<'a> {
+impl<'a> Packet for Extended<'a> {
     type Response = ExtendedResponse;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {

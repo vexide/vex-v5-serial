@@ -1,4 +1,5 @@
-fn main() {
+#[tokio::main]
+async fn main() {
     // Find all vex devices on the serial ports
     let vex_ports = vexv5_serial::devices::genericv5::find_generic_devices().unwrap();
 
@@ -7,12 +8,14 @@ fn main() {
 
     // Set the team number on the brain
     device
-        .send_request(vexv5_serial::commands::KVWrite("teamnumber", "3636"))
+        .send_request(vexv5_serial::protocol::KVWrite("teamnumber", "3636"))
+        .await
         .unwrap();
 
     // Get the new team number and print it
     let res = device
-        .send_request(vexv5_serial::commands::KVRead("teamnumber"))
+        .send_request(vexv5_serial::protocol::KVRead("teamnumber"))
+        .await
         .unwrap();
 
     println!("{}", res);

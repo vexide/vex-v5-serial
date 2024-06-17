@@ -25,7 +25,7 @@
 //! ```
 
 pub mod checks;
-pub mod commands;
+pub mod protocol;
 pub mod devices;
 pub mod errors;
 pub mod v5;
@@ -33,27 +33,27 @@ pub mod v5;
 use crc::Algorithm;
 
 pub mod extended {
-    pub use crate::commands::{Extended, ExtendedResponse};
+    pub use crate::protocol::{Extended, ExtendedResponse};
 }
 
 pub mod kv {
-    pub use crate::commands::{KVRead, KVWrite};
+    pub use crate::protocol::{KVRead, KVWrite};
 }
 
 pub mod system {
-    pub use crate::commands::{GetSystemVersion, V5SystemVersion};
+    pub use crate::protocol::{GetSystemVersion, V5SystemVersion};
 
     pub use crate::v5::{V5BrainFlags, V5ControllerFlags, VexProductType};
 }
 
 pub mod remote {
-    pub use crate::commands::SwitchChannel;
+    pub use crate::protocol::SwitchChannel;
 
     pub use crate::v5::V5ControllerChannel;
 }
 /// Structs in this crate will be used a lot, so FileTransfer is shortened to FT
 pub mod file {
-    pub use crate::commands::{
+    pub use crate::protocol::{
         FileTransferExit as FTExit, FileTransferInit as FTInit,
         FileTransferInitResponse as FTInitResponse, FileTransferRead as FTRead,
         FileTransferSetLink as FTSetLink, FileTransferWrite as FTWrite, GetFileMetadataByName,
