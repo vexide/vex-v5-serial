@@ -1,28 +1,30 @@
 //! Implements a structure for encoding and decoding extended commands.
 
-
-use crate::errors::VexACKType;
 use crate::checks::VexExtPacketChecks;
+use crate::errors::VexACKType;
 
 use super::Command;
 
 /// Encodes an Extended command
 /// Depended on by all extended commands.
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - The extended command id as a [u8]
 /// * `1` - The payload of the extended command as a reference to a slice of [u8]s
-/// 
+///
 /// # Examples
 /// No examples are provided here. For implementation details, see a basic command such as `KVRead` to see how this can be used.
 #[derive(Copy, Clone)]
-pub struct Extended<'a>(pub u8, pub &'a[u8]);
+pub struct Extended<'a>(pub u8, pub &'a [u8]);
 
 impl<'a> Extended<'a> {
     /// Decodes an extended payload from a stream
-    pub fn decode_extended(command_id: u8, data: Vec<u8>, checks: VexExtPacketChecks) -> Result<ExtendedResponse, crate::errors::DecodeError> {
-
+    pub fn decode_extended(
+        command_id: u8,
+        data: Vec<u8>,
+        checks: VexExtPacketChecks,
+    ) -> Result<ExtendedResponse, crate::errors::DecodeError> {
         // Decode the simple packet
         let packet = (command_id, data);
 
@@ -34,7 +36,7 @@ impl<'a> Extended<'a> {
         // Get the command id
         let command_id = match packet.1.first() {
             Some(v) => *v,
-            None => return Err(crate::errors::DecodeError::PacketLengthError)
+            None => return Err(crate::errors::DecodeError::PacketLengthError),
         };
 
         // If we should check the ACK, then do so
@@ -42,7 +44,7 @@ impl<'a> Extended<'a> {
             // Get the ack
             let ack = VexACKType::from_u8(match packet.1.get(1) {
                 Some(v) => *v,
-                None => return Err(crate::errors::DecodeError::PacketLengthError)
+                None => return Err(crate::errors::DecodeError::PacketLengthError),
             })?;
 
             // If it is a nack, then fail
@@ -52,10 +54,11 @@ impl<'a> Extended<'a> {
         }
 
         // Get the final payload value, removing the last two CRC bytes
-        let payload = match packet.1.get(2..packet.1.len()-2) {
+        let payload = match packet.1.get(2..packet.1.len() - 2) {
             Some(v) => v,
-            None => return Err(crate::errors::DecodeError::PacketLengthError)
-        }.to_vec();
+            None => return Err(crate::errors::DecodeError::PacketLengthError),
+        }
+        .to_vec();
 
         // Return the response
         Ok(ExtendedResponse(command_id, payload))
@@ -66,7 +69,6 @@ impl<'a> Command for Extended<'a> {
     type Response = ExtendedResponse;
 
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
-        
         // Create the empty extended packet, with the extended command ID
         let mut packet = vec![self.0];
 
@@ -90,7 +92,6 @@ impl<'a> Command for Extended<'a> {
         let mut new_packet = vec![0xc9, 0x36, 0xb8, 0x47, 0x56];
         new_packet.extend(packet);
 
-
         // Now we need to add the CRC.
         // The CRC that the v5 uses is the common CRC_16_XMODEM.
         // This is defined in the lib.rs of this crate as the implementation the crc crate uses.
@@ -109,19 +110,19 @@ impl<'a> Command for Extended<'a> {
         Ok((0x56, new_packet))
     }
 
-    fn decode_response(command_id: u8, data: Vec<u8>) -> Result<Self::Response, crate::errors::DecodeError> {
+    fn decode_response(
+        command_id: u8,
+        data: Vec<u8>,
+    ) -> Result<Self::Response, crate::errors::DecodeError> {
         // Pass along to decode_extended, assuming that by default we run all checks
-        Extended::decode_extended(command_id, data, VexExtPacketChecks::ALL)
+        Extended::decode_extended(command_id, data, VexExtPacketChecks::all())
     }
-
-    
-    
 }
 
 /// The response returned by an extended command
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - The command id of the recieved response as a [u8]
 /// * `1` - The payload of the recieved response as a [`Vec<u8>`]
 pub struct ExtendedResponse(pub u8, pub Vec<u8>);

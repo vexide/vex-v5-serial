@@ -1,10 +1,9 @@
 //! Implements functions and structures for interacting with vex devices.
 
-pub mod genericv5;
+pub mod asyncdevice;
 pub mod bluetoothv5;
 pub mod device;
-pub mod asyncdevice;
-
+pub mod genericv5;
 
 /// The default timeout for a serial connection in seconds
 pub const SERIAL_TIMEOUT_SECONDS: u64 = 30;
@@ -37,7 +36,7 @@ pub enum VexPortType {
 pub enum VexDeviceType {
     Brain,
     Controller,
-    Unknown
+    Unknown,
 }
 
 /// This struct represents generic serial information for a vex device
@@ -48,9 +47,9 @@ pub struct VexDevice {
 
     /// The platform-specific name of the user port
     pub user_port: Option<String>,
-    
+
     /// The type of the device
-    pub device_type: VexDeviceType
+    pub device_type: VexDeviceType,
 }
 
 /// A basic no-async vex serial port.
@@ -58,77 +57,93 @@ type VexSerialPort = Box<dyn tokio_serial::SerialPort>;
 
 impl VexDevice {
     /// Open the device
-    pub fn open(&self) -> Result<device::Device<VexSerialPort, VexSerialPort>, crate::errors::DeviceError> {
+    pub fn open(
+        &self,
+    ) -> Result<device::Device<VexSerialPort, VexSerialPort>, crate::errors::DeviceError> {
         // Open the system port
         let system_port = match tokio_serial::new(&self.system_port, 115200)
             .parity(tokio_serial::Parity::None)
-            .timeout(std::time::Duration::new(crate::devices::SERIAL_TIMEOUT_SECONDS, crate::devices::SERIAL_TIMEOUT_NS))
-            .stop_bits(tokio_serial::StopBits::One).open() {
-                Ok(v) => Ok(v),
-                Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
+            .timeout(std::time::Duration::new(
+                crate::devices::SERIAL_TIMEOUT_SECONDS,
+                crate::devices::SERIAL_TIMEOUT_NS,
+            ))
+            .stop_bits(tokio_serial::StopBits::One)
+            .open()
+        {
+            Ok(v) => Ok(v),
+            Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
         }?;
 
         // Open the user port (if it exists)
-        
+
         let user_port = if let Some(port) = &self.user_port {
             Some(match tokio_serial::new(port, 115200)
                 .parity(tokio_serial::Parity::None)
-                .timeout(std::time::Duration::new(crate::devices::SERIAL_TIMEOUT_SECONDS, crate::devices::SERIAL_TIMEOUT_NS))
-                .stop_bits(tokio_serial::StopBits::One).open()
-                {
+                .timeout(std::time::Duration::new(
+                    crate::devices::SERIAL_TIMEOUT_SECONDS,
+                    crate::devices::SERIAL_TIMEOUT_NS,
+                ))
+                .stop_bits(tokio_serial::StopBits::One)
+                .open()
+            {
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
             }?)
         } else {
             None
         };
-        
 
         // Create the device
-        let dev = device::Device::new(
-            system_port,
-            user_port,
-        );
+        let dev = device::Device::new(system_port, user_port);
 
         // Return the device
         Ok(dev)
     }
 
     /// Open the device with async support
-    pub fn open_async(&self) -> Result<asyncdevice::AsyncDevice<tokio_serial::SerialStream, tokio_serial::SerialStream>, crate::errors::DeviceError> {
+    pub fn open_async(
+        &self,
+    ) -> Result<
+        asyncdevice::AsyncDevice<tokio_serial::SerialStream, tokio_serial::SerialStream>,
+        crate::errors::DeviceError,
+    > {
         // Open the system port
-        let system_port = match tokio_serial::SerialStream::open(&tokio_serial::new(&self.system_port, 115200)
-            .parity(tokio_serial::Parity::None)
-            .timeout(std::time::Duration::new(crate::devices::SERIAL_TIMEOUT_SECONDS, crate::devices::SERIAL_TIMEOUT_NS))
-            .stop_bits(tokio_serial::StopBits::One)) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
+        let system_port = match tokio_serial::SerialStream::open(
+            &tokio_serial::new(&self.system_port, 115200)
+                .parity(tokio_serial::Parity::None)
+                .timeout(std::time::Duration::new(
+                    crate::devices::SERIAL_TIMEOUT_SECONDS,
+                    crate::devices::SERIAL_TIMEOUT_NS,
+                ))
+                .stop_bits(tokio_serial::StopBits::One),
+        ) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
         }?;
 
         // Open the user port (if it exists)
-        
+
         let user_port = if let Some(port) = &self.user_port {
-            Some(match tokio_serial::SerialStream::open(&tokio_serial::new(port, 115200)
-                .parity(tokio_serial::Parity::None)
-                .timeout(std::time::Duration::new(crate::devices::SERIAL_TIMEOUT_SECONDS, crate::devices::SERIAL_TIMEOUT_NS))
-                .stop_bits(tokio_serial::StopBits::One))
-                {
+            Some(match tokio_serial::SerialStream::open(
+                &tokio_serial::new(port, 115200)
+                    .parity(tokio_serial::Parity::None)
+                    .timeout(std::time::Duration::new(
+                        crate::devices::SERIAL_TIMEOUT_SECONDS,
+                        crate::devices::SERIAL_TIMEOUT_NS,
+                    ))
+                    .stop_bits(tokio_serial::StopBits::One),
+            ) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DeviceError::SerialportError(e)),
             }?)
         } else {
             None
         };
-        
 
         // Create the device
-        let dev = asyncdevice::AsyncDevice::new(
-            system_port,
-            user_port,
-        );
+        let dev = asyncdevice::AsyncDevice::new(system_port, user_port);
 
         // Return the device
         Ok(dev)
     }
-    
 }

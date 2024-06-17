@@ -3,9 +3,9 @@ use bitflags::bitflags;
 
 /// Enum that represents the channel
 /// for the V5 Controller
-/// 
+///
 /// # Variants
-/// 
+///
 /// * [V5ControllerChannel::Pit] - Used when controlling the robot outside of a competition match
 /// * [V5ControllerChannel::Download] - Used when wirelessly uploading/downloading data to/from the V5 Brain
 #[derive(Copy, Clone)]
@@ -17,11 +17,10 @@ pub enum V5ControllerChannel {
     Download = 0x01,
 }
 
-
 /// Enum that represents a vex product
-/// 
+///
 /// # Variants
-/// 
+///
 /// * [VexProductType::V5Brain] - Represents a V5 Robot Brain
 /// * [VexProductType::V5Controller] - Represents a V5 Robot Controller
 #[derive(Copy, Clone, Debug)]
@@ -29,13 +28,12 @@ pub enum VexProductType {
     /// Represents a V5 Robot Brain
     V5Brain(V5BrainFlags),
     /// Represents a V5 Robot Controller
-    V5Controller(V5ControllerFlags)
+    V5Controller(V5ControllerFlags),
 }
-
 
 impl From<VexProductType> for u8 {
     /// Converts the VexProductType to a u8 usable in the serial protocol.
-    /// 
+    ///
     /// # Returns
     /// * [u8] where
     ///     * [VexProductType::V5Brain] == 0x10
@@ -51,37 +49,36 @@ impl From<VexProductType> for u8 {
 impl TryFrom<(u8, u8)> for VexProductType {
     type Error = crate::errors::DeviceError;
     /// Converts a tuple of two u8's into a Vex Product Type
-    /// 
+    ///
     /// # Arguments
     /// * `0` - A [u8] value of either 0x10 or 0x11 which represents a [VexProductType::V5Brain] or a [VexProductType::V5Controller] respectively.
     /// * `1` - A [u8] that is parsed by [V5BrainFlags] and passed as a member of the [VexProductType] variant returned. If this parsing fails, the flags are all set to none.
-    fn try_from(value: (u8,u8)) -> Result<VexProductType, Self::Error> {
+    fn try_from(value: (u8, u8)) -> Result<VexProductType, Self::Error> {
         match value.0 {
-            0x10 => Ok(VexProductType::V5Brain(V5BrainFlags::from_bits(value.1).unwrap_or(V5BrainFlags::NONE))),
-            0x11 => Ok(VexProductType::V5Controller(V5ControllerFlags::from_bits(value.1).unwrap_or(V5ControllerFlags::NONE))),
+            0x10 => Ok(VexProductType::V5Brain(
+                V5BrainFlags::from_bits(value.1).unwrap_or(V5BrainFlags::empty()),
+            )),
+            0x11 => Ok(VexProductType::V5Controller(
+                V5ControllerFlags::from_bits(value.1).unwrap_or(V5ControllerFlags::empty()),
+            )),
             _ => Err(crate::errors::DeviceError::InvalidDevice),
         }
     }
 }
 
-bitflags!{
+bitflags! {
     /// Configuration flags for the v5 brain
-    /// 
+    ///
     /// # Members
     /// * [V5BrainFlags::NONE] - There are no documented flags for the v5 brain. Testing will need to be done to determine the actual flags.
-    pub struct V5BrainFlags: u8 {
-        /// There are no documented flags for the v5 brain. Testing will need to be done to determine the actual flags.
-        const NONE = 0x0;
-    }
+    pub struct V5BrainFlags: u8 {}
     /// Configuration flags for the v5 controller
-    /// 
+    ///
     /// # Members
     /// * [V5ControllerFlags::NONE] - Represents that no flags are set
     /// * [V5ControllerFlags::CONNECTED_CABLE] - Bit 1 is set when the controller is connected over a cable to the V5 Brain
     /// * [V5ControllerFlags::CONNECTED_WIRELESS] - Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
     pub struct V5ControllerFlags: u8 {
-        /// Represents that no flags are set
-        const NONE = 0x0;
         /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
         const CONNECTED_CABLE = 0x01; // From testing, this appears to be how it works.
         /// Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
@@ -89,16 +86,13 @@ bitflags!{
     }
 }
 
-
 // # File Transfer structures
 // These structures are used during file transfers between the brain and the host
-
-
 
 /// The function to be performed during the file transfer
 ///
 /// # Variants
-/// 
+///
 /// * [FileTransferFunction::Upload] - Specifies that a file is being uploaded/written to the brain
 /// * [FileTransferFunction::Download] - Specifies that a file is being downloaded/read from the brain.
 #[repr(u8)]
@@ -112,9 +106,9 @@ pub enum FileTransferFunction {
 }
 
 /// The target storage device of a file transfer
-/// 
+///
 /// # Variants
-/// 
+///
 /// * [FileTransferTarget::Flash] - The flash memory on the robot brain where most program files are stored
 /// * [FileTransferTarget::Screen] - The memory accessed when taking a screen capture from the brain.
 #[repr(u8)]
@@ -127,9 +121,9 @@ pub enum FileTransferTarget {
 }
 
 /// The VID of a file transfer
-/// 
+///
 /// This appears to simply be metadata on what software wrote the file, however I am not entirely sure. To be safe, use User, as it appears to work.
-/// 
+///
 /// # Variants
 /// * [FileTransferVID::User]
 /// * [FileTransferVID::System] - I am unsure what exactly User and System are intended to be used for, however vexrs uses the User variant when doing file operations, as it appears to work.
@@ -151,12 +145,12 @@ pub enum FileTransferVID {
     /// I am unsure which software uses the acronym MW, however this VID is used by it.
     MW = 32,
     /// Allows specifying custom VIDs.
-    Other(u8)
+    Other(u8),
 }
 
 impl FileTransferVID {
     /// Converts a [u8] to a [FileTransferVID]
-    /// 
+    ///
     /// # Arguments
     /// * `v` - A [u8] where:
     ///     * `1`  == [FileTransferVID::User]
@@ -167,17 +161,17 @@ impl FileTransferVID {
     ///     * `_`  == [FileTransferVID::Other(_)]
     pub fn from_u8(v: u8) -> Self {
         match v {
-            1 =>  Self::User,
+            1 => Self::User,
             15 => Self::System,
             16 => Self::RMS,
             24 => Self::PROS,
             32 => Self::MW,
-            a => Self::Other(a)
+            a => Self::Other(a),
         }
     }
 
     /// Converts a [FileTransferVID] to a [u8]
-    /// 
+    ///
     /// # Returns
     /// * A [u8] where:
     ///     * `1`  == [FileTransferVID::User]
@@ -200,23 +194,20 @@ impl FileTransferVID {
 
 bitflags! {
     /// Options in a file transfer
-    /// 
+    ///
     /// # Members
     /// * [FileTransferOptions::NONE] - Represents that no options are set
     /// * [FileTransferOptions::OVERWRITE] - Bit 1 is set when the file should be overwritten by the current operation.
     pub struct FileTransferOptions: u8 {
-        /// Represents that no options are set
-        const NONE = 0x0;
         /// Bit 1 is set when the file should be overwritten by the current operation.
         const OVERWRITE = 0b1;
     }
 
-    
+
 }
 
-
 /// The File type of a file, maximum three ascii characters
-/// 
+///
 /// # Variants
 /// * [FileTransferType::Bin] - Binary files, generally programs
 /// * [FileTransferType::Ini] - Ini files for program metadata and configuration
@@ -226,13 +217,12 @@ bitflags! {
 pub enum FileTransferType {
     Bin,
     Ini,
-    Other([u8; 3])
+    Other([u8; 3]),
 }
 
 impl FileTransferType {
-
     /// Converts the [FileTransferType] to a slice of 4 [u8]'s where the first three are the file's type and the last is a null terminator.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// assert!(FileTransferType::Bin == *b"bin\0");
@@ -250,13 +240,13 @@ impl FileTransferType {
         match &v {
             [0x62, 0x69, 0x6e, 0x0] => Self::Bin,
             [0x69, 0x6e, 0x69, 0x0] => Self::Ini,
-            _ => Self::Other([v[0], v[1], v[2]])
+            _ => Self::Other([v[0], v[1], v[2]]),
         }
     }
 }
 
 /// The action to run when the transfer is complete.
-/// 
+///
 /// # Variants
 /// * [FileTransferComplete::DoNothing] - Does nothing when the file transfer is complete.
 /// * [FileTransferComplete::RunProgram] - Runs the uploaded program when the transfer is complete.

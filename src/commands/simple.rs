@@ -1,25 +1,21 @@
 //! Implements a structure for encoding and decoding simple commands.
 
-
-
-
 use super::Command;
 
 /// The structure base of all Simple commands
 /// Depended upon by all simple and extended commands (the Extended command itself depends on this command)
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - The simple command id of the command to send. 0x56 is Extended command
 /// * `1` - The payload of the simple command being sent
 #[derive(Copy, Clone)]
-pub struct Simple<'a>(pub u8, pub &'a[u8]);
+pub struct Simple<'a>(pub u8, pub &'a [u8]);
 
 impl<'a> Command for Simple<'a> {
     type Response = SimpleResponse;
 
     fn encode_request(self) -> Vec<u8> {
-        
         // Create the simple packet with magic number and command type
         let mut packet = vec![0xc9, 0x36, 0xb8, 0x47, self.0];
 
@@ -30,7 +26,10 @@ impl<'a> Command for Simple<'a> {
         packet
     }
 
-    fn decode_stream<T: std::io::Read>(stream: &mut T, timeout: std::time::Duration) -> Result<Self::Response, crate::errors::DecodeError> {
+    fn decode_stream<T: std::io::Read>(
+        stream: &mut T,
+        timeout: std::time::Duration,
+    ) -> Result<Self::Response, crate::errors::DecodeError> {
         // We need to wait to recieve the header of a packet.
         // The header should be the bytes [0xAA, 0x55]
 
@@ -59,7 +58,8 @@ impl<'a> Command for Simple<'a> {
 
             // Recieve a single bytes
             let mut b: [u8; 1] = [0];
-            match stream.read_exact(&mut b) { // Do some match magic to convert the error types
+            match stream.read_exact(&mut b) {
+                // Do some match magic to convert the error types
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DecodeError::IoError(e)),
             }?;
@@ -72,7 +72,6 @@ impl<'a> Command for Simple<'a> {
             }
         }
 
-        
         // Now that we know we have recieved the header, we need to recieve the rest of the packet.
 
         // First create a vector containing the entirety of the recieved packet
@@ -80,7 +79,8 @@ impl<'a> Command for Simple<'a> {
 
         // Read int he next two bytes
         let mut b: [u8; 2] = [0; 2];
-        match stream.read_exact(&mut b) { // Do some match magic to convert the error types
+        match stream.read_exact(&mut b) {
+            // Do some match magic to convert the error types
             Ok(v) => Ok(v),
             Err(e) => Err(crate::errors::DecodeError::IoError(e)),
         }?;
@@ -88,13 +88,14 @@ impl<'a> Command for Simple<'a> {
 
         // Get the command byte and the length byte of the packet
         let command = b[0];
-        
+
         // We may need to modify the length of the packet if it is an extended command
         // Extended commands use a u16 instead of a u8 for the length.
         let length = if 0x56 == command && b[1] & 0x80 == 0x80 {
             // Read the lower bytes
             let mut bl: [u8; 1] = [0];
-            match stream.read_exact(&mut bl) { // Do some match magic to convert the error types
+            match stream.read_exact(&mut bl) {
+                // Do some match magic to convert the error types
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DecodeError::IoError(e)),
             }?;
@@ -109,7 +110,8 @@ impl<'a> Command for Simple<'a> {
         let mut payload: Vec<u8> = vec![0; length as usize];
         // DO NOT CHANGE THIS TO READ. read_exact is required to suppress
         // CRC errors and missing data.
-        match stream.read_exact(&mut payload) { // Do some match magic to convert the error types
+        match stream.read_exact(&mut payload) {
+            // Do some match magic to convert the error types
             Ok(v) => Ok(v),
             Err(e) => Err(crate::errors::DecodeError::IoError(e)),
         }?;
@@ -117,16 +119,12 @@ impl<'a> Command for Simple<'a> {
 
         Ok(SimpleResponse(command, payload, packet))
     }
-
-    
-    
-
 }
 
 /// The response to all simple commands
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - The simple command ID
 /// * `1` - The payload of the simple command
 /// * `2` - The entire response, including header, payload, and more. Used by Extended command to verify CRC.

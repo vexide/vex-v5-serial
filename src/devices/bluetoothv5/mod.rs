@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bluest::{Adapter, AdvertisingDevice, Uuid, Characteristic, Service};
+use bluest::{Adapter, AdvertisingDevice, Characteristic, Service, Uuid};
 
 use tokio_stream::StreamExt;
 
@@ -18,9 +18,6 @@ const GATT_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1316);
 /// The system port GATT characteristic
 const GATT_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5);
 
-
-
-
 /// Represents a brain connected over bluetooth
 #[derive(Clone, Debug)]
 pub struct BluetoothBrain {
@@ -28,7 +25,7 @@ pub struct BluetoothBrain {
     system_char: Option<Characteristic>,
     user_char: Option<Characteristic>,
     service: Option<Service>,
-    device: AdvertisingDevice
+    device: AdvertisingDevice,
 }
 
 impl BluetoothBrain {
@@ -38,13 +35,12 @@ impl BluetoothBrain {
             system_char: None,
             user_char: None,
             service: None,
-            device
+            device,
         }
     }
 
     /// Connects self to .ok_or(DeviceError::NotConnected)the brain
     pub async fn connect(&mut self) -> Result<(), DeviceError> {
-
         // Create the adapter
         //self.adapter = Some(
         //    Adapter::default().await.ok_or(
@@ -60,7 +56,7 @@ impl BluetoothBrain {
 
         // Connect to the device
         self.adapter.connect_device(&self.device.device).await?;
-        
+
         // And here too
         tokio::time::sleep(Duration::from_millis(100)).await;
 
@@ -69,42 +65,42 @@ impl BluetoothBrain {
 
         // Find the vex service
         self.service = Some(
-            services.iter().find(|v| {
-                v.uuid() == GATT_SYSTEM
-            }).ok_or(DeviceError::InvalidDevice)?.clone()
-        ); 
+            services
+                .iter()
+                .find(|v| v.uuid() == GATT_SYSTEM)
+                .ok_or(DeviceError::InvalidDevice)?
+                .clone(),
+        );
         println!("ok");
         if let Some(service) = &self.service {
-            
             // Get all characteristics of this service
             let chars = service.discover_characteristics().await?;
-            
+
             // Find the system characteristic
             self.system_char = Some(
-                chars.iter().find(|v| {
-                    v.uuid() == GATT_SYSTEM
-                }).ok_or(DeviceError::InvalidDevice)?.clone()
+                chars
+                    .iter()
+                    .find(|v| v.uuid() == GATT_SYSTEM)
+                    .ok_or(DeviceError::InvalidDevice)?
+                    .clone(),
             );
             // Find the user characteristic
             self.user_char = Some(
-                chars.iter().find(|v| {
-                    v.uuid() == GATT_USER
-                }).ok_or(DeviceError::InvalidDevice)?.clone()
+                chars
+                    .iter()
+                    .find(|v| v.uuid() == GATT_USER)
+                    .ok_or(DeviceError::InvalidDevice)?
+                    .clone(),
             );
         } else {
-            return Err(DeviceError::InvalidDevice)
+            return Err(DeviceError::InvalidDevice);
         }
-            
-        
 
-        
-        
         Ok(())
     }
 
     /// Handshakes with the device, telling it we have connected
     pub async fn handshake(&self) -> Result<(), DeviceError> {
-
         // Read data from the system characteristic,
         // making sure that it equals 0xdeadface (big endian)
         let data = self.read_system().await?;
@@ -145,10 +141,8 @@ impl BluetoothBrain {
         }
     }
 
-
     /// Disconnects self from the brain
     pub async fn disconnect(&self) -> Result<(), DeviceError> {
-
         // Disconnect the device
         self.adapter.disconnect_device(&self.device.device).await?;
 
@@ -156,22 +150,22 @@ impl BluetoothBrain {
     }
 }
 
-
-
-
 /// Discovers all V5 devices that are advertising over bluetooth.
 /// By default it scans for 5 seconds, but this can be configured
-pub async fn scan_for_v5_devices(timeout: Option<Duration>) -> Result<Vec<BluetoothBrain>, DeviceError> {
-
+pub async fn scan_for_v5_devices(
+    timeout: Option<Duration>,
+) -> Result<Vec<BluetoothBrain>, DeviceError> {
     // If timeout is None, then default to five seconds
     let timeout = timeout.unwrap_or_else(|| Duration::new(5, 0));
 
     // Get the adapter and wait for it to be available
-    let adapter = Adapter::default().await.ok_or(DeviceError::NoBluetoothAdapter)?;
+    let adapter = Adapter::default()
+        .await
+        .ok_or(DeviceError::NoBluetoothAdapter)?;
     adapter.wait_available().await?;
 
     // Create the GATT UUID
-    let service: bluest::Uuid = GATT_SERVICE.try_into().unwrap();
+    let service: bluest::Uuid = GATT_SERVICE;
     let service = &[service];
 
     // Start scanning

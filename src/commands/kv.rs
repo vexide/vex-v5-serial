@@ -3,26 +3,26 @@
 use super::Command;
 
 /// Reads in a key-value entry from the brain.
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - A string slice that contains the key to read from the brain
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
-/// 
+///
 /// use vexv5_serial::commands::KVRead;
-/// 
+///
 /// // Create a KVRead instance that will generate a command to read the teamnumber key
 /// let kv = KVRead("teamnumber");
-/// 
+///
 /// // The only other really useful key is the robotname key
 /// let kv = KVRead("robotname");
 ///
 /// ```
 #[derive(Copy, Clone)]
-pub struct KVRead<'a> (pub &'a str);
+pub struct KVRead<'a>(pub &'a str);
 
 impl<'a> Command for KVRead<'a> {
     type Response = String;
@@ -39,8 +39,10 @@ impl<'a> Command for KVRead<'a> {
     }
 
     /// Returns the String value of the key requested.
-    fn decode_response(command_id: u8, data: Vec<u8>) -> Result<Self::Response, crate::errors::DecodeError> {
-
+    fn decode_response(
+        command_id: u8,
+        data: Vec<u8>,
+    ) -> Result<Self::Response, crate::errors::DecodeError> {
         // Read in the extended packet
         let packet = super::Extended::decode_response(command_id, data)?;
 
@@ -52,49 +54,46 @@ impl<'a> Command for KVRead<'a> {
         // The payload of the packet should just be the value of the kv store
         // minus the null-terminator
         // Suffix here is always &[0] so it will always return Some. We can just unwrap
-        Ok(String::from_utf8(packet.1.strip_suffix(&[0]).unwrap().to_vec())?)
+        Ok(String::from_utf8(
+            packet.1.strip_suffix(&[0]).unwrap().to_vec(),
+        )?)
     }
-
 }
 
-
-
 /// Writes a key-value entry to the brain
-/// 
+///
 /// # Members
-/// 
+///
 /// * `0` - A string slice that contains the key to write to on the brain
 /// * `1` - A string slice that contains the value to write to the key-value store
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
-/// 
+///
 /// use vexv5_serial::commands::KVWrite;
-/// 
+///
 /// // Create a KVWrite instance that will write to the teamnumber key
 /// let kv = KVWrite("teamnumber", "ABCD");
-/// 
+///
 /// // We can also do the same with the robotname key, which is the
 /// // only other key that is useful to most users
 /// let kv = KVWrite("robotname", "robo");
 ///
 /// ```
 #[derive(Copy, Clone)]
-pub struct KVWrite<'a> (pub &'a str, pub &'a str);
+pub struct KVWrite<'a>(pub &'a str, pub &'a str);
 
-impl<'a>Command for KVWrite<'a> {
+impl<'a> Command for KVWrite<'a> {
     type Response = ();
 
-
     fn encode_request(self) -> Result<(u8, Vec<u8>), crate::errors::DecodeError> {
-
         // Convert the value to an array of bytes
         let value = self.1.as_bytes();
 
         // Certain keys have a maximum size
         let packet_length = {
-            usize::min(self.1.len(),{
+            usize::min(self.1.len(), {
                 if self.0 == "teamnumber" {
                     7
                 } else if self.0 == "robotname" {
@@ -122,8 +121,10 @@ impl<'a>Command for KVWrite<'a> {
     }
 
     /// This returns `()`, and if a package is malformed or not recieved it may return an error.
-    fn decode_response(command_id: u8, data: Vec<u8>) -> Result<Self::Response, crate::errors::DecodeError> {
-
+    fn decode_response(
+        command_id: u8,
+        data: Vec<u8>,
+    ) -> Result<Self::Response, crate::errors::DecodeError> {
         // Decode as an extended packet
         let packet = super::Extended::decode_response(command_id, data)?;
 

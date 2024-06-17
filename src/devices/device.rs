@@ -2,18 +2,16 @@
 
 use std::io::{Read, Write};
 
-
 /// The representation of a V5 device
-pub struct Device<S: Read + Write, U: Read+Write> {
+pub struct Device<S: Read + Write, U: Read + Write> {
     system_port: S,
     user_port: Option<U>,
     read_buffer: Vec<u8>,
     user_read_size: u8,
 }
 
-impl<S: Read + Write, U: Read+Write> Device<S, U> {
+impl<S: Read + Write, U: Read + Write> Device<S, U> {
     pub fn new(system_port: S, user_port: Option<U>) -> Self {
-        
         Device {
             system_port,
             user_port,
@@ -26,10 +24,15 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
     pub fn is_controller(&mut self) -> Result<bool, crate::errors::DecodeError> {
         // Get the vex system info
         // Return true if this is a controller
-        Ok(match self.send_request(crate::system::GetSystemVersion())?.product_type {
-            crate::system::VexProductType::V5Brain(_) => false,
-            crate::system::VexProductType::V5Controller(_) => true,
-        })
+        Ok(
+            match self
+                .send_request(crate::system::GetSystemVersion())?
+                .product_type
+            {
+                crate::system::VexProductType::V5Brain(_) => false,
+                crate::system::VexProductType::V5Controller(_) => true,
+            },
+        )
     }
 
     /// Updates the size of the chunks to read from the system port when a user port is not available
@@ -38,17 +41,25 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
     }
 
     /// Sends a command and recieves its response
-    pub fn send_request<C: crate::commands::Command + Copy>(&mut self, command: C) -> Result<C::Response, crate::errors::DecodeError> {
+    pub fn send_request<C: crate::commands::Command + Copy>(
+        &mut self,
+        command: C,
+    ) -> Result<C::Response, crate::errors::DecodeError> {
         // Send the command over the system port
         self.send_command(command)?;
-        
+
         // Wait for the response
-        self.response_for::<C>(std::time::Duration::new(crate::devices::SERIAL_TIMEOUT_SECONDS, crate::devices::SERIAL_TIMEOUT_NS))
+        self.response_for::<C>(std::time::Duration::new(
+            crate::devices::SERIAL_TIMEOUT_SECONDS,
+            crate::devices::SERIAL_TIMEOUT_NS,
+        ))
     }
 
     /// Sends a command
-    pub fn send_command<C: crate::commands::Command + Copy>(&mut self, command: C) -> Result<(), crate::errors::DecodeError> {
-
+    pub fn send_command<C: crate::commands::Command + Copy>(
+        &mut self,
+        command: C,
+    ) -> Result<(), crate::errors::DecodeError> {
         // Encode the command
         let encoded = command.encode_request()?;
 
@@ -62,23 +73,26 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
             data.extend(encoded.1);
             data
         };
-        
+
         // Write the command to the serial port
         match self.system_port.write_all(&packet) {
             Ok(_) => (),
-            Err(e) => return Err(crate::errors::DecodeError::IoError(e))
+            Err(e) => return Err(crate::errors::DecodeError::IoError(e)),
         };
 
         match self.system_port.flush() {
             Ok(_) => (),
-            Err(e) => return Err(crate::errors::DecodeError::IoError(e))
+            Err(e) => return Err(crate::errors::DecodeError::IoError(e)),
         };
 
         Ok(())
     }
 
     /// Recieves a response for a command
-    pub fn response_for<C: crate::commands::Command + Copy>(&mut self, timeout: std::time::Duration) -> Result<C::Response, crate::errors::DecodeError> {
+    pub fn response_for<C: crate::commands::Command + Copy>(
+        &mut self,
+        timeout: std::time::Duration,
+    ) -> Result<C::Response, crate::errors::DecodeError> {
         // We need to wait to recieve the header of a packet.
         // The header should be the bytes [0xAA, 0x55]
 
@@ -107,12 +121,12 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
 
             // Recieve a single bytes
             let mut b: [u8; 1] = [0];
-            match self.system_port.read_exact(&mut b) { // Do some match magic to convert the error types
+            match self.system_port.read_exact(&mut b) {
+                // Do some match magic to convert the error types
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DecodeError::IoError(e)),
             }?;
             let b = b[0];
-            
 
             if b == expected_header[header_index] {
                 header_index += 1;
@@ -121,7 +135,6 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
             }
         }
 
-        
         // Now that we know we have recieved the header, we need to recieve the rest of the packet.
 
         // First create a vector containing the entirety of the recieved packet
@@ -129,7 +142,8 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
 
         // Read int he next two bytes
         let mut b: [u8; 2] = [0; 2];
-        match self.system_port.read_exact(&mut b) { // Do some match magic to convert the error types
+        match self.system_port.read_exact(&mut b) {
+            // Do some match magic to convert the error types
             Ok(v) => Ok(v),
             Err(e) => Err(crate::errors::DecodeError::IoError(e)),
         }?;
@@ -137,13 +151,14 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
 
         // Get the command byte and the length byte of the packet
         let command = b[0];
-        
+
         // We may need to modify the length of the packet if it is an extended command
         // Extended commands use a u16 instead of a u8 for the length.
         let length = if 0x56 == command && b[1] & 0x80 == 0x80 {
             // Read the lower bytes
             let mut bl: [u8; 1] = [0];
-            match self.system_port.read_exact(&mut bl) { // Do some match magic to convert the error types
+            match self.system_port.read_exact(&mut bl) {
+                // Do some match magic to convert the error types
                 Ok(v) => Ok(v),
                 Err(e) => Err(crate::errors::DecodeError::IoError(e)),
             }?;
@@ -158,26 +173,29 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
         let mut payload: Vec<u8> = vec![0; length as usize];
         // DO NOT CHANGE THIS TO READ. read_exact is required to suppress
         // CRC errors and missing data.
-        match self.system_port.read_exact(&mut payload) { // Do some match magic to convert the error types
+        match self.system_port.read_exact(&mut payload) {
+            // Do some match magic to convert the error types
             Ok(v) => Ok(v),
             Err(e) => Err(crate::errors::DecodeError::IoError(e)),
         }?;
         packet.extend(&payload);
-        
+
         C::decode_response(command, payload)
     }
 
     /// Reads from the user program serial port over the system port
     pub fn read_serial(&mut self, buf: &mut [u8]) -> Result<usize, crate::errors::DecodeError> {
-        
         // Optimization: Only read more bytes from the brain if we need them. This allows usages
         // that use small reads to be much faster.
         if self.read_buffer.len() < buf.len() {
             // Form a custom Extended command to read and write from serial.
             // We do the same as PROS, reading 64 bytes and specifying upload channel
-            // Except we only read up to 64 bytes at a time, so that the user can configure if they want to 
+            // Except we only read up to 64 bytes at a time, so that the user can configure if they want to
             // read smaller chunks (and thus bypass CRC errors from packet corruption, at the expense of speed)
-            let payload = vec![crate::v5::V5ControllerChannel::Download as u8, u8::min(0x40, self.user_read_size)];
+            let payload = vec![
+                crate::v5::V5ControllerChannel::Download as u8,
+                u8::min(0x40, self.user_read_size),
+            ];
 
             // Send the extended command 0x27
             let res = self.send_request(crate::commands::Extended(0x27, &payload))?;
@@ -190,7 +208,6 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
             // The response payload should be the data that we read, so copy it into the read buffer
             // Discarding the first byte like pros does
             self.read_buffer.extend(&res.1[1..]);
-
         }
 
         // The amount of data to read into the buf
@@ -212,14 +229,14 @@ impl<S: Read + Write, U: Read+Write> Device<S, U> {
         // Return the length of the data we read
         Ok(data_len)
     }
-
 }
 
 impl<S, U> std::io::Read for Device<S, U>
-where S: Read + Write, U: Read + Write {
-    
+where
+    S: Read + Write,
+    U: Read + Write,
+{
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-
         // If the user port is available, then just read from it
         if let Some(p) = &mut self.user_port {
             p.read(buf)
@@ -227,19 +244,25 @@ where S: Read + Write, U: Read + Write {
             // If not, then delegate to the read_serial
             match self.read_serial(buf) {
                 Ok(v) => Ok(v),
-                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+                Err(e) => Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
             }
         }
     }
 }
 
 impl<S, U> std::io::Write for Device<S, U>
-where S: Read + Write, U: Read + Write {
+where
+    S: Read + Write,
+    U: Read + Write,
+{
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if let Some(p) = &mut self.user_port {
             p.write(buf)
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, crate::errors::DeviceError::NoWriteOnWireless))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                crate::errors::DeviceError::NoWriteOnWireless,
+            ))
         }
     }
 
@@ -247,7 +270,10 @@ where S: Read + Write, U: Read + Write {
         if let Some(p) = &mut self.user_port {
             p.flush()
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, crate::errors::DeviceError::NoWriteOnWireless))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                crate::errors::DeviceError::NoWriteOnWireless,
+            ))
         }
     }
 }

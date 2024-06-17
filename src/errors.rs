@@ -54,7 +54,7 @@ pub enum DeviceError {
     NoWriteOnWireless,
     /// Raised whenever a serial device is not a supported vex device
     #[error("The device is not a supported vex device")]
-    InvalidDevice, 
+    InvalidDevice,
     /// Raised whenever we encounter an error with bluetooth.
     #[error("Bluetooth Error")]
     BluetoothError(#[from] bluest::Error),
@@ -66,7 +66,7 @@ pub enum DeviceError {
     NotConnected,
     /// Raised whenever a bluetooth device returns an invalid magic number
     #[error("Invalid Magic Number")]
-    InvalidMagic
+    InvalidMagic,
 }
 
 /// A V5 device can respond with various different acknowledgements.
@@ -125,7 +125,7 @@ impl VexACKType {
             0xD9 => Ok(Self::NACKDirectoryNoExist),
             0xDA => Ok(Self::NACKNoFileRoom),
             0xDB => Ok(Self::NACKFileAlreadyExists),
-            _ => Err(DecodeError::InvalidAck)
+            _ => Err(DecodeError::InvalidAck),
         }
     }
 }
