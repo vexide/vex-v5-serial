@@ -35,7 +35,8 @@ async fn main() {
         target: None,
         load_addr: COLD_START,
         linked_file: None,
-        after_upload: FileTransferComplete::ShowRunScreen,
+        after_upload: FileTransferComplete::Halt,
+        progress_callback: Some(Box::new(|percent| println!("{}%", percent)))
     };
     device.execute_command(file_transfer).await.unwrap();
 
@@ -49,7 +50,8 @@ async fn main() {
         target: None,
         load_addr: COLD_START,
         linked_file: None,
-        after_upload: FileTransferComplete::ShowRunScreen,
+        after_upload: FileTransferComplete::RunProgram,
+        progress_callback: Some(Box::new(|percent| println!("{}%", percent)))
     };
     device.execute_command(file_transfer).await.unwrap();
 }

@@ -285,6 +285,7 @@ pub enum FileTransferComplete {
     DoNothing = 0,
     RunProgram = 1,
     ShowRunScreen = 2,
+    Halt = 3,
 }
 
 /// File metadata returned when requesting file metadata by index

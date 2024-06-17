@@ -31,6 +31,8 @@ pub struct UploadFile {
     pub load_addr: u32,
     pub linked_file: Option<Box<UploadFile>>,
     pub after_upload: FileTransferComplete,
+
+    pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
 impl Command for UploadFile {
     type Error = UploadFileError;
@@ -46,7 +48,6 @@ impl Command for UploadFile {
 
         let filename = encode_string::<24>(&self.filename)?;
         let length = filename.len();
-        println!("length: {}", length);
         let mut string_bytes = [0; 24];
         string_bytes[..length].copy_from_slice(self.filename.as_bytes());
 
@@ -94,6 +95,10 @@ impl Command for UploadFile {
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
+            let progress = offset as f32 / self.data.len() as f32;
+            if let Some(callback) = &mut self.progress_callback {
+                callback(progress);
+            }
             device
                 .send_packet_request(FileTransferWrite(self.load_addr + offset, chunk))
                 .await?;
