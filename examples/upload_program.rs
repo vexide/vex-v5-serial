@@ -1,7 +1,6 @@
 use vexv5_serial::{
-    commands::file::{UploadFile, COLD_START},
-    protocol::{Program, ProgramIniConfig, Project},
-    v5::{FileTransferComplete, FileTransferType, FileTransferVID},
+    commands::file::{ProgramData, UploadProgram},
+    v5::{FileTransferComplete},
 };
 
 #[tokio::main]
@@ -11,47 +10,19 @@ async fn main() {
 
     // Open the device
     let mut device = vex_ports[0].open().unwrap();
+    let cold_bytes = include_bytes!("./basic.bin").to_vec();
 
-    let ini = ProgramIniConfig {
-        program: Program {
-            description: "made with vexide".to_string(),
+    device
+        .execute_command(UploadProgram {
+            base_file_name: "basic".to_string(),
+            name: "Basic".to_string(),
+            description: "A basic vexide program".to_string(),
             icon: "default.bmp".to_string(),
-            iconalt: String::new(),
-            slot: 2,
-            name: "vexide".to_string(),
-        },
-        project: Project {
-            ide: "vexide".to_string(),
-        },
-    };
-    println!("{}", serde_ini::to_string(&ini).unwrap());
-    let ini = serde_ini::to_vec(&ini).unwrap();
-    
-    let file_transfer = UploadFile {
-        filename: "happy.ini".to_string(),
-        filetype: FileTransferType::Ini,
-        vendor: None,
-        data: ini,
-        target: None,
-        load_addr: COLD_START,
-        linked_file: None,
-        after_upload: FileTransferComplete::Halt,
-        progress_callback: Some(Box::new(|percent| println!("{}%", percent)))
-    };
-    device.execute_command(file_transfer).await.unwrap();
-
-    let file_bytes = include_bytes!("./basic.bin");
-
-    let file_transfer = UploadFile {
-        filename: "happy.bin".to_string(),
-        filetype: FileTransferType::Bin,
-        vendor: None,
-        data: file_bytes.to_vec(),
-        target: None,
-        load_addr: COLD_START,
-        linked_file: None,
-        after_upload: FileTransferComplete::RunProgram,
-        progress_callback: Some(Box::new(|percent| println!("{}%", percent)))
-    };
-    device.execute_command(file_transfer).await.unwrap();
+            program_type: "vexide".to_string(),
+            slot: 0,
+            data: ProgramData::Cold(cold_bytes),
+            after_upload: FileTransferComplete::RunProgram,
+        })
+        .await
+        .unwrap();
 }
