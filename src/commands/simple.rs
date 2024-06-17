@@ -3,7 +3,7 @@
 use super::Command;
 
 /// The structure base of all Simple commands
-/// Depended upon by all simple and extended commands (the Extended command itself depends on this command)
+/// Depended upon by all simple commands
 ///
 /// # Members
 ///

@@ -80,9 +80,9 @@ bitflags! {
     /// * [V5ControllerFlags::CONNECTED_WIRELESS] - Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
     pub struct V5ControllerFlags: u8 {
         /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
-        const CONNECTED_CABLE = 0x01; // From testing, this appears to be how it works.
+        const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
         /// Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
-        const CONNECTED_WIRELESS = 0x02;
+        const CONNECTED_WIRELESS = 1 << 1;
     }
 }
 
@@ -200,7 +200,7 @@ bitflags! {
     /// * [FileTransferOptions::OVERWRITE] - Bit 1 is set when the file should be overwritten by the current operation.
     pub struct FileTransferOptions: u8 {
         /// Bit 1 is set when the file should be overwritten by the current operation.
-        const OVERWRITE = 0b1;
+        const OVERWRITE = 1 << 0;
     }
 
 
