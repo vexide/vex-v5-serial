@@ -25,9 +25,9 @@
 //! ```
 
 pub mod checks;
-pub mod protocol;
 pub mod devices;
 pub mod errors;
+pub mod protocol;
 pub mod v5;
 
 use crc::Algorithm;

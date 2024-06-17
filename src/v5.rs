@@ -71,6 +71,7 @@ bitflags! {
     ///
     /// # Members
     /// * [V5BrainFlags::NONE] - There are no documented flags for the v5 brain. Testing will need to be done to determine the actual flags.
+    #[derive(Debug, Clone, Copy)]
     pub struct V5BrainFlags: u8 {}
     /// Configuration flags for the v5 controller
     ///
@@ -78,6 +79,7 @@ bitflags! {
     /// * [V5ControllerFlags::NONE] - Represents that no flags are set
     /// * [V5ControllerFlags::CONNECTED_CABLE] - Bit 1 is set when the controller is connected over a cable to the V5 Brain
     /// * [V5ControllerFlags::CONNECTED_WIRELESS] - Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
+    #[derive(Debug, Clone, Copy)]
     pub struct V5ControllerFlags: u8 {
         /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
         const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
@@ -198,12 +200,11 @@ bitflags! {
     /// # Members
     /// * [FileTransferOptions::NONE] - Represents that no options are set
     /// * [FileTransferOptions::OVERWRITE] - Bit 1 is set when the file should be overwritten by the current operation.
+    #[derive(Clone, Copy, Debug)]
     pub struct FileTransferOptions: u8 {
         /// Bit 1 is set when the file should be overwritten by the current operation.
         const OVERWRITE = 1 << 0;
     }
-
-
 }
 
 /// The File type of a file, maximum three ascii characters

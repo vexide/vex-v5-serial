@@ -11,10 +11,10 @@ serialport = "4.2.0"
 tokio-serial = "5.4.4"
 tokio = { version = "1.23.0", features = ["full"] }
 tokio-stream = "0.1.11"
-bluest = "0.5.3"
+bluest = "0.6.6"
 anyhow = "1.0.0"
 crc = "3.0.0"
-bitflags = "1.3.2"
+bitflags = "2.5.0"
 thiserror = "1.0.37"
 
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
