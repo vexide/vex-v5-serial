@@ -1,6 +1,22 @@
 //! Contains Structs and Enums that can contain metadata about the V5 System and Files stored on the V5 Robot Brain.
 use bitflags::bitflags;
 
+/// The epoch of the serial protocols timestamps
+pub const J2000_EPOCH: u32 = 946684800;
+
+#[derive(Copy, Clone, Debug)]
+pub struct V5FirmwareVersion {
+    pub major: u8,
+    pub minor: u8,
+    pub build: u8,
+    pub beta: u8,
+}
+impl V5FirmwareVersion {
+    pub fn into_le_bytes(self) -> [u8; 4] {
+        [self.beta, self.build, self.minor, self.major]
+    }
+}
+
 /// Enum that represents the channel
 /// for the V5 Controller
 ///
@@ -99,7 +115,6 @@ bitflags! {
 /// * [FileTransferFunction::Download] - Specifies that a file is being downloaded/read from the brain.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-
 pub enum FileTransferFunction {
     /// Specifies that a file is being uploaded/written to the brain
     Upload = 0x01,
@@ -114,12 +129,22 @@ pub enum FileTransferFunction {
 /// * [FileTransferTarget::Flash] - The flash memory on the robot brain where most program files are stored
 /// * [FileTransferTarget::Screen] - The memory accessed when taking a screen capture from the brain.
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum FileTransferTarget {
-    /// The flash memory on the robot brain where most program files are stored
-    Flash = 0x01,
-    /// The memory accessed when taking a screen capture from the brain.
-    Screen = 0x02,
+    Ddr = 0,
+    /// Memory where programs are stored
+    #[default]
+    Qspi = 1,
+    /// Screen capture memory
+    Cbuf = 2,
+    Vbuf = 3,
+    Ddrc = 4,
+    Ddre = 5,
+    Flash = 6,
+    Radio = 7,
+    A1 = 13,
+    B1 = 14,
+    B2 = 15,
 }
 
 /// The VID of a file transfer
@@ -134,18 +159,20 @@ pub enum FileTransferTarget {
 /// * [FileTransferVID::MW] - I am unsure which software uses the acronym MW, however this VID is used by it.
 /// * [FileTransferVID::Other] - Allows specifying custom VIDs.
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum FileTransferVID {
     /// I am unsure what exactly User and System are intended to be used for, however vexrs uses the User variant when doing file operations, as it appears to work.
+    #[default]
     User = 1,
     /// I am unsure what exactly User and System are intended to be used for, however vexrs uses the User variant when doing file operations, as it appears to work.
     System = 15,
     /// The VID used by Robot Mesh Studio
-    RMS = 16,
+    RobotMesh = 16,
     /// The VID used by Purdue Robotics Operating System
     PROS = 24,
     /// I am unsure which software uses the acronym MW, however this VID is used by it.
     MW = 32,
+    Vex = 240,
     /// Allows specifying custom VIDs.
     Other(u8),
 }
@@ -165,7 +192,7 @@ impl FileTransferVID {
         match v {
             1 => Self::User,
             15 => Self::System,
-            16 => Self::RMS,
+            16 => Self::RobotMesh,
             24 => Self::PROS,
             32 => Self::MW,
             a => Self::Other(a),
@@ -186,9 +213,10 @@ impl FileTransferVID {
         match self {
             FileTransferVID::User => 1,
             FileTransferVID::System => 15,
-            FileTransferVID::RMS => 16,
+            FileTransferVID::RobotMesh => 16,
             FileTransferVID::PROS => 24,
             FileTransferVID::MW => 32,
+            FileTransferVID::Vex => 240,
             FileTransferVID::Other(a) => a,
         }
     }

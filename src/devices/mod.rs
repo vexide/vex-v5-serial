@@ -56,7 +56,7 @@ impl VexDevice {
     pub fn open(
         &self,
     ) -> Result<
-        device::AsyncDevice<tokio_serial::SerialStream, tokio_serial::SerialStream>,
+        device::Device,
         crate::errors::DeviceError,
     > {
         // Open the system port
@@ -93,7 +93,7 @@ impl VexDevice {
         };
 
         // Create the device
-        let dev = device::AsyncDevice::new(system_port, user_port);
+        let dev = device::Device::new(system_port, user_port);
 
         // Return the device
         Ok(dev)

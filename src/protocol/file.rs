@@ -1,12 +1,35 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     checks::VexExtPacketChecks,
     v5::{
         FileMetadataByName, FileTransferComplete, FileTransferFunction, FileTransferOptions,
-        FileTransferTarget, FileTransferType, FileTransferVID,
+        FileTransferTarget, FileTransferType, FileTransferVID, V5FirmwareVersion,
     },
 };
 
 use super::Packet;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Program {
+    pub name: String,
+    pub slot: u8,
+    pub icon: String,
+    pub iconalt: String,
+    pub description: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Project {
+    // version: String,
+    pub ide: String,
+    // file: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProgramIniConfig {
+    pub program: Program,
+    pub project: Project,
+}
 
 /// Initializes a file transfer between the brain and host
 #[derive(Copy, Clone)]
@@ -20,7 +43,7 @@ pub struct FileTransferInit {
     pub addr: u32,
     pub crc: u32,
     pub timestamp: u32,
-    pub version: u32,
+    pub version: V5FirmwareVersion,
     pub name: [u8; 24],
 }
 
@@ -55,7 +78,7 @@ impl Packet for FileTransferInit {
         payload.extend(self.timestamp.to_le_bytes());
 
         // Add the version
-        payload.extend(self.version.to_le_bytes());
+        payload.extend(self.version.into_le_bytes());
 
         // Add the file name to the payload
         payload.extend(self.name);
@@ -73,7 +96,7 @@ impl Packet for FileTransferInit {
 
         // Ensure that it is a response to 0x11
         if payload.0 != 0x11 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x11, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x11, payload.0));
         }
 
         // Get the max_packet_size (bytes 0..1)
@@ -152,7 +175,7 @@ impl Packet for FileTransferExit {
 
         // Ensure that it is a response to 0x12
         if payload.0 != 0x12 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x12, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x12, payload.0));
         }
 
         // Do nothing
@@ -198,7 +221,7 @@ impl Packet for FileTransferSetLink {
 
         // Ensure that it is a response to 0x15
         if payload.0 != 0x15 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x15, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x15, payload.0));
         }
 
         Ok(())
@@ -251,7 +274,7 @@ impl Packet for FileTransferRead {
 
         // Ensure that it is a response to 0x14
         if payload.0 != 0x14 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x14, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x14, payload.0));
         }
 
         // Return the data
@@ -305,7 +328,7 @@ impl<'a> Packet for FileTransferWrite<'a> {
 
         // Ensure that it is a response to 0x13
         if payload.0 != 0x13 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x13, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x13, payload.0));
         }
 
         // Return Ok
@@ -351,7 +374,7 @@ impl<'a> Packet for GetFileMetadataByName<'a> {
 
         // Ensure that it is a response to 0x19
         if payload.0 != 0x19 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x19, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x19, payload.0));
         }
 
         // Ensure that the payload size is at least 49 bytes

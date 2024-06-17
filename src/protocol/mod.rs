@@ -11,7 +11,7 @@ pub use system::{GetSystemVersion, V5SystemVersion};
 
 mod file;
 pub use file::{
-    FileTransferExit, FileTransferInit, FileTransferInitResponse, FileTransferRead,
+    ProgramIniConfig, Program, Project, FileTransferExit, FileTransferInit, FileTransferInitResponse, FileTransferRead,
     FileTransferSetLink, FileTransferWrite, GetFileMetadataByName,
 };
 

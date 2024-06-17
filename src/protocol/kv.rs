@@ -48,7 +48,7 @@ impl<'a> Packet for KVRead<'a> {
 
         // If the command id is wrong, then error
         if packet.0 != 0x2e {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x2e, packet.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x2e, packet.0));
         }
 
         // The payload of the packet should just be the value of the kv store
@@ -130,7 +130,7 @@ impl<'a> Packet for KVWrite<'a> {
 
         // If the command id is wrong, then error
         if packet.0 != 0x2f {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x2e, packet.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x2e, packet.0));
         }
 
         Ok(())

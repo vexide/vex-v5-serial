@@ -29,9 +29,9 @@ pub enum DecodeError {
     /// Raised whenever a NACK is recieved
     #[error("recieved a nack")]
     NACK(VexACKType),
-    /// Raised whenever we recieve a response to a command that we did not expect a response to
-    #[error("expected command _ recieved command _")]
-    ExpectedCommand(u8, u8),
+    /// Raised whenever we recieve a response to a packet that we did not expect a response to
+    #[error("expected packet _ recieved packet _")]
+    ExpectedPacket(u8, u8),
     /// Raised whenever a DeviceError is raised
     #[error("device error")]
     DeviceError(#[from] DeviceError),

@@ -43,7 +43,7 @@ impl Packet for SwitchChannel {
 
         // Ensure that it is a response to 0x10
         if payload.0 != 0x10 {
-            return Err(crate::errors::DecodeError::ExpectedCommand(0x10, payload.0));
+            return Err(crate::errors::DecodeError::ExpectedPacket(0x10, payload.0));
         }
 
         // Nothing needs to be returned

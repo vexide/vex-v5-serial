@@ -2,20 +2,21 @@
 
 use std::pin::Pin;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio_serial::SerialStream;
+
+use crate::commands::Command;
 
 /// The representation of a V5 device that supports async.
-pub struct AsyncDevice<S: AsyncReadExt + AsyncWriteExt, U: AsyncReadExt + AsyncWriteExt> {
-    system_port: S,
-    user_port: Option<U>,
+pub struct Device {
+    system_port: SerialStream,
+    user_port: Option<SerialStream>,
     read_buffer: Vec<u8>,
     user_read_size: u8,
 }
 
-impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + Unpin>
-    AsyncDevice<S, U>
-{
-    pub fn new(system_port: S, user_port: Option<U>) -> Self {
-        AsyncDevice {
+impl Device {
+    pub fn new(system_port: SerialStream, user_port: Option<SerialStream>) -> Self {
+        Device {
             system_port,
             user_port,
             read_buffer: Vec::new(),
@@ -29,12 +30,12 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
         // Return true if this is a controller
         Ok(
             match self
-                .send_request(crate::system::GetSystemVersion())
+                .send_packet_request(crate::protocol::GetSystemVersion())
                 .await?
                 .product_type
             {
-                crate::system::VexProductType::V5Brain(_) => false,
-                crate::system::VexProductType::V5Controller(_) => true,
+                crate::v5::VexProductType::V5Brain(_) => false,
+                crate::v5::VexProductType::V5Controller(_) => true,
             },
         )
     }
@@ -44,29 +45,33 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
         self.user_read_size = user_read_size;
     }
 
-    /// Sends a command and recieves its response
-    pub async fn send_request<C: crate::protocol::Packet + Copy>(
+    pub async fn execute_command<C: Command>(&mut self, mut command: C) -> Result<C::Response, C::Error> {
+        command.execute(self).await
+    }
+
+    /// Sends a packet and recieves its response
+    pub async fn send_packet_request<P: crate::protocol::Packet + Copy>(
         &mut self,
-        command: C,
-    ) -> Result<C::Response, crate::errors::DecodeError> {
-        // Send the command over the system port
-        self.send_command(command).await?;
+        packet: P,
+    ) -> Result<P::Response, crate::errors::DecodeError> {
+        // Send the packet over the system port
+        self.send_packet(packet).await?;
 
         // Wait for the response
-        self.response_for::<C>(std::time::Duration::new(
+        self.packet_response_for::<P>(std::time::Duration::new(
             crate::devices::SERIAL_TIMEOUT_SECONDS,
             crate::devices::SERIAL_TIMEOUT_NS,
         ))
         .await
     }
 
-    /// Sends a command
-    pub async fn send_command<C: crate::protocol::Packet + Copy>(
+    /// Sends a packet
+    pub async fn send_packet<P: crate::protocol::Packet + Copy>(
         &mut self,
-        command: C,
+        packet: P,
     ) -> Result<(), crate::errors::DecodeError> {
-        // Encode the command
-        let encoded = command.encode_request()?;
+        // Encode the packet
+        let encoded = packet.encode_request()?;
 
         // Create the packet
         let packet = if encoded.0 == 0x56 {
@@ -79,7 +84,7 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
             data
         };
 
-        // Write the command to the serial port
+        // Write the packet to the serial port
         match self.system_port.write_all(&packet).await {
             Ok(_) => (),
             Err(e) => return Err(crate::errors::DecodeError::IoError(e)),
@@ -93,8 +98,8 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
         Ok(())
     }
 
-    /// Recieves a response for a command
-    pub async fn response_for<C: crate::protocol::Packet + Copy>(
+    /// Recieves a response for a packet
+    pub async fn packet_response_for<C: crate::protocol::Packet + Copy>(
         &mut self,
         timeout: std::time::Duration,
     ) -> Result<C::Response, crate::errors::DecodeError> {
@@ -154,7 +159,7 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
         }?;
         packet.extend_from_slice(&b);
 
-        // Get the command byte and the length byte of the packet
+        // Get the packet byte and the length byte of the packet
         let command = b[0];
 
         // We may need to modify the length of the packet if it is an extended command
@@ -207,12 +212,12 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
 
             // Send the extended command 0x27
             let res = self
-                .send_request(crate::protocol::Extended(0x27, &payload))
+                .send_packet_request(crate::protocol::Extended(0x27, &payload))
                 .await?;
 
             // Ensure that the response is for the correct command
             if res.0 != 0x27 {
-                return Err(crate::errors::DecodeError::ExpectedCommand(0x27, res.0));
+                return Err(crate::errors::DecodeError::ExpectedPacket(0x27, res.0));
             }
 
             // The response payload should be the data that we read, so copy it into the read buffer
@@ -241,13 +246,7 @@ impl<S: AsyncReadExt + AsyncWriteExt + Unpin, U: AsyncReadExt + AsyncWriteExt + 
     }
 }
 
-impl<S: AsyncReadExt + AsyncWriteExt, U: AsyncReadExt + AsyncWriteExt> Unpin for AsyncDevice<S, U> {}
-
-impl<S, U> AsyncRead for AsyncDevice<S, U>
-where
-    S: AsyncReadExt + AsyncWriteExt + AsyncRead,
-    U: AsyncReadExt + AsyncWriteExt + AsyncRead + Unpin,
-{
+impl AsyncRead for Device {
     fn poll_read(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -266,11 +265,7 @@ where
     }
 }
 
-impl<S, U> AsyncWrite for AsyncDevice<S, U>
-where
-    S: AsyncReadExt + AsyncWriteExt,
-    U: AsyncReadExt + AsyncWriteExt + Unpin,
-{
+impl AsyncWrite for Device {
     fn poll_write(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
