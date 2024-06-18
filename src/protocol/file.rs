@@ -27,8 +27,8 @@ pub struct Project {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProgramIniConfig {
-    pub program: Program,
     pub project: Project,
+    pub program: Program,
 }
 
 /// Initializes a file transfer between the brain and host

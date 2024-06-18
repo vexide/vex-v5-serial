@@ -11,15 +11,13 @@ async fn main() {
     // Open the device
     let mut device = vex_ports[0].open().unwrap();
     let cold_bytes = include_bytes!("./basic.bin").to_vec();
-
     device
         .execute_command(UploadProgram {
-            base_file_name: "basic".to_string(),
-            name: "Basic".to_string(),
+            name: "quick".to_string(),
             description: "A basic vexide program".to_string(),
-            icon: "default.bmp".to_string(),
+            icon: "USER029x.bmp".to_string(),
             program_type: "vexide".to_string(),
-            slot: 0,
+            slot: 4,
             data: ProgramData::Cold(cold_bytes),
             after_upload: FileTransferComplete::RunProgram,
         })

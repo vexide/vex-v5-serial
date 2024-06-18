@@ -130,7 +130,6 @@ pub enum ProgramData {
 }
 
 pub struct UploadProgram {
-    pub base_file_name: String,
     pub name: String,
     pub description: String,
     pub icon: String,
@@ -148,37 +147,34 @@ impl Command for UploadProgram {
         &mut self,
         device: &mut crate::devices::device::Device,
     ) -> Result<Self::Response, Self::Error> {
-        let ini_data = ProgramIniConfig {
+        let base_file_name = format!("slot{}", self.slot);
+
+        let ini = ProgramIniConfig {
             program: Program {
-                name: self.name.clone(),
-                slot: self.slot,
-                icon: self.icon.clone(),
-                iconalt: "".into(),
                 description: self.description.clone(),
+                icon: self.icon.clone(),
+                iconalt: String::new(),
+                slot: self.slot,
+                name: self.name.clone(),
             },
             project: Project {
                 ide: self.program_type.clone(),
             },
         };
-        println!("{}", serde_ini::to_string(&ini_data).unwrap());
-        let ini_bytes = serde_ini::to_vec(&ini_data).unwrap();
-
-        // Upload the program ini file
-        device
-            .execute_command(UploadFile {
-                filename: format!("{}.ini", self.base_file_name.clone()),
-                filetype: FileTransferType::Ini,
-                vendor: None,
-                data: ini_bytes,
-                target: Some(FileTransferTarget::Qspi),
-                load_addr: COLD_START,
-                linked_file: None,
-                after_upload: FileTransferComplete::Halt,
-                progress_callback: Some(Box::new(|progress| {
-                    println!("Uploading INI: {:.2}%", progress)
-                })),
-            })
-            .await?;
+        let ini = serde_ini::to_vec(&ini).unwrap();
+    
+        let file_transfer = UploadFile {
+            filename: format!("{}.ini", base_file_name),
+            filetype: FileTransferType::Ini,
+            vendor: None,
+            data: ini,
+            target: None,
+            load_addr: COLD_START,
+            linked_file: None,
+            after_upload: FileTransferComplete::Halt,
+            progress_callback: None,
+        };
+        device.execute_command(file_transfer).await.unwrap();
 
         let (cold, hot) = match &self.data {
             ProgramData::Cold(cold) => (Some(cold), None),
@@ -195,9 +191,9 @@ impl Command for UploadProgram {
 
             device
                 .execute_command(UploadFile {
-                    filename: format!("{}_lib.bin", self.base_file_name),
+                    filename: format!("{}.bin", base_file_name),
                     filetype: FileTransferType::Bin,
-                    vendor: Some(FileTransferVID::PROS),
+                    vendor: Some(FileTransferVID::User),
                     data: cold.clone(),
                     target: None,
                     load_addr: COLD_START,
@@ -212,12 +208,12 @@ impl Command for UploadProgram {
 
         if let Some(hot) = hot {
             let linked_file = Some(LinkedFile {
-                filename: format!("{}_lib.bin", self.base_file_name),
+                filename: format!("{}_lib.bin", base_file_name),
                 vendor: Some(FileTransferVID::PROS),
             });
             device
                 .execute_command(UploadFile {
-                    filename: format!("{}.bin", self.base_file_name),
+                    filename: format!("{}.bin", base_file_name),
                     filetype: FileTransferType::Bin,
                     vendor: None,
                     data: hot.clone(),
