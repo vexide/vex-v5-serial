@@ -3,7 +3,7 @@ use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 pub struct Log {
     /// (RESEARCH NEEDED)
     pub code: u8,
-    
+
     /// The subtype under the description (RESEARCH NEEDED)
     pub log_type: u8,
 

@@ -29,13 +29,16 @@ async fn main() {
 
     println!("Downloaded screencap: {:?}", cap);
     println!("Downloaded screencap: {:?}", cap.len());
-    let colors = cap.chunks(4).map(|p| {
-        if p.len() == 4 {
-            let bytes = [p[0], p[1], p[2], p[3]];
-            Some(u32::from_le_bytes(bytes))
-        } else {
-            None
-        }
-    }).filter(|p| p.is_some());
+    let colors = cap
+        .chunks(4)
+        .map(|p| {
+            if p.len() == 4 {
+                let bytes = [p[0], p[1], p[2], p[3]];
+                Some(u32::from_le_bytes(bytes))
+            } else {
+                None
+            }
+        })
+        .filter(|p| p.is_some());
     println!("Colors: {:x?}", colors.collect::<Vec<_>>());
 }

@@ -16,7 +16,9 @@ pub enum EncodeStringError {
     StringTooLong,
 }
 
-pub(crate) fn encode_string<const MAX_LENGTH: u8>(string: impl AsRef<str>) -> Result<Vec<u8>, EncodeStringError> {
+pub(crate) fn encode_string<const MAX_LENGTH: u8>(
+    string: impl AsRef<str>,
+) -> Result<Vec<u8>, EncodeStringError> {
     let string = string.as_ref().as_bytes();
     if string.len() > MAX_LENGTH as usize {
         Err(EncodeStringError::StringTooLong)

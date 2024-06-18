@@ -53,12 +53,7 @@ pub struct VexDevice {
 
 impl VexDevice {
     /// Open the device
-    pub fn open(
-        &self,
-    ) -> Result<
-        device::Device,
-        crate::errors::DeviceError,
-    > {
+    pub fn open(&self) -> Result<device::Device, crate::errors::DeviceError> {
         // Open the system port
         let system_port = match tokio_serial::SerialStream::open(
             &tokio_serial::new(&self.system_port, 115200)

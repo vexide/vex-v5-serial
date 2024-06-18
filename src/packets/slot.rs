@@ -22,7 +22,7 @@ pub struct GetProgramSlotInfoPayload {
 pub struct GetProgramSlotInfoReplyPayload {
     /// A zero-based slot number.
     pub slot: u8,
-    
+
     /// A zero-based slot number, always same as Slot.
     pub requested_slot: u8,
 }
@@ -34,7 +34,7 @@ pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<0x56, 0x32, SlotInfoPayl
 
 pub struct SlotInfoPayload {
     /// Bit Mask.
-    /// 
+    ///
     /// `flags & 2^(x - 1)` = Is slot x used
     pub flags: u8,
 

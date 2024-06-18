@@ -81,8 +81,7 @@ impl Command for DownloadFile {
             USER_PROGRAM_CHUNK_SIZE
         };
 
-        let mut data =
-            Vec::with_capacity(transfer_response.file_size as usize);
+        let mut data = Vec::with_capacity(transfer_response.file_size as usize);
         let mut offset = 0;
         loop {
             let read = device
@@ -91,7 +90,7 @@ impl Command for DownloadFile {
             offset += read.len() as u32;
             println!("Read {} bytes", read.len());
             let last = transfer_response.file_size <= offset;
-            let progress = offset as f32 / transfer_response.file_size as f32;
+            let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
             data.extend(read);
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
@@ -99,9 +98,6 @@ impl Command for DownloadFile {
             if last {
                 break;
             }
-        }
-        if let Some(callback) = &mut self.progress_callback {
-            callback(100.0);
         }
 
         Ok(data)
