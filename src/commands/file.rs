@@ -209,7 +209,7 @@ impl Command for UploadProgram {
         if let Some(hot) = hot {
             let linked_file = Some(LinkedFile {
                 filename: format!("{}_lib.bin", base_file_name),
-                vendor: Some(FileTransferVID::PROS),
+                vendor: Some(FileTransferVID::User),
             });
             device
                 .execute_command(UploadFile {
