@@ -106,6 +106,7 @@ pub struct WriteFilePayload {
 
 /// Read from the brain
 pub type ReadFilePacket = Cdc2CommandPacket<0x56, 0x14, ReadFilePayload>;
+/// Returns the file content. This packet doesn't have an ack if the data is available.
 pub type ReadFileReplyPacket = Cdc2ReplyPacket<0x56, 0x14, ReadFileReplyPayload>;
 
 pub struct ReadFilePayload {
