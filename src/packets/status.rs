@@ -1,4 +1,7 @@
-use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Version};
+use super::{
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    Version,
+};
 
 pub struct RadioStatus {
     /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
@@ -29,7 +32,7 @@ pub struct SystemFlags {
     /// no.32 bit = Device added/removed
     /// (RESEARCH NEEDED)
     pub flags: u32,
-    
+
     /// Battery percent = First four bits * 8
     /// Controller battery percent = Last four bits * 8
     pub byte_1: u8,
@@ -37,7 +40,7 @@ pub struct SystemFlags {
     /// Radio quality = First four bits * 8
     /// Partner controller battery percent = Last four bits * 8
     pub byte_2: u8,
-    
+
     /// The current program slot number, 0 means not in a program.
     /// 129 = ClawBot program
     /// 145 = Driver program
@@ -50,7 +53,7 @@ pub struct DeviceStatus {
 
     /// Following V5_DeviceType
     pub device_type: u8,
-    
+
     /// 1 = smart port device, 0 = otherwise. (UNCONFIRMED)
     pub status: u8,
     pub beta_version: u8,

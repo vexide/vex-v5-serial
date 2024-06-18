@@ -45,7 +45,10 @@ impl Device {
         self.user_read_size = user_read_size;
     }
 
-    pub async fn execute_command<C: Command>(&mut self, mut command: C) -> Result<C::Response, C::Error> {
+    pub async fn execute_command<C: Command>(
+        &mut self,
+        mut command: C,
+    ) -> Result<C::Response, C::Error> {
         command.execute(self).await
     }
 

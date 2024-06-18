@@ -45,7 +45,7 @@ pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<0x56, 0x2a, ()>;
 
 pub struct SendDashTouchPayload {
     pub x: u16,
-    pub y: u16, 
+    pub y: u16,
     /// 1 for pressing, 0 for released
     pub pressing: u16,
 }

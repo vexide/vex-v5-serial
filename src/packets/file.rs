@@ -4,7 +4,7 @@ use super::Version;
 #[repr(u8)]
 pub enum FileInitAction {
     Write = 1,
-    Read = 2
+    Read = 2,
 }
 
 #[repr(u8)]
@@ -69,12 +69,12 @@ pub struct InitFileTransferReplyPayload {
     pub window_size: u16,
 
     /// In read operation, the device returns the target file size (in bytes).
-    /// 
+    ///
     /// In write operation, the device returns the value 3145728.
     pub file_size: u32,
 
     /// In read operation, the device returns the CRC value of the target file.
-    /// 
+    ///
     /// In write operation, the device returns the same CRC value as the previous packets.
     pub file_crc: crc::Algorithm<u32>,
 }
@@ -99,7 +99,7 @@ pub type WriteFileReplyPacket = Cdc2ReplyPacket<0x56, 0x13, ()>;
 pub struct WriteFilePayload {
     /// Memory address to write to.
     pub address: i32,
-    
+
     /// A sequence of bytes to write. Must be 4-byte aligned.
     pub chunk_data: Vec<u8>,
 }
@@ -125,7 +125,7 @@ pub struct ReadFileReplyPayload {
 }
 
 /// File linking means allowing one file to be loaded after another file first (its parent).
-/// 
+///
 /// This is used in PROS for the hot/cold linking.
 pub type LinkFilePacket = Cdc2CommandPacket<0x56, 0x15, LinkFilePayload>;
 pub type LinkFileReplyPacket = Cdc2ReplyPacket<0x56, 0x15, ()>;
@@ -147,7 +147,8 @@ pub struct GetDirectoryFileCountPayload {
 }
 
 pub type GetDirectoryEntryPacket = Cdc2CommandPacket<0x56, 0x17, GetDirectoryEntryPayload>;
-pub type GetDirectoryEntryReplyPacket = Cdc2ReplyPacket<0x56, 0x17, Option<GetDirectoryEntryReplyPayload>>;
+pub type GetDirectoryEntryReplyPacket =
+    Cdc2ReplyPacket<0x56, 0x17, Option<GetDirectoryEntryReplyPayload>>;
 
 pub struct GetDirectoryEntryPayload {
     pub file_index: u8,
@@ -181,7 +182,8 @@ pub struct LoadFileActionPayload {
 }
 
 pub type GetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x19, GetFileMetadataPayload>;
-pub type GetFileMetadataReplyPacket = Cdc2ReplyPacket<0x56, 0x19, Option<GetFileMetadataReplyPayload>>;
+pub type GetFileMetadataReplyPacket =
+    Cdc2ReplyPacket<0x56, 0x19, Option<GetFileMetadataReplyPayload>>;
 
 pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
@@ -194,7 +196,7 @@ pub struct GetFileMetadataReplyPayload {
     pub ignored: u8,
     pub size: u32,
     /// The storage entry address of the file.
-    pub load_address: u32,  
+    pub load_address: u32,
     pub crc32: crc::Algorithm<u32>,
     pub file_type: String,
     /// The unix epoch timestamp minus [`J2000_EPOCH`].

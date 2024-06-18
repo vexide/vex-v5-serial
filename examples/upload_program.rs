@@ -1,6 +1,6 @@
 use vexv5_serial::{
     commands::file::{ProgramData, UploadProgram},
-    v5::{FileTransferComplete},
+    v5::FileTransferComplete,
 };
 
 #[tokio::main]

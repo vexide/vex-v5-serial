@@ -25,12 +25,12 @@
 //! ```
 
 pub mod checks;
+pub mod commands;
 pub mod devices;
 pub mod errors;
+pub mod packets;
 pub mod protocol;
 pub mod v5;
-pub mod commands;
-pub mod packets;
 
 use crc::Algorithm;
 
