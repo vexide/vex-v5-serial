@@ -45,7 +45,7 @@ pub trait Encode {
 ///
 /// This structure encodes a data payload and ID that is intended to be sent from
 /// a host machine to a V5 device over the serial protocol. This is typically done
-/// through either a [`CdcCommandReply`] or a [`Cdc2CommandReply`].
+/// through either a [`CdcCommandPacket`] or a [`Cdc2CommandPacket`].
 pub struct DeviceBoundPacket<P: Encode, const ID: u8> {
     /// Device-bound Packet Header
     ///
@@ -88,7 +88,7 @@ impl<P: Encode, const ID: u8> DeviceBoundPacket<P, ID> {
 ///
 /// This structure encodes a data payload and ID that is intended to be sent from
 /// a V5 device to a host machine over the serial protocol. This is typically done
-/// through either a [`CdcCommandReply`] or a [`Cdc2CommandReply`].
+/// through either a [`CdcReplyPacket`] or a [`Cdc2ReplyPacket`].
 pub struct HostBoundPacket<P, const ID: u8> {
     /// Host-bound Packet Header
     ///
