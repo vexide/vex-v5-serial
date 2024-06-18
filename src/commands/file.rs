@@ -2,8 +2,8 @@ use thiserror::Error;
 
 use crate::{
     protocol::{
-        FileTransferExit, FileTransferInit, FileTransferSetLink, FileTransferWrite, Program,
-        ProgramIniConfig, Project,
+        FileTransferExit, FileTransferInit, FileTransferRead, FileTransferSetLink,
+        FileTransferWrite, Program, ProgramIniConfig, Project,
     },
     v5::{
         FileTransferComplete, FileTransferFunction, FileTransferOptions, FileTransferTarget,
@@ -23,6 +23,90 @@ pub enum UploadFileError {
 
 pub const COLD_START: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
+
+pub struct DownloadFile {
+    pub filename: String,
+    pub filetype: FileTransferType,
+    pub size: u32,
+    pub vendor: FileTransferVID,
+    pub target: Option<FileTransferTarget>,
+    pub load_addr: u32,
+
+    pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
+}
+impl Command for DownloadFile {
+    type Error = UploadFileError;
+
+    type Response = Vec<u8>;
+
+    async fn execute(
+        &mut self,
+        device: &mut crate::devices::device::Device,
+    ) -> Result<Self::Response, Self::Error> {
+        let target = self.target.unwrap_or_default();
+        let filename = encode_string::<24>(&self.filename)?;
+        let length = filename.len();
+        let mut string_bytes = [0; 24];
+        string_bytes[..length].copy_from_slice(self.filename.as_bytes());
+
+        let transfer_response = device
+            .send_packet_request(FileTransferInit {
+                function: FileTransferFunction::Download,
+                target,
+                vid: self.vendor,
+                options: FileTransferOptions::empty(),
+                file_type: self.filetype,
+                length: self.size,
+                addr: self.load_addr,
+                crc: 0,
+                timestamp: j2000_timestamp(),
+                version: V5FirmwareVersion {
+                    major: 1,
+                    minor: 0,
+                    build: 0,
+                    beta: 0,
+                },
+                name: string_bytes,
+            })
+            .await?;
+
+        println!("File size: {}", transfer_response.file_size);
+        println!("Max packet size: {}", transfer_response.max_packet_size);
+
+        let max_chunk_size = if transfer_response.max_packet_size > 0
+            && transfer_response.max_packet_size <= USER_PROGRAM_CHUNK_SIZE
+        {
+            transfer_response.max_packet_size
+        } else {
+            USER_PROGRAM_CHUNK_SIZE
+        };
+
+        let mut data =
+            Vec::with_capacity(transfer_response.file_size as usize);
+        let mut offset = 0;
+        loop {
+            let read = device
+                .send_packet_request(FileTransferRead(self.load_addr + offset, max_chunk_size))
+                .await?;
+            offset += read.len() as u32;
+            println!("Read {} bytes", read.len());
+            let last = transfer_response.file_size <= offset;
+            let progress = offset as f32 / transfer_response.file_size as f32;
+            data.extend(read);
+            if let Some(callback) = &mut self.progress_callback {
+                callback(progress);
+            }
+            if last {
+                break;
+            }
+        }
+        if let Some(callback) = &mut self.progress_callback {
+            callback(100.0);
+        }
+
+        Ok(data)
+    }
+}
 
 pub struct LinkedFile {
     pub filename: String,
@@ -162,7 +246,7 @@ impl Command for UploadProgram {
             },
         };
         let ini = serde_ini::to_vec(&ini).unwrap();
-    
+
         let file_transfer = UploadFile {
             filename: format!("{}.ini", base_file_name),
             filetype: FileTransferType::Ini,
