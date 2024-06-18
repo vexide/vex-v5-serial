@@ -30,6 +30,7 @@ pub mod errors;
 pub mod protocol;
 pub mod v5;
 pub mod commands;
+pub mod packets;
 
 use crc::Algorithm;
 
