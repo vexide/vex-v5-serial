@@ -1,3 +1,5 @@
+use std::io::{Read, Seek};
+
 use thiserror::Error;
 
 use crate::v5::J2000_EPOCH;
@@ -60,7 +62,7 @@ impl<const MAX_LEN: u32> VarLengthString<MAX_LEN> {
         Ok(Self(string))
     }
 }
-impl<const MAX_LEN: u32>  Encode for VarLengthString<MAX_LEN> {
+impl<const MAX_LEN: u32> Encode for VarLengthString<MAX_LEN> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut bytes = self.0.as_bytes().to_vec();
         bytes.push(0);
@@ -143,6 +145,54 @@ impl Encode for Vec<u8> {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum DecodeError {
+    #[error("Packet too short")]
+    PacketTooShort,
+    #[error("Invalid response header")]
+    InvalidHeader,
+}
+
+pub trait Decode {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+    where
+        Self: Sized;
+}
+impl Decode for () {
+    fn decode(_data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        Ok(())
+    }
+}
+impl Decode for u8 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        data.next().ok_or(DecodeError::PacketTooShort)
+    }
+}
+impl Decode for u16 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        Ok(u16::from_le_bytes(
+            data.next_chunk::<2>()
+                .map_err(|_| DecodeError::PacketTooShort)?,
+        ))
+    }
+}
+impl Decode for u32 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        Ok(u32::from_le_bytes(
+            data.next_chunk::<4>()
+                .map_err(|_| DecodeError::PacketTooShort)?,
+        ))
+    }
+}
+impl<D: Decode> Decode for Option<D> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        Ok(D::decode(data).map(|decoded| Some(decoded)).unwrap_or(None))
+    }
+}
+
 /// Device-bound Communications Packet
 ///
 /// This structure encodes a data payload and ID that is intended to be sent from
@@ -191,7 +241,7 @@ impl<P: Encode, const ID: u8> DeviceBoundPacket<P, ID> {
 /// This structure encodes a data payload and ID that is intended to be sent from
 /// a V5 device to a host machine over the serial protocol. This is typically done
 /// through either a [`CdcReplyPacket`] or a [`Cdc2ReplyPacket`].
-pub struct HostBoundPacket<P, const ID: u8> {
+pub struct HostBoundPacket<P: Decode, const ID: u8> {
     /// Host-bound Packet Header
     ///
     /// This must be `Self::HEADER` or `[0xAA, 0x55]`.
@@ -203,7 +253,7 @@ pub struct HostBoundPacket<P, const ID: u8> {
     payload: P,
 }
 
-impl<P, const ID: u8> HostBoundPacket<P, ID> {
+impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {
     /// Header byte sequence used for all host-bound packets.
     pub const HEADER: [u8; 2] = [0xAA, 0x55];
 
@@ -213,6 +263,20 @@ impl<P, const ID: u8> HostBoundPacket<P, ID> {
             header: Self::HEADER,
             payload,
         }
+    }
+}
+impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let header = data
+            .next_chunk::<2>()
+            .map_err(|_| DecodeError::PacketTooShort)?;
+        if header != Self::HEADER {
+            return Err(DecodeError::InvalidHeader);
+        }
+        let payload = P::decode(data)?;
+
+        Ok(Self { header, payload })
     }
 }
 
@@ -225,5 +289,20 @@ pub struct Version {
 impl Encode for Version {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(vec![self.major, self.minor, self.build, self.beta])
+    }
+}
+impl Decode for Version {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let major = u8::decode(&mut data)?;
+        let minor = u8::decode(&mut data)?;
+        let build = u8::decode(&mut data)?;
+        let beta = u8::decode(&mut data)?;
+        Ok(Self {
+            major,
+            minor,
+            build,
+            beta,
+        })
     }
 }

@@ -24,6 +24,9 @@
 //!
 //! ```
 
+//TODO: Figure out a better alternate to this feature
+#![feature(iter_next_chunk)]
+
 pub mod checks;
 pub mod commands;
 pub mod devices;

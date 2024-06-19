@@ -1,6 +1,9 @@
 //! Factory Control
 
-use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Encode};
+use super::{
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    Encode,
+};
 
 pub struct FdtStatus {
     pub count: u8,

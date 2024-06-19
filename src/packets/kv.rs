@@ -1,6 +1,9 @@
 //! Global key-value store.
 
-use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Encode, TerminatedFixedLengthString, VarLengthString};
+use super::{
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    Encode, TerminatedFixedLengthString, VarLengthString,
+};
 
 pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2e, TerminatedFixedLengthString<31>>;
 pub type ReadKeyValueReplyPacket = Cdc2ReplyPacket<0x56, 0x2e, VarLengthString<255>>;

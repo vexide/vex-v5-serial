@@ -1,7 +1,9 @@
+use std::io::Read;
+
 use super::{
     cdc::{CdcCommandPacket, CdcReplyPacket},
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Version,
+    Decode, DecodeError, Version,
 };
 use bitflags::bitflags;
 
@@ -36,6 +38,22 @@ pub struct SystemFlags {
     /// 145 = Driver program
     pub current_program: u8,
 }
+impl Decode for SystemFlags {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let flags = u32::decode(&mut data)?;
+        let byte_1 = u8::decode(&mut data)?;
+        let byte_2 = u8::decode(&mut data)?;
+        let current_program = u8::decode(&mut data)?;
+
+        Ok(Self {
+            flags,
+            byte_1,
+            byte_2,
+            current_program,
+        })
+    }
+}
 
 pub struct SystemStatus {
     pub unknown: u8,
@@ -45,6 +63,37 @@ pub struct SystemStatus {
     /// NOTE: Encoded as little endian
     pub touch_version: Version,
     pub details: Option<SystemDetails>,
+}
+impl Decode for SystemStatus {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let unknown = u8::decode(&mut data)?;
+        let system_version = Version::decode(&mut data)?;
+        let cpu0_version = Version::decode(&mut data)?;
+        let cpu1_version = Version::decode(&mut data)?;
+
+        // This version is little endian for some reason
+        let touch_beta = u8::decode(&mut data)?;
+        let touch_build = u8::decode(&mut data)?;
+        let touch_minor = u8::decode(&mut data)?;
+        let touch_major = u8::decode(&mut data)?;
+        let touch_version = Version {
+            major: touch_major,
+            minor: touch_minor,
+            build: touch_build,
+            beta: touch_beta,
+        };
+        let details = Option::<SystemDetails>::decode(&mut data)?;
+
+        Ok(Self {
+            unknown,
+            system_version,
+            cpu0_version,
+            cpu1_version,
+            touch_version,
+            details,
+        })
+    }
 }
 
 pub struct SystemDetails {
@@ -75,6 +124,29 @@ pub struct SystemDetails {
     pub unknown: u16,
     pub golden_version: Version,
     pub nxp_version: Option<Version>,
+}
+impl Decode for SystemDetails {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let unique_id = u32::decode(&mut data)?;
+        let flags_1 = u16::decode(&mut data)?;
+        let flags_2 = u16::decode(&mut data)?;
+        let flags_3 = u16::decode(&mut data)?;
+        let unknown = u16::decode(&mut data)?;
+        let golden_version = Version::decode(&mut data)?;
+        let nxp_version = Option::<Version>::decode(&mut data)?;
+
+        Ok(Self {
+            unique_id,
+            flags_1,
+            flags_2,
+            flags_3,
+            unknown,
+            golden_version,
+            nxp_version,
+        })
+    }
 }
 
 pub type GetSystemFlagsPacket = Cdc2CommandPacket<0x56, 0x20, ()>;
@@ -112,7 +184,8 @@ pub type Query1Packet = CdcCommandPacket<0x21, ()>;
 pub type Query1ReplyPacket = CdcReplyPacket<0x21, Query1ReplyPayload>;
 
 pub struct Query1ReplyPayload {
-    pub unknown_1: [u8; 4], /// bytes 0-3 unknown
+    pub unknown_1: [u8; 4],
+    /// bytes 0-3 unknown
     pub joystick_flag_1: u8,
     pub joystick_flag_2: u8,
     /// Theorized to be version related, unsure.
