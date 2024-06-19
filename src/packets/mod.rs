@@ -84,6 +84,16 @@ pub trait Encode {
         self.encode()
     }
 }
+impl Encode for () {
+    fn encode(&self) -> Vec<u8> {
+        Vec::new()
+    }
+}
+impl Encode for Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
+        self.clone()
+    }
+}
 
 /// Device-bound Communications Packet
 ///
