@@ -40,6 +40,12 @@ impl Encode for FactoryEnablePayload {
     }
 }
 
+impl Default for FactoryEnablePayload {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FactoryEnablePayload {
     pub const FACTORY_ENABLE_BYTES: [u8; 4] = [77, 76, 75, 74];
 

@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use super::{
     cdc::{CdcCommandPacket, CdcReplyPacket},
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},

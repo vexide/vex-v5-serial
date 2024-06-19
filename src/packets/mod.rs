@@ -1,5 +1,3 @@
-use std::io::{Read, Seek};
-
 use thiserror::Error;
 
 use crate::v5::J2000_EPOCH;
