@@ -24,8 +24,8 @@
 //!
 //! ```
 
-//TODO: Figure out a better alternate to both of these features
-#![feature(iter_next_chunk, array_try_from_fn)]
+//TODO: Figure out a better alternate to this feature
+#![feature(array_try_from_fn)]
 
 pub mod checks;
 pub mod commands;

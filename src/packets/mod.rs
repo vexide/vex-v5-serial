@@ -52,7 +52,7 @@ pub(crate) fn j2000_timestamp() -> u32 {
     (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
 }
 
-pub struct DynamicVarLengthString(String, usize);
+pub struct DynamicVarLengthString(pub String, pub usize);
 impl DynamicVarLengthString {
     pub fn new(string: String, max_size: usize) -> Result<Self, EncodeError> {
         if string.len() > max_size {
@@ -61,14 +61,20 @@ impl DynamicVarLengthString {
 
         Ok(Self(string, max_size))
     }
+    pub fn into_inner(self) -> String {
+        self.0
+    }
 
-    pub fn decode_with_max_size(data: impl IntoIterator<Item = u8>, max_size: usize) -> Result<Self, DecodeError> {
+    pub fn decode_with_max_size(
+        data: impl IntoIterator<Item = u8>,
+        max_size: usize,
+    ) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
 
         let mut string_bytes = vec![0u8; max_size];
-        for i in 0..string_bytes.len() {
-            string_bytes[i] = u8::decode(&mut data)?;
-        }
+        string_bytes
+            .iter_mut()
+            .try_for_each(|byte| u8::decode(&mut data).map(|decoded| *byte = decoded))?;
         let terminator = u8::decode(&mut data)?;
         if terminator != 0 {
             Err(DecodeError::UnterminatedString)
@@ -179,7 +185,7 @@ pub enum DecodeError {
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
     #[error("String contained invalid UTF-8: {0}")]
-    InvalidStringContents(#[from] FromUtf8Error)
+    InvalidStringContents(#[from] FromUtf8Error),
 }
 
 pub trait Decode {
@@ -198,22 +204,31 @@ impl Decode for u8 {
         data.next().ok_or(DecodeError::PacketTooShort)
     }
 }
+impl Decode for i8 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        // This is just a tad silly, but id rather not transmute
+        data.next()
+            .map(|byte| i8::from_le_bytes([byte]))
+            .ok_or(DecodeError::PacketTooShort)
+    }
+}
 impl Decode for u16 {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        Ok(u16::from_le_bytes(
-            data.next_chunk::<2>()
-                .map_err(|_| DecodeError::PacketTooShort)?,
-        ))
+        Ok(u16::from_le_bytes(Decode::decode(&mut data)?))
+    }
+}
+impl Decode for i16 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        Ok(i16::from_le_bytes(Decode::decode(&mut data)?))
     }
 }
 impl Decode for u32 {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        Ok(u32::from_le_bytes(
-            data.next_chunk::<4>()
-                .map_err(|_| DecodeError::PacketTooShort)?,
-        ))
+        Ok(u32::from_le_bytes(Decode::decode(&mut data)?))
     }
 }
 impl<D: Decode> Decode for Option<D> {
@@ -303,9 +318,7 @@ impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {
 impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        let header = data
-            .next_chunk::<2>()
-            .map_err(|_| DecodeError::PacketTooShort)?;
+        let header = Decode::decode(&mut data)?;
         if header != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
