@@ -264,5 +264,5 @@ pub type FileFormatReplyPacket = Cdc2CommandPacket<0x56, 0x1f, ()>;
 
 pub struct FileFormatConfirmation {
     /// Must be [0x44, 0x43, 0x42, 0x41].
-    confirmation_code: [u8; 4],
+    pub confirmation_code: [u8; 4],
 }
