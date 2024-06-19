@@ -1,6 +1,6 @@
 use super::{
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Encode,
+    Decode, Encode,
 };
 
 pub struct Log {
@@ -26,6 +26,14 @@ pub type GetLogCountReplyPacket = Cdc2ReplyPacket<0x56, 0x24, GetLogCountReplyPa
 pub struct GetLogCountReplyPayload {
     pub unknown: u8,
     pub count: u32,
+}
+impl Decode for GetLogCountReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, super::DecodeError> {
+        let mut data = data.into_iter();
+        let unknown = u8::decode(&mut data)?;
+        let count = u32::decode(&mut data)?;
+        Ok(Self { unknown, count })
+    }
 }
 
 /// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].

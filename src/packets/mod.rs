@@ -83,21 +83,34 @@ impl DynamicVarLengthString {
         }
     }
 }
-pub struct VarLengthString<const MAX_LEN: u32>(String);
-impl<const MAX_LEN: u32> VarLengthString<MAX_LEN> {
+pub struct VarLengthString<const MAX_LEN: usize>(String);
+impl<const MAX_LEN: usize> VarLengthString<MAX_LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
-        if string.len() as u32 > MAX_LEN {
+        if string.len() > MAX_LEN {
             return Err(EncodeError::StringTooLong);
         }
 
         Ok(Self(string))
     }
 }
-impl<const MAX_LEN: u32> Encode for VarLengthString<MAX_LEN> {
+impl<const MAX_LEN: usize> Encode for VarLengthString<MAX_LEN> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut bytes = self.0.as_bytes().to_vec();
         bytes.push(0);
         Ok(bytes)
+    }
+}
+impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let string_bytes: [u8; MAX_LEN] = Decode::decode(&mut data)?;
+        let terminator = u8::decode(&mut data)?;
+        if terminator != 0 {
+            Err(DecodeError::UnterminatedString)
+        } else {
+            Ok(Self(String::from_utf8(string_bytes.to_vec())?))
+        }
     }
 }
 /// A null-terminated fixed length string.
