@@ -1,3 +1,5 @@
+use crate::v5::J2000_EPOCH;
+
 pub mod capture;
 pub mod cdc;
 pub mod cdc2;
@@ -27,6 +29,45 @@ pub(crate) fn encode_var_u16(val: u16) -> Vec<u8> {
         let val = val as u8;
         vec![val]
     }
+}
+
+pub(crate) fn j2000_timestamp() -> u32 {
+    (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
+}
+
+/// Attempts to code a string as a fixed length string.
+///
+/// # Note
+///
+/// This does not add a null terminator!
+pub(crate) fn encode_unterminated_fixed_string<const LEN: usize>(
+    string: String,
+) -> Option<[u8; LEN]> {
+    let mut encoded = [0u8; LEN];
+
+    let string_bytes = string.into_bytes();
+    if string_bytes.len() > encoded.len() {
+        return None;
+    }
+
+    encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
+
+    Some(encoded)
+}
+
+/// Attempts to encode a string as a fixed length string.
+///
+/// # Note
+///
+///The output of this function will always be ``LEN + 1`` bytes on success.
+pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -> Option<Vec<u8>> {
+    let unterminated = encode_unterminated_fixed_string(string);
+
+    unterminated.map(|bytes: [u8; LEN]| {
+        let mut bytes = Vec::from(bytes);
+        bytes.push(0);
+        bytes
+    })
 }
 
 /// A trait that allows for encoding a structure into a byte sequence.

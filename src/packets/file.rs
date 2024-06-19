@@ -1,19 +1,22 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use super::Version;
+use super::{encode_terminated_fixed_string, j2000_timestamp, Encode, Version};
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileInitAction {
     Write = 1,
     Read = 2,
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileInitOption {
     None = 0,
     Overwrite = 1,
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileDownloadTarget {
     Ddr = 0,
     Qspi = 1,
@@ -29,6 +32,7 @@ pub enum FileDownloadTarget {
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileVendor {
     User = 1,
     Sys = 15,
@@ -44,6 +48,7 @@ pub enum FileVendor {
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileLoadAction {
     Run = 0,
     Stop = 1,
@@ -60,8 +65,32 @@ pub struct InitFileTransferPayload {
     pub options: FileInitOption,
     pub write_file_size: u32,
     pub load_address: u32,
-    pub write_file_crc: crc::Algorithm<u32>,
+    pub write_file_crc: u32,
     pub file_extension: String,
+    pub file_name: String,
+}
+
+impl Encode for InitFileTransferPayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![
+            self.operation as _,
+            self.target as _,
+            self.vendor,
+            self.options as _,
+        ];
+        encoded.extend(self.write_file_size.to_le_bytes());
+        encoded.extend(self.load_address.to_le_bytes());
+        encoded.extend(self.write_file_crc.to_le_bytes());
+        //TODO: Allow for errors in encoding
+        encoded.extend(encode_terminated_fixed_string::<3>(self.file_extension.clone()).unwrap());
+        encoded.extend(j2000_timestamp().to_le_bytes());
+        // Version
+        //TODO: Possibly allow for setting a custom verison.
+        encoded.extend([1, 0, 0, 0]);
+        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone()).unwrap());
+
+        encoded
+    }
 }
 
 pub struct InitFileTransferReplyPayload {
@@ -85,6 +114,7 @@ pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x12, ()>;
 
 /// The action to run when a file transfer is completed.
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum FileExitAtion {
     DoNothing = 0,
     RunProgram = 1,
