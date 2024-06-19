@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use crate::v5::J2000_EPOCH;
 
 pub mod capture;
@@ -15,22 +17,18 @@ pub mod slot;
 pub mod system;
 
 /// Encodes a u16 as an unsigned var short.
-///
-/// # Panics
-///
-/// This function panics if the input value is too large to fit within 15 bits
-pub(crate) fn encode_var_u16(val: u16) -> Vec<u8> {
+pub(crate) fn encode_var_u16(val: u16) -> Result<Vec<u8>, EncodeError> {
     if val > (u16::MAX >> 1) {
-        panic!("Input value too large to fit in unsigned var short");
+        return Err(EncodeError::VarShortTooLarge);
     }
 
     if val > (u8::MAX >> 1) as _ {
         let mut val = val.to_le_bytes();
         val[0] |= 1 << 7;
-        val.to_vec()
+        Ok(val.to_vec())
     } else {
         let val = val as u8;
-        vec![val]
+        Ok(vec![val])
     }
 }
 
@@ -45,17 +43,17 @@ pub(crate) fn j2000_timestamp() -> u32 {
 /// This does not add a null terminator!
 pub(crate) fn encode_unterminated_fixed_string<const LEN: usize>(
     string: String,
-) -> Option<[u8; LEN]> {
+) -> Result<[u8; LEN], EncodeError> {
     let mut encoded = [0u8; LEN];
 
     let string_bytes = string.into_bytes();
     if string_bytes.len() > encoded.len() {
-        return None;
+        return Err(EncodeError::StringTooLong);
     }
 
     encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
 
-    Some(encoded)
+    Ok(encoded)
 }
 
 /// Attempts to encode a string as a fixed length string.
@@ -63,7 +61,7 @@ pub(crate) fn encode_unterminated_fixed_string<const LEN: usize>(
 /// # Note
 ///
 /// The output of this function will always be `LEN + 1` bytes on success.
-pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -> Option<Vec<u8>> {
+pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -> Result<Vec<u8>, EncodeError> {
     let unterminated = encode_unterminated_fixed_string(string);
 
     unterminated.map(|bytes: [u8; LEN]| {
@@ -73,11 +71,19 @@ pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -
     })
 }
 
+#[derive(Error, Debug)]
+pub enum EncodeError {
+    #[error("String bytes are too long")]
+    StringTooLong,
+    #[error("Value too large for variable length u16")]
+    VarShortTooLarge,
+}
+
 /// A trait that allows for encoding a structure into a byte sequence.
 pub trait Encode {
     /// Encodes a structure into a byte sequence.
-    fn encode(&self) -> Vec<u8>;
-    fn into_encoded(self) -> Vec<u8>
+    fn encode(&self) -> Result<Vec<u8>, EncodeError>;
+    fn into_encoded(self) -> Result<Vec<u8>, EncodeError>
     where
         Self: Sized,
     {
@@ -85,13 +91,13 @@ pub trait Encode {
     }
 }
 impl Encode for () {
-    fn encode(&self) -> Vec<u8> {
-        Vec::new()
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(Vec::new())
     }
 }
 impl Encode for Vec<u8> {
-    fn encode(&self) -> Vec<u8> {
-        self.clone()
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(self.clone())
     }
 }
 
@@ -112,16 +118,16 @@ pub struct DeviceBoundPacket<P: Encode, const ID: u8> {
     payload: P,
 }
 impl<P: Encode, const ID: u8> Encode for DeviceBoundPacket<P, ID> {
-    fn encode(&self) -> Vec<u8> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
         encoded.extend_from_slice(&self.header);
         encoded.push(ID);
 
-        let size = self.payload.encode().len() as u16;
-        encoded.extend(encode_var_u16(size));
+        let size = self.payload.encode()?.len() as u16;
+        encoded.extend(encode_var_u16(size)?);
 
-        encoded.extend_from_slice(&self.payload.encode());
-        encoded
+        encoded.extend_from_slice(&self.payload.encode()?);
+        Ok(encoded)
     }
 }
 
@@ -175,7 +181,7 @@ pub struct Version {
     pub beta: u8,
 }
 impl Encode for Version {
-    fn encode(&self) -> Vec<u8> {
-        vec![self.major, self.minor, self.build, self.beta]
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![self.major, self.minor, self.build, self.beta])
     }
 }
