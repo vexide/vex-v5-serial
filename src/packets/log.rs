@@ -1,4 +1,4 @@
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Encode};
 
 pub struct Log {
     /// (RESEARCH NEEDED)
@@ -32,6 +32,14 @@ pub type ReadLogPageReplyPacket = Cdc2ReplyPacket<0x56, 0x25, ReadLogPageReplyPa
 pub struct ReadLogPagePayload {
     pub offset: u32,
     pub count: u32,
+}
+impl Encode for ReadLogPagePayload {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        let mut encoded = Vec::new();
+        encoded.extend(self.offset.to_le_bytes());
+        encoded.extend(self.count.to_le_bytes());
+        Ok(encoded)
+    }
 }
 
 pub struct ReadLogPageReplyPayload {

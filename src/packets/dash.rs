@@ -1,6 +1,7 @@
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Encode};
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 pub enum DashScreen {
     Home = 0,
     Battery = 1,
@@ -49,6 +50,15 @@ pub struct SendDashTouchPayload {
     /// 1 for pressing, 0 for released
     pub pressing: u16,
 }
+impl Encode for SendDashTouchPayload {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        let mut encoded = Vec::new();
+        encoded.extend(self.x.to_le_bytes());
+        encoded.extend(self.y.to_le_bytes());
+        encoded.extend(self.pressing.to_le_bytes());
+        Ok(encoded)
+    }
+}
 
 pub type SelectDashPacket = Cdc2CommandPacket<0x56, 0x2b, SelectDashPayload>;
 pub type SelectDashReplyPacket = Cdc2ReplyPacket<0x56, 0x2b, ()>;
@@ -57,4 +67,9 @@ pub struct SelectDashPayload {
     pub screen: DashScreen,
     /// (RESEARCH NEEDED)
     pub port: u8,
+}
+impl Encode for SelectDashPayload {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        Ok(vec![self.screen as u8, self.port])
+    }
 }

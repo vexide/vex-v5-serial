@@ -1,6 +1,6 @@
 //! Factory Control
 
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Encode};
 
 pub struct FdtStatus {
     pub count: u8,
@@ -31,6 +31,11 @@ pub type FactoryEnablePacket = Cdc2CommandPacket<0x56, 0xFF, FactoryEnablePayloa
 pub type FactoryEnableReplyPacket = Cdc2CommandPacket<0x56, 0xFF, ()>;
 
 pub struct FactoryEnablePayload(pub [u8; 4]);
+impl Encode for FactoryEnablePayload {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        Ok(self.0.to_vec())
+    }
+}
 
 impl FactoryEnablePayload {
     pub const FACTORY_ENABLE_BYTES: [u8; 4] = [77, 76, 75, 74];
