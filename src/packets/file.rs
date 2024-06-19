@@ -1,5 +1,7 @@
 //! Filesystem Access
 
+use std::vec;
+
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::{encode_terminated_fixed_string, j2000_timestamp, Encode, Version};
 
@@ -209,6 +211,11 @@ pub struct GetDirectoryFileCountPayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
 }
+impl Encode for GetDirectoryFileCountPayload {
+    fn encode(&self) -> Vec<u8> {
+        vec![self.vendor as _, self.option]
+    }
+}
 
 pub type GetDirectoryEntryPacket = Cdc2CommandPacket<0x56, 0x17, GetDirectoryEntryPayload>;
 pub type GetDirectoryEntryReplyPacket =
@@ -218,6 +225,11 @@ pub struct GetDirectoryEntryPayload {
     pub file_index: u8,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
+}
+impl Encode for GetDirectoryEntryPayload {
+    fn encode(&self) -> Vec<u8> {
+        vec![self.file_index, self.option]
+    }
 }
 
 pub struct GetDirectoryEntryReplyPayload {
@@ -244,7 +256,15 @@ pub struct LoadFileActionPayload {
     pub action: FileInitAction,
     pub file_name: String,
 }
+impl Encode for LoadFileActionPayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![self.vendor as _, self.action as _];
+        let string = encode_terminated_fixed_string::<23>(self.file_name.clone()).unwrap();
+        encoded.extend(string);
 
+        encoded
+    }
+}
 pub type GetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x19, GetFileMetadataPayload>;
 pub type GetFileMetadataReplyPacket =
     Cdc2ReplyPacket<0x56, 0x19, Option<GetFileMetadataReplyPayload>>;
@@ -254,6 +274,15 @@ pub struct GetFileMetadataPayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     pub file_name: String,
+}
+impl Encode for GetFileMetadataPayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![self.vendor as _, self.option];
+        let string = encode_terminated_fixed_string::<23>(self.file_name.clone()).unwrap();
+        encoded.extend(string);
+
+        encoded
+    }
 }
 
 pub struct GetFileMetadataReplyPayload {
@@ -279,10 +308,19 @@ pub struct SetFileMetadataPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub file_type: String,
-    /// The unix epoch timestamp minus J2000_EPOCH.
-    pub timestamp: i32,
     pub version: Version,
     pub file_name: String,
+}
+impl Encode for SetFileMetadataPayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![self.vendor as _, self.option];
+        encoded.extend(self.load_address.to_le_bytes());
+        encoded.extend(encode_terminated_fixed_string::<3>(self.file_type.clone()).unwrap());
+        encoded.extend(j2000_timestamp().to_le_bytes());
+        encoded.extend(self.version.encode());
+        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone()).unwrap());
+        encoded
+    }
 }
 
 pub type EraseFilePacket = Cdc2CommandPacket<0x56, 0x1b, EraseFilePayload>;
@@ -294,6 +332,14 @@ pub struct EraseFilePayload {
     pub option: u8,
     pub file_name: String,
 }
+impl Encode for EraseFilePayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![self.vendor as _, self.option];
+        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone()).unwrap());
+
+        encoded
+    }
+}
 
 pub type FileClearUpPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpPayload>;
 pub type FileClearUpReplyPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpResult>;
@@ -302,6 +348,11 @@ pub struct FileClearUpPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
+}
+impl Encode for FileClearUpPayload {
+    fn encode(&self) -> Vec<u8> {
+        vec![self.vendor as _, self.option]
+    }
 }
 
 /// (RESEARCH NEEDED)
@@ -329,4 +380,9 @@ pub type FileFormatReplyPacket = Cdc2CommandPacket<0x56, 0x1f, ()>;
 pub struct FileFormatConfirmation {
     /// Must be [0x44, 0x43, 0x42, 0x41].
     pub confirmation_code: [u8; 4],
+}
+impl Encode for FileFormatConfirmation {
+    fn encode(&self) -> Vec<u8> {
+        self.confirmation_code.to_vec()
+    }
 }
