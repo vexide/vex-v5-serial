@@ -50,6 +50,23 @@ pub(crate) fn j2000_timestamp() -> u32 {
     (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
 }
 
+pub struct VarLengthString<const MAX_LEN: u32>(String);
+impl<const MAX_LEN: u32> VarLengthString<MAX_LEN> {
+    pub fn new(string: String) -> Result<Self, EncodeError> {
+        if string.len() as u32 > MAX_LEN {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        Ok(Self(string))
+    }
+}
+impl<const MAX_LEN: u32>  Encode for VarLengthString<MAX_LEN> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut bytes = self.0.as_bytes().to_vec();
+        bytes.push(0);
+        Ok(bytes)
+    }
+}
 /// A null-terminated fixed length string.
 /// Once encoded, the size will be `LEN + 1` bytes.
 pub struct TerminatedFixedLengthString<const LEN: usize>([u8; LEN]);
