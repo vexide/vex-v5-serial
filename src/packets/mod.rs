@@ -161,3 +161,8 @@ pub struct Version {
     pub build: u8,
     pub beta: u8,
 }
+impl Encode for Version {
+    fn encode(&self) -> Vec<u8> {
+        vec![self.major, self.minor, self.build, self.beta]
+    }
+}
