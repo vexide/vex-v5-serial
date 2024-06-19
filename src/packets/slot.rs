@@ -1,11 +1,23 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::file::FileVendor;
+use super::{Encode, TerminatedFixedLengthString};
 
 pub struct Slot {
     /// The number in the file icon: 'USER???x.bmp'.
     pub icon_number: u16,
     pub name_length: u8,
-    pub name: String,
+    pub name: TerminatedFixedLengthString<23>,
+}
+impl Encode for Slot {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        let mut encoded = Vec::new();
+
+        encoded.extend_from_slice(&self.icon_number.to_le_bytes());
+        encoded.push(self.name_length);
+        encoded.extend(self.name.encode()?);
+
+        Ok(encoded)
+    }
 }
 
 pub type GetProgramSlotInfoPacket = Cdc2CommandPacket<0x56, 0x1c, GetProgramSlotInfoPayload>;
@@ -16,7 +28,16 @@ pub struct GetProgramSlotInfoPayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     /// The bin file name.
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
+}
+impl Encode for GetProgramSlotInfoPayload {
+    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+        let mut encoded = vec![self.vendor as _, self.option];
+
+        encoded.extend(self.file_name.encode()?);
+
+        Ok(encoded)
+    }
 }
 
 pub struct GetProgramSlotInfoReplyPayload {

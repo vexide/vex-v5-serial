@@ -16,19 +16,33 @@ pub mod radio;
 pub mod slot;
 pub mod system;
 
-/// Encodes a u16 as an unsigned var short.
-pub(crate) fn encode_var_u16(val: u16) -> Result<Vec<u8>, EncodeError> {
-    if val > (u16::MAX >> 1) {
-        return Err(EncodeError::VarShortTooLarge);
+#[repr(transparent)]
+pub struct VarU16(u16);
+impl VarU16 {
+    /// Creates a new variable length u16.
+    /// # Panics
+    /// Panics if the value is too large to be encoded as a variable length u16.
+    pub fn new(val: u16) -> Self {
+        if val > (u16::MAX >> 1) {
+            panic!("Value too large for variable length u16");
+        }
+        Self(val)
     }
+}
+impl Encode for VarU16 {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        if self.0 > (u16::MAX >> 1) {
+            return Err(EncodeError::VarShortTooLarge);
+        }
 
-    if val > (u8::MAX >> 1) as _ {
-        let mut val = val.to_le_bytes();
-        val[0] |= 1 << 7;
-        Ok(val.to_vec())
-    } else {
-        let val = val as u8;
-        Ok(vec![val])
+        if self.0 > (u8::MAX >> 1) as _ {
+            let mut val = self.0.to_le_bytes();
+            val[0] |= 1 << 7;
+            Ok(val.to_vec())
+        } else {
+            let val = self.0 as u8;
+            Ok(vec![val])
+        }
     }
 }
 
@@ -36,39 +50,50 @@ pub(crate) fn j2000_timestamp() -> u32 {
     (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
 }
 
-/// Attempts to code a string as a fixed length string.
-///
-/// # Note
-///
-/// This does not add a null terminator!
-pub(crate) fn encode_unterminated_fixed_string<const LEN: usize>(
-    string: String,
-) -> Result<[u8; LEN], EncodeError> {
-    let mut encoded = [0u8; LEN];
+/// A null-terminated fixed length string.
+/// Once encoded, the size will be `LEN + 1` bytes.
+pub struct TerminatedFixedLengthString<const LEN: usize>([u8; LEN]);
+impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
+    pub fn new(string: String) -> Result<Self, EncodeError> {
+        let mut encoded = [0u8; LEN];
 
-    let string_bytes = string.into_bytes();
-    if string_bytes.len() > encoded.len() {
-        return Err(EncodeError::StringTooLong);
+        let string_bytes = string.into_bytes();
+        if string_bytes.len() > encoded.len() {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
+
+        Ok(Self(encoded))
     }
-
-    encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
-
-    Ok(encoded)
+}
+impl<const LEN: usize> Encode for TerminatedFixedLengthString<LEN> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = Vec::from(self.0);
+        encoded.push(0);
+        Ok(encoded)
+    }
 }
 
-/// Attempts to encode a string as a fixed length string.
-///
-/// # Note
-///
-/// The output of this function will always be `LEN + 1` bytes on success.
-pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -> Result<Vec<u8>, EncodeError> {
-    let unterminated = encode_unterminated_fixed_string(string);
+pub struct UnterminatedFixedLengthString<const LEN: usize>([u8; LEN]);
+impl<const LEN: usize> UnterminatedFixedLengthString<LEN> {
+    pub fn new(string: String) -> Result<Self, EncodeError> {
+        let mut encoded = [0u8; LEN];
 
-    unterminated.map(|bytes: [u8; LEN]| {
-        let mut bytes = Vec::from(bytes);
-        bytes.push(0);
-        bytes
-    })
+        let string_bytes = string.into_bytes();
+        if string_bytes.len() > encoded.len() {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
+
+        Ok(Self(encoded))
+    }
+}
+impl Encode for UnterminatedFixedLengthString<23> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(self.0.to_vec())
+    }
 }
 
 #[derive(Error, Debug)]
@@ -123,8 +148,8 @@ impl<P: Encode, const ID: u8> Encode for DeviceBoundPacket<P, ID> {
         encoded.extend_from_slice(&self.header);
         encoded.push(ID);
 
-        let size = self.payload.encode()?.len() as u16;
-        encoded.extend(encode_var_u16(size)?);
+        let size = VarU16::new(self.payload.encode()?.len() as u16);
+        encoded.extend(size.encode()?);
 
         encoded.extend_from_slice(&self.payload.encode()?);
         Ok(encoded)

@@ -3,7 +3,7 @@
 use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use super::{encode_terminated_fixed_string, j2000_timestamp, Encode, EncodeError, Version};
+use super::{j2000_timestamp, Encode, EncodeError, TerminatedFixedLengthString, Version};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -70,8 +70,8 @@ pub struct InitFileTransferPayload {
     pub write_file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
-    pub file_extension: String,
-    pub file_name: String,
+    pub file_extension: TerminatedFixedLengthString<3>,
+    pub file_name: TerminatedFixedLengthString<23>,
 }
 
 impl Encode for InitFileTransferPayload {
@@ -85,12 +85,12 @@ impl Encode for InitFileTransferPayload {
         encoded.extend(self.write_file_size.to_le_bytes());
         encoded.extend(self.load_address.to_le_bytes());
         encoded.extend(self.write_file_crc.to_le_bytes());
-        encoded.extend(encode_terminated_fixed_string::<3>(self.file_extension.clone())?);
+        encoded.extend(self.file_extension.encode()?);
         encoded.extend(j2000_timestamp().to_le_bytes());
         // Version
         //TODO: Possibly allow for setting a custom verison.
         encoded.extend([1, 0, 0, 0]);
-        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone())?);
+        encoded.extend(self.file_name.encode()?);
 
         Ok(encoded)
     }
@@ -190,12 +190,12 @@ pub struct LinkFilePayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub required_file: String,
+    pub required_file: TerminatedFixedLengthString<23>,
 }
 impl Encode for LinkFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.option as _];
-        let string = encode_terminated_fixed_string::<23>(self.required_file.clone())?;
+        let string = self.required_file.encode()?;
         encoded.extend(string);
 
         Ok(encoded)
@@ -253,12 +253,12 @@ pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<0x56, 0x18, ()>;
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
     pub action: FileInitAction,
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
 }
 impl Encode for LoadFileActionPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.action as _];
-        let string = encode_terminated_fixed_string::<23>(self.file_name.clone())?;
+        let string = self.file_name.encode()?;
         encoded.extend(string);
 
         Ok(encoded)
@@ -272,12 +272,12 @@ pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
 }
 impl Encode for GetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.option];
-        let string = encode_terminated_fixed_string::<23>(self.file_name.clone())?;
+        let string = self.file_name.encode()?;
         encoded.extend(string);
 
         Ok(encoded)
@@ -306,18 +306,18 @@ pub struct SetFileMetadataPayload {
     pub option: u8,
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub file_type: String,
+    pub file_type: TerminatedFixedLengthString<3>,
     pub version: Version,
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
 }
 impl Encode for SetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.option];
         encoded.extend(self.load_address.to_le_bytes());
-        encoded.extend(encode_terminated_fixed_string::<3>(self.file_type.clone())?);
+        encoded.extend(self.file_type.encode()?);
         encoded.extend(j2000_timestamp().to_le_bytes());
         encoded.extend(self.version.encode()?);
-        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone())?);
+        encoded.extend(self.file_name.encode()?);
         Ok(encoded)
     }
 }
@@ -329,12 +329,12 @@ pub struct EraseFilePayload {
     pub vendor: FileVendor,
     /// 128 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
 }
 impl Encode for EraseFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.option];
-        encoded.extend(encode_terminated_fixed_string::<23>(self.file_name.clone())?);
+        encoded.extend(self.file_name.encode()?);
 
         Ok(encoded)
     }
