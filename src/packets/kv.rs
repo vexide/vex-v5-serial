@@ -1,3 +1,5 @@
+//! Global key-value store.
+
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 
 pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2e, String>;

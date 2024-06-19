@@ -2,16 +2,16 @@ use super::{DeviceBoundPacket, Encode, HostBoundPacket};
 
 /// CDC2 Packet Acknowledgement Codes
 pub enum Cdc2Ack {
-    /// ACKnowledges that a packet has been recieved.
+    /// Acknowledges that a packet has been recieved successfully.
     Ack = 0x76,
     
-    /// A general NACK that is sometimes recieved.
+    /// A general negative-acknowledgement (NACK) that is sometimes recieved.
     Nack = 0xFF,
     
     /// Returned by the brain when a CDC2 packet's CRC Checksum does not validate.
     NackPacketCrc = 0xCE,
     
-    /// Returned by the brain when a payload is too short.
+    /// Returned by the brain when a packet's payload is of unexpected length (too short or too long).
     NackPacketLength = 0xD0,
     
     /// Returned by the brain when we attempt to transfer too much data.

@@ -21,7 +21,7 @@ pub type GetLogCountPacket = Cdc2CommandPacket<0x56, 0x24, ()>;
 pub type GetLogCountReplyPacket = Cdc2ReplyPacket<0x56, 0x24, GetLogCountReplyPayload>;
 
 pub struct GetLogCountReplyPayload {
-    pub ignored: u8,
+    pub unknown: u8,
     pub count: u32,
 }
 

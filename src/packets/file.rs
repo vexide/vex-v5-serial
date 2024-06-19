@@ -1,3 +1,5 @@
+//! Filesystem Access
+
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::{encode_terminated_fixed_string, j2000_timestamp, Encode, Version};
 
@@ -255,7 +257,8 @@ pub struct GetFileMetadataPayload {
 }
 
 pub struct GetFileMetadataReplyPayload {
-    pub ignored: u8,
+    /// RESEARCH NEEDED: Unknown what this is if there is no link to the file.
+    pub linked_vendor: FileVendor,
     pub size: u32,
     /// The storage entry address of the file.
     pub load_address: u32,

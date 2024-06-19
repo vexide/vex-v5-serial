@@ -3,12 +3,15 @@ use crate::v5::J2000_EPOCH;
 pub mod capture;
 pub mod cdc;
 pub mod cdc2;
+pub mod controller;
 pub mod dash;
+pub mod device;
+pub mod factory;
 pub mod file;
 pub mod kv;
 pub mod log;
+pub mod radio;
 pub mod slot;
-pub mod status;
 pub mod system;
 
 /// Encodes a u16 as an unsigned var short.
@@ -59,7 +62,7 @@ pub(crate) fn encode_unterminated_fixed_string<const LEN: usize>(
 ///
 /// # Note
 ///
-///The output of this function will always be ``LEN + 1`` bytes on success.
+/// The output of this function will always be `LEN + 1` bytes on success.
 pub(crate) fn encode_terminated_fixed_string<const LEN: usize>(string: String) -> Option<Vec<u8>> {
     let unterminated = encode_unterminated_fixed_string(string);
 
