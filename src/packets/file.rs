@@ -3,7 +3,9 @@
 use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use super::{j2000_timestamp, Encode, EncodeError, TerminatedFixedLengthString, Version};
+use super::{
+    j2000_timestamp, Decode, DecodeError, Encode, EncodeError, TerminatedFixedLengthString, Version,
+};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -49,6 +51,25 @@ pub enum FileVendor {
     VexVm = 64,
     Vex = 240,
     Undefined = 241,
+}
+impl Decode for FileVendor {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let this = u8::decode(data)?;
+        match this {
+            1 => Ok(Self::User),
+            15 => Ok(Self::Sys),
+            16 => Ok(Self::Dev1),
+            24 => Ok(Self::Dev2),
+            32 => Ok(Self::Dev3),
+            40 => Ok(Self::Dev4),
+            48 => Ok(Self::Dev5),
+            56 => Ok(Self::Dev6),
+            64 => Ok(Self::VexVm),
+            240 => Ok(Self::Vex),
+            241 => Ok(Self::Undefined),
+            _ => Err(DecodeError::UnexpectedValue),
+        }
+    }
 }
 
 #[repr(u8)]
@@ -108,7 +129,21 @@ pub struct InitFileTransferReplyPayload {
     /// In read operation, the device returns the CRC value of the target file.
     ///
     /// In write operation, the device returns the same CRC value as the previous packets.
-    pub file_crc: crc::Algorithm<u32>,
+    pub file_crc: u32,
+}
+
+impl Decode for InitFileTransferReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let window_size = u16::decode(&mut data)?;
+        let file_size = u32::decode(&mut data)?;
+        let file_crc = u32::decode(&mut data)?;
+        Ok(Self {
+            window_size,
+            file_size,
+            file_crc,
+        })
+    }
 }
 
 /// Finish uploading or downloading file from the device
@@ -179,6 +214,21 @@ pub struct ReadFileReplyPayload {
     /// The data from the brain
     pub chunk_data: Vec<u8>,
 }
+impl Decode for ReadFileReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        let mut data = data.into_iter();
+        let address = u32::decode(&mut data)?;
+        let chunk_data = Vec::decode(&mut data)?;
+
+        Ok(Self {
+            address,
+            chunk_data,
+        })
+    }
+}
 
 /// File linking means allowing one file to be loaded after another file first (its parent).
 ///
@@ -237,13 +287,39 @@ pub struct GetDirectoryEntryReplyPayload {
 
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub crc32: crc::Algorithm<u32>,
-    pub file_type: String,
+    pub crc: u32,
+    pub file_type: TerminatedFixedLengthString<3>,
 
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
-    pub file_name: String,
+    pub file_name: TerminatedFixedLengthString<23>,
+}
+
+impl Decode for GetDirectoryEntryReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let file_index = u8::decode(&mut data)?;
+        let size = u32::decode(&mut data)?;
+        let load_address = u32::decode(&mut data)?;
+        let crc = u32::decode(&mut data)?;
+        let file_type = Decode::decode(&mut data)?;
+        let timestamp = i32::decode(&mut data)?;
+        let version = Version::decode(&mut data)?;
+        let file_name = Decode::decode(&mut data)?;
+
+        Ok(Self {
+            file_index,
+            size,
+            load_address,
+            crc,
+            file_type,
+            timestamp,
+            version,
+            file_name,
+        })
+    }
 }
 
 /// Run a binrary file on the brain or stop the program running on the brain.
@@ -290,11 +366,33 @@ pub struct GetFileMetadataReplyPayload {
     pub size: u32,
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub crc32: crc::Algorithm<u32>,
-    pub file_type: String,
+    pub crc32: u32,
+    pub file_type: TerminatedFixedLengthString<3>,
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
+}
+impl Decode for GetFileMetadataReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let linked_vendor = FileVendor::decode(&mut data)?;
+        let size = u32::decode(&mut data)?;
+        let load_address = u32::decode(&mut data)?;
+        let crc32 = u32::decode(&mut data)?;
+        let file_type = Decode::decode(&mut data)?;
+        let timestamp = i32::decode(&mut data)?;
+        let version = Version::decode(&mut data)?;
+
+        Ok(Self {
+            linked_vendor,
+            size,
+            load_address,
+            crc32,
+            file_type,
+            timestamp,
+            version,
+        })
+    }
 }
 
 pub type SetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x1a, SetFileMetadataPayload>;
@@ -354,6 +452,8 @@ impl Encode for FileClearUpPayload {
     }
 }
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 /// (RESEARCH NEEDED)
 pub enum FileClearUpResult {
     /// No file deleted
@@ -370,6 +470,19 @@ pub enum FileClearUpResult {
 
     /// Deleted all files with linked files for the first time after restart.
     LinkedFilesAfterRestart = 4,
+}
+impl Decode for FileClearUpResult {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let this = u8::decode(data)?;
+        match this {
+            0 => Ok(Self::None),
+            1 => Ok(Self::AllFiles),
+            2 => Ok(Self::LinkedFiles),
+            3 => Ok(Self::AllFilesAfterRestart),
+            4 => Ok(Self::LinkedFilesAfterRestart),
+            _ => Err(DecodeError::UnexpectedValue)
+        }
+    }
 }
 
 /// Same as "File Clear Up", but takes longer

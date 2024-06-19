@@ -72,21 +72,27 @@ impl DynamicVarLengthString {
         let mut data = data.into_iter();
 
         let mut string_bytes = vec![0u8; max_size];
-        string_bytes
-            .iter_mut()
-            .try_for_each(|byte| u8::decode(&mut data).map(|decoded| *byte = decoded))?;
-        let terminator = u8::decode(&mut data)?;
-        if terminator != 0 {
-            Err(DecodeError::UnterminatedString)
-        } else {
-            Ok(Self(String::from_utf8(string_bytes)?, max_size))
+        for i in 0..=max_size {
+            let byte = u8::decode(&mut data)?;
+            if i == max_size {
+                if byte != 0 {
+                    return Err(DecodeError::UnterminatedString);
+                }
+                break;
+            }
+            if byte == 0 {
+                break;
+            }
+
+            string_bytes[i] = byte;
         }
+        Ok(Self(String::from_utf8(string_bytes.to_vec())?, max_size))
     }
 }
 pub struct VarLengthString<const MAX_LEN: usize>(String);
 impl<const MAX_LEN: usize> VarLengthString<MAX_LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
-        if string.len() > MAX_LEN {
+        if string.as_bytes().len() > MAX_LEN {
             return Err(EncodeError::StringTooLong);
         }
 
@@ -104,37 +110,63 @@ impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
 
-        let string_bytes: [u8; MAX_LEN] = Decode::decode(&mut data)?;
+        let mut string_bytes = [0u8; MAX_LEN];
+        for i in 0..=MAX_LEN {
+            let byte = u8::decode(&mut data)?;
+            if i == MAX_LEN {
+                if byte != 0 {
+                    return Err(DecodeError::UnterminatedString);
+                }
+                break;
+            }
+            if byte == 0 {
+                break;
+            }
+
+            string_bytes[i] = byte;
+        }
+
+        Ok(Self(String::from_utf8(string_bytes.to_vec())?))
+    }
+}
+/// A null-terminated fixed length string.
+/// Once encoded, the size will be `LEN + 1` bytes.
+pub struct TerminatedFixedLengthString<const LEN: usize>(String);
+impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
+    pub fn new(string: String) -> Result<Self, EncodeError> {
+        if string.as_bytes().len() > LEN {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        Ok(Self(string))
+    }
+}
+impl<const LEN: usize> Encode for TerminatedFixedLengthString<LEN> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = [0u8; LEN];
+
+        let string_bytes = self.0.clone().into_bytes();
+        if string_bytes.len() > encoded.len() {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
+        let mut encoded = encoded.to_vec();
+        encoded.push(0);
+        Ok(encoded)
+    }
+}
+impl<const LEN: usize> Decode for TerminatedFixedLengthString<LEN> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let string_bytes: [u8; LEN] = Decode::decode(&mut data)?;
         let terminator = u8::decode(&mut data)?;
         if terminator != 0 {
             Err(DecodeError::UnterminatedString)
         } else {
             Ok(Self(String::from_utf8(string_bytes.to_vec())?))
         }
-    }
-}
-/// A null-terminated fixed length string.
-/// Once encoded, the size will be `LEN + 1` bytes.
-pub struct TerminatedFixedLengthString<const LEN: usize>([u8; LEN]);
-impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
-    pub fn new(string: String) -> Result<Self, EncodeError> {
-        let mut encoded = [0u8; LEN];
-
-        let string_bytes = string.into_bytes();
-        if string_bytes.len() > encoded.len() {
-            return Err(EncodeError::StringTooLong);
-        }
-
-        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
-
-        Ok(Self(encoded))
-    }
-}
-impl<const LEN: usize> Encode for TerminatedFixedLengthString<LEN> {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::from(self.0);
-        encoded.push(0);
-        Ok(encoded)
     }
 }
 
@@ -199,6 +231,8 @@ pub enum DecodeError {
     UnterminatedString,
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] FromUtf8Error),
+    #[error("Could not decode byte with unexpected value")]
+    UnexpectedValue
 }
 
 pub trait Decode {
@@ -244,6 +278,12 @@ impl Decode for u32 {
         Ok(u32::from_le_bytes(Decode::decode(&mut data)?))
     }
 }
+impl Decode for i32 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        Ok(i32::from_le_bytes(Decode::decode(&mut data)?))
+    }
+}
 impl<D: Decode> Decode for Option<D> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         Ok(D::decode(data).map(|decoded| Some(decoded)).unwrap_or(None))
@@ -253,6 +293,11 @@ impl<D: Decode, const N: usize> Decode for [D; N] {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         std::array::try_from_fn(move |_| D::decode(&mut data))
+    }
+}
+impl Decode for Vec<u8> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        Ok(data.into_iter().collect())
     }
 }
 
