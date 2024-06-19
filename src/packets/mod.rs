@@ -1,3 +1,5 @@
+use std::string::FromUtf8Error;
+
 use thiserror::Error;
 
 use crate::v5::J2000_EPOCH;
@@ -50,6 +52,31 @@ pub(crate) fn j2000_timestamp() -> u32 {
     (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
 }
 
+pub struct DynamicVarLengthString(String, usize);
+impl DynamicVarLengthString {
+    pub fn new(string: String, max_size: usize) -> Result<Self, EncodeError> {
+        if string.len() > max_size {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        Ok(Self(string, max_size))
+    }
+
+    pub fn decode_with_max_size(data: impl IntoIterator<Item = u8>, max_size: usize) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let mut string_bytes = vec![0u8; max_size];
+        for i in 0..string_bytes.len() {
+            string_bytes[i] = u8::decode(&mut data)?;
+        }
+        let terminator = u8::decode(&mut data)?;
+        if terminator != 0 {
+            Err(DecodeError::UnterminatedString)
+        } else {
+            Ok(Self(String::from_utf8(string_bytes)?, max_size))
+        }
+    }
+}
 pub struct VarLengthString<const MAX_LEN: u32>(String);
 impl<const MAX_LEN: u32> VarLengthString<MAX_LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
@@ -149,6 +176,10 @@ pub enum DecodeError {
     PacketTooShort,
     #[error("Invalid response header")]
     InvalidHeader,
+    #[error("String ran past expected nul terminator")]
+    UnterminatedString,
+    #[error("String contained invalid UTF-8: {0}")]
+    InvalidStringContents(#[from] FromUtf8Error)
 }
 
 pub trait Decode {
@@ -188,6 +219,12 @@ impl Decode for u32 {
 impl<D: Decode> Decode for Option<D> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         Ok(D::decode(data).map(|decoded| Some(decoded)).unwrap_or(None))
+    }
+}
+impl<D: Decode, const N: usize> Decode for [D; N] {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        std::array::try_from_fn(move |_| D::decode(&mut data))
     }
 }
 
