@@ -121,7 +121,11 @@ pub enum FileExitAtion {
     ShowRunScreen = 2,
     Halt = 3,
 }
-
+impl Encode for FileExitAtion {
+    fn encode(&self) -> Vec<u8> {
+        vec![*self as _]
+    }
+}
 /// Write to the brain
 pub type WriteFilePacket = Cdc2CommandPacket<0x56, 0x13, WriteFilePayload>;
 pub type WriteFileReplyPacket = Cdc2ReplyPacket<0x56, 0x13, ()>;
@@ -132,6 +136,16 @@ pub struct WriteFilePayload {
 
     /// A sequence of bytes to write. Must be 4-byte aligned.
     pub chunk_data: Vec<u8>,
+}
+impl Encode for WriteFilePayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = Vec::new();
+
+        encoded.extend(self.address.to_le_bytes());
+        encoded.extend(&self.chunk_data);
+
+        encoded
+    }
 }
 
 /// Read from the brain
@@ -145,6 +159,14 @@ pub struct ReadFilePayload {
 
     /// Number of bytes to read (4-byte aligned).
     pub size: u16,
+}
+impl Encode for ReadFilePayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = Vec::new();
+        encoded.extend(self.address.to_le_bytes());
+        encoded.extend(self.size.to_le_bytes());
+        encoded
+    }
 }
 
 pub struct ReadFileReplyPayload {
@@ -166,6 +188,15 @@ pub struct LinkFilePayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     pub required_file: String,
+}
+impl Encode for LinkFilePayload {
+    fn encode(&self) -> Vec<u8> {
+        let mut encoded = vec![self.vendor as _, self.option as _];
+        let string = encode_terminated_fixed_string::<23>(self.required_file.clone()).unwrap();
+        encoded.extend(string);
+
+        encoded
+    }
 }
 
 pub type GetDirectoryFileCountPacket = Cdc2CommandPacket<0x56, 0x16, GetDirectoryFileCountPayload>;
