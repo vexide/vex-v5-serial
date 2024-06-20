@@ -1,13 +1,21 @@
 //! Factory Control
 
 use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Encode,
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Decode, DecodeError, Encode
 };
 
 pub struct FdtStatus {
     pub count: u8,
     pub entries: Vec<Fdt>,
+}
+impl Decode for FdtStatus {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+         {
+        let mut data = data.into_iter();
+        let count = u8::decode(&mut data)?;
+        let entries = Vec::decode(&mut data)?;
+        Ok(Self { count, entries })
+    }
 }
 
 pub struct Fdt {
@@ -18,10 +26,39 @@ pub struct Fdt {
     pub version: u16,
     pub boot_version: u16,
 }
+impl Decode for Fdt {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let index = u8::decode(&mut data)?;
+        let fdt_type = u8::decode(&mut data)?;
+        let status = u8::decode(&mut data)?;
+        let beta_version = u8::decode(&mut data)?;
+        let version = u16::decode(&mut data)?;
+        let boot_version = u16::decode(&mut data)?;
+
+        Ok(Self {
+            index,
+            fdt_type,
+            status,
+            beta_version,
+            version,
+            boot_version,
+        })
+    }
+}
 
 pub struct FactoryStatus {
     pub status: u8,
     pub percent: u8,
+}
+impl Decode for FactoryStatus {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+        {
+        let mut data = data.into_iter();
+        let status = u8::decode(&mut data)?;
+        let percent = u8::decode(&mut data)?;
+        Ok(Self { status, percent })
+    }
 }
 
 pub type GetFdtStatusPacket = Cdc2CommandPacket<0x56, 0x23, ()>;

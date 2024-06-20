@@ -1,5 +1,7 @@
-use super::{DeviceBoundPacket, Encode, EncodeError, HostBoundPacket};
+use super::{Decode, DecodeError, DeviceBoundPacket, Encode, EncodeError, HostBoundPacket};
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
 /// CDC2 Packet Acknowledgement Codes
 pub enum Cdc2Ack {
     /// Acknowledges that a packet has been recieved successfully.
@@ -56,6 +58,32 @@ pub enum Cdc2Ack {
     /// Internal Write Error.
     WriteError = 0x01,
 }
+impl Decode for Cdc2Ack {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let this = u8::decode(data)?;
+        match this {
+            0x76 => Ok(Self::Ack),
+            0xFF => Ok(Self::Nack),
+            0xCE => Ok(Self::NackPacketCrc),
+            0xD0 => Ok(Self::NackPacketLength),
+            0xD1 => Ok(Self::NackTransferSize),
+            0xD2 => Ok(Self::NackProgramCrc),
+            0xD3 => Ok(Self::NackProgramFile),
+            0xD4 => Ok(Self::NackUninitializedTransfer),
+            0xD5 => Ok(Self::NackInvalidInitialization),
+            0xD6 => Ok(Self::NackAlignment),
+            0xD7 => Ok(Self::NackAddress),
+            0xD8 => Ok(Self::NackIncomplete),
+            0xD9 => Ok(Self::NackNoDirectory),
+            0xDA => Ok(Self::NackMaxUserFiles),
+            0xDB => Ok(Self::NackFileAlreadyExists),
+            0xDC => Ok(Self::NackFileStorageFull),
+            0x00 => Ok(Self::Timeout),
+            0x01 => Ok(Self::WriteError),
+            _ => Err(DecodeError::UnexpectedValue),
+        }
+    }
+}
 
 pub type Cdc2CommandPacket<const ID: u8, const EXT_ID: u8, P> =
     DeviceBoundPacket<Cdc2CommandPayload<EXT_ID, P>, ID>;
@@ -80,8 +108,18 @@ impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
 pub type Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P> =
     HostBoundPacket<Cdc2CommandReplyPayload<EXT_ID, P>, ID>;
 
-pub struct Cdc2CommandReplyPayload<const ID: u8, P> {
+pub struct Cdc2CommandReplyPayload<const ID: u8, P: Decode> {
     pub ack: Cdc2Ack,
     pub data: P,
-    pub crc: crc::Crc<u32>,
+    pub crc: u32,
+}
+impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let ack = Cdc2Ack::decode(&mut data)?;
+        let data_ = P::decode(&mut data)?;
+        let crc = u32::decode(&mut data)?;
+
+        Ok(Self { ack, data: data_, crc })
+    }
 }

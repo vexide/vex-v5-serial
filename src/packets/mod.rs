@@ -47,6 +47,21 @@ impl Encode for VarU16 {
         }
     }
 }
+impl Decode for VarU16 {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let first = u8::decode(&mut data)?;
+        let wide = first & (1 << 7) != 0;
+
+        if wide {
+            let last = u8::decode(&mut data)?;
+            let both = [first & u8::MAX >> 1, last];
+            Ok(Self(u16::from_le_bytes(both)))
+        } else {
+            Ok(Self(first as u16))
+        }
+    }
+}
 
 pub(crate) fn j2000_timestamp() -> u32 {
     (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
@@ -232,7 +247,7 @@ pub enum DecodeError {
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] FromUtf8Error),
     #[error("Could not decode byte with unexpected value")]
-    UnexpectedValue
+    UnexpectedValue,
 }
 
 pub trait Decode {
@@ -295,9 +310,14 @@ impl<D: Decode, const N: usize> Decode for [D; N] {
         std::array::try_from_fn(move |_| D::decode(&mut data))
     }
 }
-impl Decode for Vec<u8> {
+impl<D: Decode> Decode for Vec<D> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        Ok(data.into_iter().collect())
+        let mut data = data.into_iter();
+        let mut decoded = vec![];
+        while let Ok(d) = D::decode(&mut data) {
+            decoded.push(d);
+        }
+        Ok(decoded)
     }
 }
 
@@ -355,6 +375,8 @@ pub struct HostBoundPacket<P: Decode, const ID: u8> {
     /// This must be `Self::HEADER` or `[0xAA, 0x55]`.
     header: [u8; 2],
 
+    /// Packet Payload Size
+    payload_size: VarU16,
     /// Packet Payload
     ///
     /// Contains data for a given packet that be encoded and sent over serial to the host.
@@ -364,14 +386,6 @@ pub struct HostBoundPacket<P: Decode, const ID: u8> {
 impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {
     /// Header byte sequence used for all host-bound packets.
     pub const HEADER: [u8; 2] = [0xAA, 0x55];
-
-    /// Creates a new host-bound packet with a given generic payload type.
-    pub fn new(payload: P) -> Self {
-        Self {
-            header: Self::HEADER,
-            payload,
-        }
-    }
 }
 impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
@@ -380,9 +394,14 @@ impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
         if header != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
+        let payload_size = VarU16::decode(&mut data)?;
         let payload = P::decode(data)?;
 
-        Ok(Self { header, payload })
+        Ok(Self {
+            header,
+            payload_size,
+            payload,
+        })
     }
 }
 
