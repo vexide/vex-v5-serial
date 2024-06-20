@@ -22,7 +22,7 @@ async fn main() {
         .send_packet(WriteKeyValuePacket::new(Cdc2CommandPayload::new(
             WriteKeyValuePayload {
                 key: VarLengthString::new("teamnumber".to_string()).unwrap(),
-                value: VarLengthString::new("3636".to_string()).unwrap(),
+                value: VarLengthString::new("bob".to_string()).unwrap(),
             },
         )))
         .await

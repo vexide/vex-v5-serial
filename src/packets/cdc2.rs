@@ -110,13 +110,13 @@ impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
         let mut encoded = vec![ID];
         let payload_bytes = self.payload.encode()?;
         let size = VarU16::new(payload_bytes.len() as _);
-        let hash = self.crc.checksum(&payload_bytes);
 
         encoded.extend(size.encode()?);
         encoded.extend(payload_bytes);
-        encoded.extend_from_slice(&hash.to_be_bytes());
-
         Ok(encoded)
+    }
+    fn extended() -> bool {
+        true
     }
 }
 
@@ -126,7 +126,7 @@ pub type Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P> =
 pub struct Cdc2CommandReplyPayload<const ID: u8, P: Decode> {
     pub ack: Cdc2Ack,
     pub data: P,
-    pub crc: u32,
+    pub crc: u16,
 }
 impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
     pub fn try_into_inner(self) -> Result<P, DeviceError> {
@@ -147,7 +147,7 @@ impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
         let ack = Cdc2Ack::decode(&mut data)?;
         let data_ = P::decode(&mut data)?;
         let crc = if size_of::<P>() > 0 {
-            u32::decode(&mut data)?
+            u16::decode(&mut data)?
         } else {
             0
         };
@@ -157,8 +157,5 @@ impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
             data: data_,
             crc,
         })
-    }
-    fn extended() -> bool {
-        true
     }
 }

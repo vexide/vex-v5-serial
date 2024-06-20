@@ -235,6 +235,10 @@ pub trait Encode {
     {
         self.encode()
     }
+    //TODO: Come up with a better solution than this. This is a band-aid fix to allow encoding crc checksums
+    fn extended() -> bool {
+        false
+    }
 }
 impl Encode for () {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -267,10 +271,6 @@ pub trait Decode {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
     where
         Self: Sized;
-
-    fn extended() -> bool {
-        false
-    }
 }
 impl Decode for () {
     fn decode(_data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
@@ -360,6 +360,10 @@ impl<P: Encode, const ID: u8> Encode for DeviceBoundPacket<P, ID> {
         encoded.extend_from_slice(&self.header);
         encoded.push(ID);
         encoded.extend_from_slice(&self.payload.encode()?);
+        if P::extended() {
+            let hash = crc::Crc::<u16>::new(&crate::VEX_CRC16).checksum(&encoded);
+            encoded.extend(hash.to_be_bytes());
+        }
         Ok(encoded)
     }
 }
@@ -437,9 +441,6 @@ impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
             payload_size,
             payload,
         })
-    }
-    fn extended() -> bool {
-        P::extended()
     }
 }
 

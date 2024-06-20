@@ -102,7 +102,7 @@ impl Device {
 
         // Get the length of the packet payload
         let first_size_byte = self.system_port.read_u8().await?;
-        let mut size = if VarU16::check_wide(first_size_byte) {
+        let size = if VarU16::check_wide(first_size_byte) {
             println!("Wide size byte");
             let second_size_byte = self.system_port.read_u8().await?;
             packet.extend([first_size_byte, second_size_byte]);
@@ -112,10 +112,6 @@ impl Device {
             VarU16::decode(vec![first_size_byte])?
         }
         .into_inner() as usize;
-
-        if P::extended() {
-            size += 0;
-        }
 
         // Read the rest of the packet
         let mut payload = vec![0; size];

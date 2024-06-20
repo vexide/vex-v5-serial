@@ -129,7 +129,7 @@ pub struct InitFileTransferReplyPayload {
     /// In read operation, the device returns the CRC value of the target file.
     ///
     /// In write operation, the device returns the same CRC value as the previous packets.
-    pub file_crc: u32,
+    pub file_crc: u16,
 }
 
 impl Decode for InitFileTransferReplyPayload {
@@ -137,7 +137,7 @@ impl Decode for InitFileTransferReplyPayload {
         let mut data = data.into_iter();
         let window_size = u16::decode(&mut data)?;
         let file_size = u32::decode(&mut data)?;
-        let file_crc = u32::decode(&mut data)?;
+        let file_crc = u16::decode(&mut data)?;
         Ok(Self {
             window_size,
             file_size,
