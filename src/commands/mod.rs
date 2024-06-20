@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::devices::device::{Device, DeviceError};
+use crate::devices::{device::Device, DeviceError};
 
 pub mod file;
 

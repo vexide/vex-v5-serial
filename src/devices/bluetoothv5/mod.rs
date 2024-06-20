@@ -4,7 +4,8 @@ use bluest::{Adapter, AdvertisingDevice, Characteristic, Service, Uuid};
 
 use tokio_stream::StreamExt;
 
-use crate::errors::DeviceError;
+use super::DeviceError;
+
 
 /// The BLE GATT Service that V5 Brains provide
 const GATT_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);

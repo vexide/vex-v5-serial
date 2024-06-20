@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use crate::devices::device::DeviceError;
+use crate::devices::DeviceError;
 
 use super::{Decode, DecodeError, DeviceBoundPacket, Encode, EncodeError, HostBoundPacket, VarU16};
 

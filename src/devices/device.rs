@@ -1,7 +1,6 @@
 //! Implements an async compatible device.
 
 use std::{pin::Pin, time::Duration};
-use thiserror::Error;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     select,
@@ -11,28 +10,15 @@ use tokio_serial::SerialStream;
 
 use crate::{
     commands::Command,
-    packets::{cdc2::Cdc2Ack, decode_header, Decode, DecodeError, Encode, EncodeError, VarU16},
+    packets::{decode_header, Decode, Encode, VarU16},
 };
 
-#[derive(Error, Debug)]
-pub enum DeviceError {
-    #[error("IO Error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
-    #[error("Packet decoding error: {0}")]
-    DecodeError(#[from] DecodeError),
-    #[error("Packet timeout")]
-    Timeout,
-    #[error("NACK recieved: {0:?}")]
-    Nack(Cdc2Ack),
-}
+use super::DeviceError;
 
 /// The representation of a V5 device that supports async.
 pub struct Device {
     system_port: SerialStream,
     user_port: Option<SerialStream>,
-    read_buffer: Vec<u8>,
     user_read_size: u8,
 }
 
@@ -41,7 +27,6 @@ impl Device {
         Device {
             system_port,
             user_port,
-            read_buffer: Vec::new(),
             user_read_size: 0x20, // By default, read chunks of 32 bytes
         }
     }
@@ -62,8 +47,6 @@ impl Device {
     pub async fn send_packet(&mut self, packet: impl Encode) -> Result<(), DeviceError> {
         // Encode the packet
         let encoded = packet.encode()?;
-
-        println!("Sending packet: {:x?}", encoded);
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
@@ -137,7 +120,7 @@ impl AsyncRead for Device {
             // If not, then error
             std::task::Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                crate::errors::DeviceError::NoWriteOnWireless,
+                DeviceError::NoWriteOnWireless,
             )))
         }
     }
@@ -154,7 +137,7 @@ impl AsyncWrite for Device {
         } else {
             std::task::Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                crate::errors::DeviceError::NoWriteOnWireless,
+                DeviceError::NoWriteOnWireless,
             )))
         }
     }
@@ -168,7 +151,7 @@ impl AsyncWrite for Device {
         } else {
             std::task::Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                crate::errors::DeviceError::NoWriteOnWireless,
+                DeviceError::NoWriteOnWireless,
             )))
         }
     }
@@ -182,7 +165,7 @@ impl AsyncWrite for Device {
         } else {
             std::task::Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                crate::errors::DeviceError::NoWriteOnWireless,
+                DeviceError::NoWriteOnWireless,
             )))
         }
     }

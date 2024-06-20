@@ -27,13 +27,13 @@
 //TODO: Figure out a better alternate to this feature
 #![feature(array_try_from_fn)]
 
-pub mod checks;
+// pub mod checks;
 pub mod commands;
 pub mod devices;
-pub mod errors;
+// pub mod errors;
 pub mod packets;
-pub mod protocol;
-pub mod v5;
+// pub mod protocol;
+// pub mod v5;
 
 use crc::Algorithm;
 

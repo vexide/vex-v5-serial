@@ -2,7 +2,8 @@ use std::{fmt::Debug, string::FromUtf8Error};
 
 use thiserror::Error;
 
-use crate::v5::J2000_EPOCH;
+/// The epoch of the serial protocols timestamps
+pub(crate) const J2000_EPOCH: u32 = 946684800;
 
 pub mod capture;
 pub mod cdc;

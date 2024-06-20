@@ -4,7 +4,6 @@ use vexv5_serial::{
         file::{FileDownloadTarget, FileVendor},
         TerminatedFixedLengthString,
     },
-    v5::{FileTransferTarget, FileTransferType, FileTransferVID},
 };
 
 #[tokio::main]

@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use thiserror::Error;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    devices::device::{Device, DeviceError},
+    devices::{device::Device, DeviceError},
     packets::{
         cdc2::Cdc2CommandPayload,
         file::{
@@ -15,18 +15,9 @@ use crate::{
         },
         TerminatedFixedLengthString,
     },
-    protocol::{Program, ProgramIniConfig, Project},
 };
 
 use super::Command;
-
-#[derive(Error, Debug)]
-pub enum UploadFileError {
-    #[error("Filename string encoding failed")]
-    StringEncodeFailed(#[from] crate::commands::EncodeStringError),
-    #[error("Response packet failed to decode")]
-    ResponseDecodeFailed(#[from] crate::errors::DecodeError),
-}
 
 pub const COLD_START: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
@@ -185,7 +176,7 @@ impl Command for UploadFile {
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
-            let progress = offset as f32 / self.data.len() as f32;
+            let progress = (offset as f32 / self.data.len() as f32) * 100.0;
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
             }
@@ -212,7 +203,7 @@ impl Command for UploadFile {
             )))
             .await?;
         device
-            .recieve_packet::<ExitFileTransferReplyPacket>(Duration::from_millis(100))
+            .recieve_packet::<ExitFileTransferReplyPacket>(Duration::from_millis(200))
             .await?;
 
         Ok(())
@@ -223,6 +214,27 @@ pub enum ProgramData {
     Hot(Vec<u8>),
     Cold(Vec<u8>),
     Both { hot: Vec<u8>, cold: Vec<u8> },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Program {
+    pub name: String,
+    pub slot: u8,
+    pub icon: String,
+    pub iconalt: String,
+    pub description: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Project {
+    // version: String,
+    pub ide: String,
+    // file: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProgramIniConfig {
+    pub project: Project,
+    pub program: Program,
 }
 
 pub struct UploadProgram {

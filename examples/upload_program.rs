@@ -1,7 +1,6 @@
 use vexv5_serial::{
     commands::file::{ProgramData, UploadProgram},
     packets::file::FileExitAtion,
-    v5::FileTransferComplete,
 };
 
 #[tokio::main]
@@ -18,7 +17,7 @@ async fn main() {
             description: "A basic vexide program".to_string(),
             icon: "USER029x.bmp".to_string(),
             program_type: "vexide".to_string(),
-            slot: 4,
+            slot: 1,
             data: ProgramData::Cold(cold_bytes),
             after_upload: FileExitAtion::RunProgram,
         })

@@ -1,8 +1,7 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
 use super::{
-    VexDevice, VexDeviceType, VexPortType, VEX_USB_VID, VEX_V5_BRAIN_USB_PID,
-    VEX_V5_CONTROLLER_USB_PID,
+    DeviceError, VexDevice, VexDeviceType, VexPortType, VEX_USB_VID, VEX_V5_BRAIN_USB_PID, VEX_V5_CONTROLLER_USB_PID
 };
 
 /// The information of a generic vex serial port
@@ -13,7 +12,7 @@ pub struct VexGenericSerialPort {
 }
 
 /// Finds all generic vex v5 ports connected to the computer over usb.
-fn find_generic_ports() -> Result<Vec<VexGenericSerialPort>, crate::errors::DeviceError> {
+fn find_generic_ports() -> Result<Vec<VexGenericSerialPort>, DeviceError> {
     // Get all available serial ports
     let ports = tokio_serial::available_ports()?;
 
@@ -80,7 +79,7 @@ fn find_generic_ports() -> Result<Vec<VexGenericSerialPort>, crate::errors::Devi
 }
 
 /// Finds all generic V5 devices from their ports
-pub fn find_generic_devices() -> Result<Vec<VexDevice>, crate::errors::DeviceError> {
+pub fn find_generic_devices() -> Result<Vec<VexDevice>, DeviceError> {
     // Find all vex ports
     let ports = find_generic_ports()?;
 
