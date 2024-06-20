@@ -14,7 +14,7 @@ use crate::{
             WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
         },
     },
-    string::TerminatedFixedLengthString,
+    string::FixedLengthString,
     crc::VEX_CRC32,
 };
 
@@ -24,8 +24,8 @@ pub const COLD_START: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
-    pub filename: TerminatedFixedLengthString<23>,
-    pub filetype: TerminatedFixedLengthString<3>,
+    pub filename: FixedLengthString<23>,
+    pub filetype: FixedLengthString<3>,
     pub size: u32,
     pub vendor: FileVendor,
     pub target: Option<FileDownloadTarget>,
@@ -105,13 +105,13 @@ impl Command for DownloadFile {
 }
 
 pub struct LinkedFile {
-    pub filename: TerminatedFixedLengthString<23>,
+    pub filename: FixedLengthString<23>,
     pub vendor: Option<FileVendor>,
 }
 
 pub struct UploadFile {
-    pub filename: TerminatedFixedLengthString<23>,
-    pub filetype: TerminatedFixedLengthString<3>,
+    pub filename: FixedLengthString<23>,
+    pub filetype: FixedLengthString<3>,
     pub vendor: Option<FileVendor>,
     pub data: Vec<u8>,
     pub target: Option<FileDownloadTarget>,
@@ -269,8 +269,8 @@ impl Command for UploadProgram {
         let ini = serde_ini::to_vec(&ini).unwrap();
 
         let file_transfer = UploadFile {
-            filename: TerminatedFixedLengthString::new(format!("{}.ini", base_file_name))?,
-            filetype: TerminatedFixedLengthString::new("ini".to_string())?,
+            filename: FixedLengthString::new(format!("{}.ini", base_file_name))?,
+            filetype: FixedLengthString::new("ini".to_string())?,
             vendor: None,
             data: ini,
             target: None,
@@ -296,8 +296,8 @@ impl Command for UploadProgram {
 
             device
                 .execute_command(UploadFile {
-                    filename: TerminatedFixedLengthString::new(format!("{}.bin", base_file_name))?,
-                    filetype: TerminatedFixedLengthString::new("bin".to_string())?,
+                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                    filetype: FixedLengthString::new("bin".to_string())?,
                     vendor: None,
                     data: cold.clone(),
                     target: None,
@@ -313,13 +313,13 @@ impl Command for UploadProgram {
 
         if let Some(hot) = hot {
             let linked_file = Some(LinkedFile {
-                filename: TerminatedFixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
+                filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
                 vendor: None,
             });
             device
                 .execute_command(UploadFile {
-                    filename: TerminatedFixedLengthString::new(format!("{}.bin", base_file_name))?,
-                    filetype: TerminatedFixedLengthString::new("bin".to_string())?,
+                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                    filetype: FixedLengthString::new("bin".to_string())?,
                     vendor: None,
                     data: hot.clone(),
                     target: None,

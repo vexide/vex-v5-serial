@@ -3,10 +3,10 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
     encode::{Encode, EncodeError},
-    string::{TerminatedFixedLengthString, VarLengthString},
+    string::{FixedLengthString, VarLengthString},
 };
 
-pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2e, TerminatedFixedLengthString<31>>;
+pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2e, FixedLengthString<31>>;
 pub type ReadKeyValueReplyPacket = Cdc2ReplyPacket<0x56, 0x2e, VarLengthString<255>>;
 
 pub type WriteKeyValuePacket = Cdc2CommandPacket<0x56, 0x2f, WriteKeyValuePayload>;

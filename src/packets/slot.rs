@@ -3,7 +3,7 @@ use super::file::FileVendor;
 use crate::{
     encode::{Encode, EncodeError},
     decode::{Decode, DecodeError},
-    string::{DynamicVarLengthString, TerminatedFixedLengthString},
+    string::{DynamicVarLengthString, FixedLengthString},
 };
 
 pub struct Slot {
@@ -35,7 +35,7 @@ pub struct GetProgramSlotInfoPayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     /// The bin file name.
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 impl Encode for GetProgramSlotInfoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {

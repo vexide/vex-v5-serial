@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use vexv5_serial::string::{TerminatedFixedLengthString, VarLengthString};
+use vexv5_serial::string::{FixedLengthString, VarLengthString};
 use vexv5_serial::packets::{
     cdc2::Cdc2CommandPayload,
     kv::{
@@ -35,7 +35,7 @@ async fn main() {
     // Get the new team number and print it
     device
         .send_packet(ReadKeyValuePacket::new(Cdc2CommandPayload::new(
-            TerminatedFixedLengthString::new("teamnumber".to_string()).unwrap(),
+            FixedLengthString::new("teamnumber".to_string()).unwrap(),
         )))
         .await
         .unwrap();

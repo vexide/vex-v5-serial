@@ -85,8 +85,8 @@ impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
 /// A null-terminated fixed length string.
 /// Once encoded, the size will be `LEN + 1` bytes.
 #[derive(Debug, Clone)]
-pub struct TerminatedFixedLengthString<const LEN: usize>(String);
-impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
+pub struct FixedLengthString<const LEN: usize>(String);
+impl<const LEN: usize> FixedLengthString<LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
         if string.as_bytes().len() > LEN {
             return Err(EncodeError::StringTooLong);
@@ -95,7 +95,7 @@ impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
         Ok(Self(string))
     }
 }
-impl<const LEN: usize> Encode for TerminatedFixedLengthString<LEN> {
+impl<const LEN: usize> Encode for FixedLengthString<LEN> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = [0u8; LEN];
 
@@ -110,7 +110,7 @@ impl<const LEN: usize> Encode for TerminatedFixedLengthString<LEN> {
         Ok(encoded)
     }
 }
-impl<const LEN: usize> Decode for TerminatedFixedLengthString<LEN> {
+impl<const LEN: usize> Decode for FixedLengthString<LEN> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
 

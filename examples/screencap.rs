@@ -1,6 +1,6 @@
 use vexv5_serial::{
     commands::file::DownloadFile,
-    string::TerminatedFixedLengthString,
+    string::FixedLengthString,
     packets::file::{FileDownloadTarget, FileVendor},
 };
 
@@ -15,8 +15,8 @@ async fn main() {
     // Take a screenshot
     let cap = device
         .execute_command(DownloadFile {
-            filename: TerminatedFixedLengthString::new("screen".to_string()).unwrap(),
-            filetype: TerminatedFixedLengthString::new("".to_string()).unwrap(),
+            filename: FixedLengthString::new("screen".to_string()).unwrap(),
+            filetype: FixedLengthString::new("".to_string()).unwrap(),
             vendor: FileVendor::Sys,
             target: Some(FileDownloadTarget::Cbuf),
             load_addr: 0,

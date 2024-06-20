@@ -4,7 +4,7 @@ use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::TerminatedFixedLengthString, timestamp::j2000_timestamp, version::Version
+    decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, timestamp::j2000_timestamp, version::Version
 };
 
 #[repr(u8)]
@@ -91,8 +91,8 @@ pub struct InitFileTransferPayload {
     pub write_file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
-    pub file_extension: TerminatedFixedLengthString<3>,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_extension: FixedLengthString<3>,
+    pub file_name: FixedLengthString<23>,
 }
 
 impl Encode for InitFileTransferPayload {
@@ -240,7 +240,7 @@ pub struct LinkFilePayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub required_file: TerminatedFixedLengthString<23>,
+    pub required_file: FixedLengthString<23>,
 }
 impl Encode for LinkFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -288,12 +288,12 @@ pub struct GetDirectoryEntryReplyPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc: u32,
-    pub file_type: TerminatedFixedLengthString<3>,
+    pub file_type: FixedLengthString<3>,
 
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 
 impl Decode for GetDirectoryEntryReplyPayload {
@@ -329,7 +329,7 @@ pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<0x56, 0x18, ()>;
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
     pub action: FileInitAction,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 impl Encode for LoadFileActionPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -348,7 +348,7 @@ pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 impl Encode for GetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -367,7 +367,7 @@ pub struct GetFileMetadataReplyPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc32: u32,
-    pub file_type: TerminatedFixedLengthString<3>,
+    pub file_type: FixedLengthString<3>,
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
@@ -404,9 +404,9 @@ pub struct SetFileMetadataPayload {
     pub option: u8,
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub file_type: TerminatedFixedLengthString<3>,
+    pub file_type: FixedLengthString<3>,
     pub version: Version,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 impl Encode for SetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -427,7 +427,7 @@ pub struct EraseFilePayload {
     pub vendor: FileVendor,
     /// 128 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: TerminatedFixedLengthString<23>,
+    pub file_name: FixedLengthString<23>,
 }
 impl Encode for EraseFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
