@@ -137,7 +137,7 @@ impl Command for UploadFile {
                     operation: FileInitAction::Write,
                     target,
                     vendor,
-                    options: FileInitOption::None,
+                    options: FileInitOption::Overwrite,
                     write_file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
