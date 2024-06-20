@@ -480,7 +480,7 @@ impl Decode for FileClearUpResult {
             2 => Ok(Self::LinkedFiles),
             3 => Ok(Self::AllFilesAfterRestart),
             4 => Ok(Self::LinkedFilesAfterRestart),
-            _ => Err(DecodeError::UnexpectedValue)
+            _ => Err(DecodeError::UnexpectedValue),
         }
     }
 }

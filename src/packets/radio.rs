@@ -22,7 +22,13 @@ impl Decode for RadioStatus {
         let strength = i16::decode(&mut data)?;
         let channel = i8::decode(&mut data)?;
         let timeslot = i8::decode(&mut data)?;
-        Ok(Self { device, quality, strength, channel, timeslot })
+        Ok(Self {
+            device,
+            quality,
+            strength,
+            channel,
+            timeslot,
+        })
     }
 }
 

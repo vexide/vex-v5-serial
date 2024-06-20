@@ -1,5 +1,6 @@
 use vexv5_serial::{
     commands::file::{ProgramData, UploadProgram},
+    packets::file::FileExitAtion,
     v5::FileTransferComplete,
 };
 
@@ -19,7 +20,7 @@ async fn main() {
             program_type: "vexide".to_string(),
             slot: 4,
             data: ProgramData::Cold(cold_bytes),
-            after_upload: FileTransferComplete::RunProgram,
+            after_upload: FileExitAtion::RunProgram,
         })
         .await
         .unwrap();

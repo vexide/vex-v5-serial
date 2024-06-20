@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::{devices::device::{Device, DeviceError}};
+use crate::devices::device::{Device, DeviceError};
 
 pub mod file;
 
@@ -25,4 +25,3 @@ pub(crate) fn encode_string<const MAX_LENGTH: u8>(
         Ok(string.to_vec())
     }
 }
-

@@ -1,9 +1,8 @@
-use std::string::FromUtf8Error;
+use std::{fmt::Debug, string::FromUtf8Error};
 
 use thiserror::Error;
 
 use crate::v5::J2000_EPOCH;
-
 
 pub mod capture;
 pub mod cdc;
@@ -20,6 +19,7 @@ pub mod slot;
 pub mod system;
 
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy)]
 pub struct VarU16(u16);
 impl VarU16 {
     /// Creates a new variable length u16.
@@ -112,6 +112,8 @@ impl DynamicVarLengthString {
         Ok(Self(String::from_utf8(string_bytes.to_vec())?, max_size))
     }
 }
+
+#[derive(Debug, Clone)]
 pub struct VarLengthString<const MAX_LEN: usize>(String);
 impl<const MAX_LEN: usize> VarLengthString<MAX_LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
@@ -399,6 +401,15 @@ pub struct HostBoundPacket<P: Decode, const ID: u8> {
     ///
     /// Contains data for a given packet that be encoded and sent over serial to the host.
     pub payload: P,
+}
+impl<P: Decode + Debug, const ID: u8> Debug for HostBoundPacket<P, ID> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostBoundPacket")
+            .field("header", &self.header)
+            .field("payload_size", &self.payload_size)
+            .field("payload", &self.payload)
+            .finish()
+    }
 }
 
 impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {

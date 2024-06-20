@@ -1,4 +1,7 @@
-use super::{cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Decode};
+use super::{
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    Decode,
+};
 
 pub struct DeviceStatus {
     /// The value starts from 1. Port 22 is the internal ADI and Port 23 is the battery.
@@ -14,8 +17,7 @@ pub struct DeviceStatus {
     pub boot_version: u16,
 }
 impl Decode for DeviceStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, super::DecodeError>
-       {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, super::DecodeError> {
         let mut data = data.into_iter();
         let port = u8::decode(&mut data)?;
         let device_type = u8::decode(&mut data)?;
@@ -23,7 +25,14 @@ impl Decode for DeviceStatus {
         let beta_version = u8::decode(&mut data)?;
         let version = u16::decode(&mut data)?;
         let boot_version = u16::decode(&mut data)?;
-        Ok(Self { port, device_type, status, beta_version, version, boot_version })
+        Ok(Self {
+            port,
+            device_type,
+            status,
+            beta_version,
+            version,
+            boot_version,
+        })
     }
 }
 

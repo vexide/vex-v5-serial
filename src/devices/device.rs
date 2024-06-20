@@ -10,7 +10,8 @@ use tokio::{
 use tokio_serial::SerialStream;
 
 use crate::{
-    commands::Command, packets::{cdc2::Cdc2Ack, decode_header, Decode, DecodeError, Encode, EncodeError, VarU16}
+    commands::Command,
+    packets::{cdc2::Cdc2Ack, decode_header, Decode, DecodeError, Encode, EncodeError, VarU16},
 };
 
 #[derive(Error, Debug)]
@@ -58,12 +59,11 @@ impl Device {
     }
 
     /// Sends a packet
-    pub async fn send_packet(
-        &mut self,
-        packet: impl Encode,
-    ) -> Result<(), DeviceError> {
+    pub async fn send_packet(&mut self, packet: impl Encode) -> Result<(), DeviceError> {
         // Encode the packet
         let encoded = packet.encode()?;
+
+        println!("Sending packet: {:?}", encoded);
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
@@ -79,10 +79,7 @@ impl Device {
         Ok(())
     }
 
-    pub async fn recieve_packet<P: Decode>(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<P, DeviceError> {
+    pub async fn recieve_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, DeviceError> {
         let time = Instant::now();
         let mut header = [0; 2];
 
@@ -110,7 +107,8 @@ impl Device {
         } else {
             packet.push(first_size_byte);
             VarU16::decode(vec![first_size_byte])?
-        }.into_inner() as usize;
+        }
+        .into_inner() as usize;
 
         // Read the rest of the packet
         let mut payload = vec![0; size];

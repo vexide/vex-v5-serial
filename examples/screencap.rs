@@ -1,5 +1,9 @@
 use vexv5_serial::{
     commands::file::DownloadFile,
+    packets::{
+        file::{FileDownloadTarget, FileVendor},
+        TerminatedFixedLengthString,
+    },
     v5::{FileTransferTarget, FileTransferType, FileTransferVID},
 };
 
@@ -14,10 +18,10 @@ async fn main() {
     // Take a screenshot
     let cap = device
         .execute_command(DownloadFile {
-            filename: "screen".into(),
-            filetype: FileTransferType::Other([0; 3]),
-            vendor: FileTransferVID::System,
-            target: Some(FileTransferTarget::Cbuf),
+            filename: TerminatedFixedLengthString::new("screen".to_string()).unwrap(),
+            filetype: TerminatedFixedLengthString::new("".to_string()).unwrap(),
+            vendor: FileVendor::Sys,
+            target: Some(FileDownloadTarget::Cbuf),
             load_addr: 0,
             size: 512,
             progress_callback: Some(Box::new(|progress| {

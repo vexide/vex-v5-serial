@@ -1,7 +1,8 @@
 //! Factory Control
 
 use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket}, Decode, DecodeError, Encode
+    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    Decode, DecodeError, Encode,
 };
 
 pub struct FdtStatus {
@@ -9,8 +10,7 @@ pub struct FdtStatus {
     pub entries: Vec<Fdt>,
 }
 impl Decode for FdtStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-         {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
         let entries = Vec::decode(&mut data)?;
@@ -52,8 +52,7 @@ pub struct FactoryStatus {
     pub percent: u8,
 }
 impl Decode for FactoryStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-        {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let status = u8::decode(&mut data)?;
         let percent = u8::decode(&mut data)?;
