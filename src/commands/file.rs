@@ -1,17 +1,14 @@
+use std::time::Duration;
+
 use thiserror::Error;
 
 use crate::{
-    protocol::{
-        FileTransferExit, FileTransferInit, FileTransferRead, FileTransferSetLink,
-        FileTransferWrite, Program, ProgramIniConfig, Project,
-    },
-    v5::{
-        FileTransferComplete, FileTransferFunction, FileTransferOptions, FileTransferTarget,
-        FileTransferType, FileTransferVID, V5FirmwareVersion,
-    },
+    devices::device::{Device, DeviceError}, packets::{cdc2::Cdc2CommandPayload, file::{ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion, FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket, InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload, LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket, WriteFilePayload, WriteFileReplyPacket}, TerminatedFixedLengthString}, protocol::{
+        Program, ProgramIniConfig, Project,
+    }
 };
 
-use super::{encode_string, j2000_timestamp, Command};
+use super::{Command};
 
 #[derive(Error, Debug)]
 pub enum UploadFileError {
@@ -25,58 +22,45 @@ pub const COLD_START: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
-    pub filename: String,
-    pub filetype: FileTransferType,
+    pub filename: TerminatedFixedLengthString<23>,
+    pub filetype: TerminatedFixedLengthString<3>,
     pub size: u32,
-    pub vendor: FileTransferVID,
-    pub target: Option<FileTransferTarget>,
+    pub vendor: FileVendor,
+    pub target: Option<FileDownloadTarget>,
     pub load_addr: u32,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
 impl Command for DownloadFile {
-    type Error = UploadFileError;
-
-    type Response = Vec<u8>;
+    type Output = Vec<u8>;
 
     async fn execute(
         &mut self,
         device: &mut crate::devices::device::Device,
-    ) -> Result<Self::Response, Self::Error> {
-        let target = self.target.unwrap_or_default();
-        let filename = encode_string::<24>(&self.filename)?;
-        let length = filename.len();
-        let mut string_bytes = [0; 24];
-        string_bytes[..length].copy_from_slice(self.filename.as_bytes());
+    ) -> Result<Self::Output, DeviceError> {
+        let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
-        let transfer_response = device
-            .send_packet_request(FileTransferInit {
-                function: FileTransferFunction::Download,
-                target,
-                vid: self.vendor,
-                options: FileTransferOptions::empty(),
-                file_type: self.filetype,
-                length: self.size,
-                addr: self.load_addr,
-                crc: 0,
-                timestamp: j2000_timestamp(),
-                version: V5FirmwareVersion {
-                    major: 1,
-                    minor: 0,
-                    build: 0,
-                    beta: 0,
-                },
-                name: string_bytes,
-            })
-            .await?;
+        device.send_packet(InitFileTransferPacket::new(Cdc2CommandPayload::new(InitFileTransferPayload {
+            operation: FileInitAction::Read,
+            target,
+            vendor: self.vendor,
+            options: FileInitOption::None,
+            write_file_size: self.size,
+            load_address: self.load_addr,
+            write_file_crc: 0,
+            file_extension: self.filetype.clone(),
+            file_name: self.filename.clone(),
+        }))).await?;
+        let transfer_response = device.recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100)).await?;
+        let transfer_response = transfer_response.payload.try_into_inner()?;
 
         println!("File size: {}", transfer_response.file_size);
-        println!("Max packet size: {}", transfer_response.max_packet_size);
+        println!("Max packet size: {}", transfer_response.window_size);
 
-        let max_chunk_size = if transfer_response.max_packet_size > 0
-            && transfer_response.max_packet_size <= USER_PROGRAM_CHUNK_SIZE
+        let max_chunk_size = if transfer_response.window_size > 0
+            && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
         {
-            transfer_response.max_packet_size
+            transfer_response.window_size
         } else {
             USER_PROGRAM_CHUNK_SIZE
         };
@@ -84,14 +68,16 @@ impl Command for DownloadFile {
         let mut data = Vec::with_capacity(transfer_response.file_size as usize);
         let mut offset = 0;
         loop {
-            let read = device
-                .send_packet_request(FileTransferRead(self.load_addr + offset, max_chunk_size))
-                .await?;
-            offset += read.len() as u32;
-            println!("Read {} bytes", read.len());
+            device.send_packet(ReadFilePacket::new(Cdc2CommandPayload::new(ReadFilePayload {
+                address: self.load_addr + offset,
+                size: max_chunk_size,
+            }))).await?;
+            let read = device.recieve_packet::<ReadFileReplyPacket>(Duration::from_millis(100)).await?;
+            let read = read.payload.try_into_inner()?;
+            offset += read.chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
-            data.extend(read);
+            data.extend(read.chunk_data);
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
             }
@@ -105,77 +91,56 @@ impl Command for DownloadFile {
 }
 
 pub struct LinkedFile {
-    pub filename: String,
-    pub vendor: Option<FileTransferVID>,
+    pub filename: TerminatedFixedLengthString<23>,
+    pub vendor: Option<FileVendor>,
 }
 
 pub struct UploadFile {
-    pub filename: String,
-    pub filetype: FileTransferType,
-    pub vendor: Option<FileTransferVID>,
+    pub filename: TerminatedFixedLengthString<23>,
+    pub filetype: TerminatedFixedLengthString<3>,
+    pub vendor: Option<FileVendor>,
     pub data: Vec<u8>,
-    pub target: Option<FileTransferTarget>,
+    pub target: Option<FileDownloadTarget>,
     pub load_addr: u32,
     pub linked_file: Option<LinkedFile>,
-    pub after_upload: FileTransferComplete,
+    pub after_upload: FileExitAtion,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
 impl Command for UploadFile {
-    type Error = UploadFileError;
-    type Response = ();
+    type Output = ();
     async fn execute(
         &mut self,
         device: &mut crate::devices::device::Device,
-    ) -> Result<Self::Response, Self::Error> {
-        let vendor = self.vendor.unwrap_or_default();
-        let target = self.target.unwrap_or_default();
+    ) -> Result<Self::Output, DeviceError> {
+        let vendor = self.vendor.unwrap_or(FileVendor::User);
+        let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
         let crc = crc::Crc::<u32>::new(&crate::VEX_CRC32).checksum(&self.data);
 
-        let filename = encode_string::<24>(&self.filename)?;
-        let length = filename.len();
-        let mut string_bytes = [0; 24];
-        string_bytes[..length].copy_from_slice(self.filename.as_bytes());
-
-        let transfer_response = device
-            .send_packet_request(FileTransferInit {
-                function: FileTransferFunction::Upload,
-                target,
-                vid: vendor,
-                options: FileTransferOptions::OVERWRITE,
-                file_type: self.filetype,
-                length: self.data.len() as _,
-                addr: self.load_addr,
-                crc,
-                timestamp: j2000_timestamp(),
-                version: V5FirmwareVersion {
-                    major: 1,
-                    minor: 0,
-                    build: 0,
-                    beta: 0,
-                },
-                name: string_bytes,
-            })
-            .await?;
+        device.send_packet(InitFileTransferPacket::new(Cdc2CommandPayload::new(InitFileTransferPayload {
+            operation: FileInitAction::Write,
+            target,
+            vendor,
+            options: FileInitOption::None,
+            write_file_size: self.data.len() as u32,
+            load_address: self.load_addr,
+            write_file_crc: crc,
+            file_extension: self.filetype.clone(),
+            file_name: self.filename.clone(),
+        }))).await?;
+        let transfer_response = device.recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100)).await?;
+        let transfer_response = transfer_response.payload.try_into_inner()?;
 
         if let Some(linked_file) = &self.linked_file {
-            let linked_filename = encode_string::<24>(linked_file.filename.as_str())?;
-            let mut string_bytes = [0; 24];
-            string_bytes[..linked_filename.len()].copy_from_slice(self.filename.as_bytes());
-            device
-                .send_packet_request(FileTransferSetLink(
-                    string_bytes,
-                    linked_file.vendor.unwrap_or_default(),
-                    FileTransferOptions::OVERWRITE,
-                ))
-                .await?;
+            device.send_packet(LinkFilePacket::new(Cdc2CommandPayload::new(LinkFilePayload { vendor: linked_file.vendor.unwrap_or(FileVendor::User), option: 0, required_file: linked_file.filename.clone() }))).await?;
+            device.recieve_packet::<LinkFileReplyPacket>(Duration::from_millis(100)).await?;
         }
 
-        let max_chunk_size = if transfer_response.max_packet_size > 0
-            && transfer_response.max_packet_size <= USER_PROGRAM_CHUNK_SIZE
+        let max_chunk_size = if transfer_response.window_size > 0
+            && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
         {
-            transfer_response.max_packet_size
+            transfer_response.window_size
         } else {
             USER_PROGRAM_CHUNK_SIZE
         };
@@ -186,18 +151,19 @@ impl Command for UploadFile {
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
             }
-            device
-                .send_packet_request(FileTransferWrite(self.load_addr + offset, chunk))
-                .await?;
+            device.send_packet(WriteFilePacket::new(Cdc2CommandPayload::new(WriteFilePayload {
+                address: (self.load_addr + offset) as _,
+                chunk_data: chunk.to_vec(),
+            }))).await?;
+            device.recieve_packet::<WriteFileReplyPacket>(Duration::from_millis(100)).await?;
             offset += chunk.len() as u32;
         }
         if let Some(callback) = &mut self.progress_callback {
             callback(100.0);
         }
 
-        device
-            .send_packet_request(FileTransferExit(self.after_upload))
-            .await?;
+        device.send_packet(ExitFileTransferPacket::new(Cdc2CommandPayload::new(self.after_upload))).await?;
+        device.recieve_packet::<ExitFileTransferReplyPacket>(Duration::from_millis(100)).await?;
 
         Ok(())
     }
@@ -217,16 +183,15 @@ pub struct UploadProgram {
     /// 0-indexed slot
     pub slot: u8,
     pub data: ProgramData,
-    pub after_upload: FileTransferComplete,
+    pub after_upload: FileExitAtion,
 }
 impl Command for UploadProgram {
-    type Error = UploadFileError;
-    type Response = ();
+    type Output = ();
 
     async fn execute(
         &mut self,
-        device: &mut crate::devices::device::Device,
-    ) -> Result<Self::Response, Self::Error> {
+        device: &mut Device,
+    ) -> Result<Self::Output, DeviceError> {
         let base_file_name = format!("slot{}", self.slot);
 
         let ini = ProgramIniConfig {
@@ -244,14 +209,14 @@ impl Command for UploadProgram {
         let ini = serde_ini::to_vec(&ini).unwrap();
 
         let file_transfer = UploadFile {
-            filename: format!("{}.ini", base_file_name),
-            filetype: FileTransferType::Ini,
+            filename: TerminatedFixedLengthString::new(format!("{}.ini", base_file_name))?,
+            filetype: TerminatedFixedLengthString::new("ini".to_string())?,
             vendor: None,
             data: ini,
             target: None,
             load_addr: COLD_START,
             linked_file: None,
-            after_upload: FileTransferComplete::Halt,
+            after_upload: FileExitAtion::Halt,
             progress_callback: None,
         };
         device.execute_command(file_transfer).await.unwrap();
@@ -264,16 +229,16 @@ impl Command for UploadProgram {
 
         if let Some(cold) = cold {
             let after_upload = if hot.is_some() {
-                FileTransferComplete::Halt
+                FileExitAtion::Halt
             } else {
                 self.after_upload
             };
 
             device
                 .execute_command(UploadFile {
-                    filename: format!("{}.bin", base_file_name),
-                    filetype: FileTransferType::Bin,
-                    vendor: Some(FileTransferVID::User),
+                    filename: TerminatedFixedLengthString::new(format!("{}.bin", base_file_name))?,
+                    filetype: TerminatedFixedLengthString::new("bin".to_string())?,
+                    vendor: None,
                     data: cold.clone(),
                     target: None,
                     load_addr: COLD_START,
@@ -288,13 +253,13 @@ impl Command for UploadProgram {
 
         if let Some(hot) = hot {
             let linked_file = Some(LinkedFile {
-                filename: format!("{}_lib.bin", base_file_name),
-                vendor: Some(FileTransferVID::User),
+                filename: TerminatedFixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
+                vendor: None,
             });
             device
                 .execute_command(UploadFile {
-                    filename: format!("{}.bin", base_file_name),
-                    filetype: FileTransferType::Bin,
+                    filename: TerminatedFixedLengthString::new(format!("{}.bin", base_file_name))?,
+                    filetype: TerminatedFixedLengthString::new("bin".to_string())?,
                     vendor: None,
                     data: hot.clone(),
                     target: None,

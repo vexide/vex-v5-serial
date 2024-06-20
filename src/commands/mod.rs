@@ -1,13 +1,12 @@
 use thiserror::Error;
 
-use crate::{devices::device::Device, v5::J2000_EPOCH};
+use crate::{devices::device::{Device, DeviceError}};
 
 pub mod file;
 
 pub trait Command {
-    type Error;
-    type Response;
-    async fn execute(&mut self, device: &mut Device) -> Result<Self::Response, Self::Error>;
+    type Output;
+    async fn execute(&mut self, device: &mut Device) -> Result<Self::Output, DeviceError>;
 }
 
 #[derive(Error, Debug)]
@@ -27,6 +26,3 @@ pub(crate) fn encode_string<const MAX_LENGTH: u8>(
     }
 }
 
-pub(crate) fn j2000_timestamp() -> u32 {
-    (chrono::Utc::now().timestamp() - J2000_EPOCH as i64) as u32
-}

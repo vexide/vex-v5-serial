@@ -1,3 +1,5 @@
+use crate::devices::device::DeviceError;
+
 use super::{Decode, DecodeError, DeviceBoundPacket, Encode, EncodeError, HostBoundPacket};
 
 #[repr(u8)]
@@ -92,6 +94,15 @@ pub struct Cdc2CommandPayload<const ID: u8, P: Encode> {
     pub payload: P,
     pub crc: crc::Crc<u32>,
 }
+impl<const ID: u8, P: Encode> Cdc2CommandPayload<ID, P> {
+    pub fn new(payload: P) -> Self {
+        Self {
+            payload,
+            crc: crc::Crc::<u32>::new(&crate::VEX_CRC32),
+        }
+    }
+}
+
 impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
@@ -113,6 +124,15 @@ pub struct Cdc2CommandReplyPayload<const ID: u8, P: Decode> {
     pub data: P,
     pub crc: u32,
 }
+impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
+    pub fn try_into_inner(self) -> Result<P, DeviceError> {
+        if let Cdc2Ack::Ack = self.ack {
+            Ok(self.data)
+        } else {
+            Err(DeviceError::Nack(self.ack))
+        }
+    }
+}
 impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
@@ -120,6 +140,10 @@ impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
         let data_ = P::decode(&mut data)?;
         let crc = u32::decode(&mut data)?;
 
-        Ok(Self { ack, data: data_, crc })
+        Ok(Self {
+            ack,
+            data: data_,
+            crc,
+        })
     }
 }

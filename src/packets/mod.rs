@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::v5::J2000_EPOCH;
 
+
 pub mod capture;
 pub mod cdc;
 pub mod cdc2;
@@ -29,6 +30,13 @@ impl VarU16 {
             panic!("Value too large for variable length u16");
         }
         Self(val)
+    }
+    pub fn into_inner(self) -> u16 {
+        self.0
+    }
+    /// Check if the variable length u16 will be wide from the first byte.
+    pub(crate) fn check_wide(first: u8) -> bool {
+        first > (u8::MAX >> 1) as _
     }
 }
 impl Encode for VarU16 {
@@ -146,6 +154,7 @@ impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
 }
 /// A null-terminated fixed length string.
 /// Once encoded, the size will be `LEN + 1` bytes.
+#[derive(Debug, Clone)]
 pub struct TerminatedFixedLengthString<const LEN: usize>(String);
 impl<const LEN: usize> TerminatedFixedLengthString<LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
@@ -364,6 +373,15 @@ impl<P: Encode, const ID: u8> DeviceBoundPacket<P, ID> {
     }
 }
 
+pub(crate) fn decode_header(data: impl IntoIterator<Item = u8>) -> Result<[u8; 2], DecodeError> {
+    let mut data = data.into_iter();
+    let header = Decode::decode(&mut data)?;
+    if header != [0xAA, 0x55] {
+        return Err(DecodeError::InvalidHeader);
+    }
+    Ok(header)
+}
+
 /// Host-bound Communications Packet
 ///
 /// This structure encodes a data payload and ID that is intended to be sent from
@@ -373,14 +391,14 @@ pub struct HostBoundPacket<P: Decode, const ID: u8> {
     /// Host-bound Packet Header
     ///
     /// This must be `Self::HEADER` or `[0xAA, 0x55]`.
-    header: [u8; 2],
+    pub header: [u8; 2],
 
     /// Packet Payload Size
-    payload_size: VarU16,
+    pub payload_size: VarU16,
     /// Packet Payload
     ///
     /// Contains data for a given packet that be encoded and sent over serial to the host.
-    payload: P,
+    pub payload: P,
 }
 
 impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {

@@ -154,7 +154,7 @@ pub type GetSystemStatusPacket = Cdc2CommandPacket<0x56, 0x22, ()>;
 pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
 
 pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
-pub type GetSystemVersionReplyPacket = CdcCommandPacket<0xA4, Version>;
+pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, Version>;
 
 #[repr(u8)]
 pub enum ProductType {

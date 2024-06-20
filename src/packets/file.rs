@@ -86,7 +86,7 @@ pub type InitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x11, InitFileTrans
 pub struct InitFileTransferPayload {
     pub operation: FileInitAction,
     pub target: FileDownloadTarget,
-    pub vendor: u8,
+    pub vendor: FileVendor,
     pub options: FileInitOption,
     pub write_file_size: u32,
     pub load_address: u32,
@@ -100,7 +100,7 @@ impl Encode for InitFileTransferPayload {
         let mut encoded = vec![
             self.operation as _,
             self.target as _,
-            self.vendor,
+            self.vendor as _,
             self.options as _,
         ];
         encoded.extend(self.write_file_size.to_le_bytes());
