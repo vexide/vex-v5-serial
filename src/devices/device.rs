@@ -63,7 +63,7 @@ impl Device {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        println!("Sending packet: {:?}", encoded);
+        println!("Sending packet: {:x?}", encoded);
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
@@ -97,10 +97,13 @@ impl Device {
 
         // Start to accumulate header/metadata bits
         let mut packet = Vec::from(header);
+        // Add the command id
+        packet.push(self.system_port.read_u8().await?);
 
         // Get the length of the packet payload
         let first_size_byte = self.system_port.read_u8().await?;
-        let size = if VarU16::check_wide(first_size_byte) {
+        let mut size = if VarU16::check_wide(first_size_byte) {
+            println!("Wide size byte");
             let second_size_byte = self.system_port.read_u8().await?;
             packet.extend([first_size_byte, second_size_byte]);
             VarU16::decode(vec![first_size_byte, second_size_byte])?
@@ -110,10 +113,15 @@ impl Device {
         }
         .into_inner() as usize;
 
+        if P::extended() {
+            size += 0;
+        }
+
         // Read the rest of the packet
         let mut payload = vec![0; size];
         self.system_port.read_exact(&mut payload).await?;
         packet.extend(payload);
+        println!("Recieved packet: {:x?}", packet);
 
         // Decode the packet
         P::decode(packet).map_err(Into::into)

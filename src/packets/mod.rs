@@ -253,6 +253,8 @@ pub enum DecodeError {
     PacketTooShort,
     #[error("Invalid response header")]
     InvalidHeader,
+    #[error("Invalid ID in response header")]
+    InvalidId,
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
     #[error("String contained invalid UTF-8: {0}")]
@@ -265,6 +267,10 @@ pub trait Decode {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
     where
         Self: Sized;
+
+    fn extended() -> bool {
+        false
+    }
 }
 impl Decode for () {
     fn decode(_data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
@@ -353,10 +359,6 @@ impl<P: Encode, const ID: u8> Encode for DeviceBoundPacket<P, ID> {
         let mut encoded = Vec::new();
         encoded.extend_from_slice(&self.header);
         encoded.push(ID);
-
-        let size = VarU16::new(self.payload.encode()?.len() as u16);
-        encoded.extend(size.encode()?);
-
         encoded.extend_from_slice(&self.payload.encode()?);
         Ok(encoded)
     }
@@ -423,6 +425,10 @@ impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
         if header != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
+        let id = u8::decode(&mut data)?;
+        if id != ID {
+            return Err(DecodeError::InvalidHeader);
+        }
         let payload_size = VarU16::decode(&mut data)?;
         let payload = P::decode(data)?;
 
@@ -431,6 +437,9 @@ impl<P: Decode, const ID: u8> Decode for HostBoundPacket<P, ID> {
             payload_size,
             payload,
         })
+    }
+    fn extended() -> bool {
+        P::extended()
     }
 }
 

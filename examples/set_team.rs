@@ -28,7 +28,7 @@ async fn main() {
         .await
         .unwrap();
     device
-        .recieve_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(10000))
+        .recieve_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
         .await
         .unwrap();
 

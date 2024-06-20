@@ -1,6 +1,8 @@
+use std::mem::size_of;
+
 use crate::devices::device::DeviceError;
 
-use super::{Decode, DecodeError, DeviceBoundPacket, Encode, EncodeError, HostBoundPacket};
+use super::{Decode, DecodeError, DeviceBoundPacket, Encode, EncodeError, HostBoundPacket, VarU16};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -105,10 +107,12 @@ impl<const ID: u8, P: Encode> Cdc2CommandPayload<ID, P> {
 
 impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
+        let mut encoded = vec![ID];
         let payload_bytes = self.payload.encode()?;
+        let size = VarU16::new(payload_bytes.len() as _);
         let hash = self.crc.checksum(&payload_bytes);
 
+        encoded.extend(size.encode()?);
         encoded.extend(payload_bytes);
         encoded.extend_from_slice(&hash.to_be_bytes());
 
@@ -136,14 +140,25 @@ impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
 impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
+        let id = u8::decode(&mut data)?;
+        if id != ID {
+            return Err(DecodeError::UnexpectedValue);
+        }
         let ack = Cdc2Ack::decode(&mut data)?;
         let data_ = P::decode(&mut data)?;
-        let crc = u32::decode(&mut data)?;
+        let crc = if size_of::<P>() > 0 {
+            u32::decode(&mut data)?
+        } else {
+            0
+        };
 
         Ok(Self {
             ack,
             data: data_,
             crc,
         })
+    }
+    fn extended() -> bool {
+        true
     }
 }
