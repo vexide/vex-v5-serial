@@ -6,3 +6,5 @@ This project provides a partial Rust implementation of the serial communications
 
 > [!NOTE]  
 > This information is derived from [PROS-CLI](https://github.com/purduesigbots/pros-cli) as well as JerryLum's reverse engineering efforts in [v5-serial-protocol](https://github.com/lemlib/v5-serial-protocol).
+
+This project is a fork of some prior work done by the [vexv5-serial](https://github.com/vexrs/vexv5_serial) project, but virtually everything except for device port finding has been rewritten from the ground up.
