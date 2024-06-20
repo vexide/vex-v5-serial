@@ -1,6 +1,7 @@
-use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Decode, Encode,
+use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use crate::{
+    encode::{Encode, EncodeError},
+    decode::{Decode, DecodeError},
 };
 
 pub struct Log {
@@ -28,7 +29,7 @@ pub struct GetLogCountReplyPayload {
     pub count: u32,
 }
 impl Decode for GetLogCountReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, super::DecodeError> {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let unknown = u8::decode(&mut data)?;
         let count = u32::decode(&mut data)?;
@@ -45,7 +46,7 @@ pub struct ReadLogPagePayload {
     pub count: u32,
 }
 impl Encode for ReadLogPagePayload {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
         encoded.extend(self.offset.to_le_bytes());
         encoded.extend(self.count.to_le_bytes());

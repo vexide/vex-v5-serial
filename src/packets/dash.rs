@@ -1,7 +1,5 @@
-use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Encode,
-};
+use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use crate::encode::{Encode, EncodeError};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -54,7 +52,7 @@ pub struct SendDashTouchPayload {
     pub pressing: u16,
 }
 impl Encode for SendDashTouchPayload {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
         encoded.extend(self.x.to_le_bytes());
         encoded.extend(self.y.to_le_bytes());
@@ -72,7 +70,7 @@ pub struct SelectDashPayload {
     pub port: u8,
 }
 impl Encode for SelectDashPayload {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(vec![self.screen as u8, self.port])
     }
 }

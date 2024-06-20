@@ -1,7 +1,10 @@
 use super::{
     cdc::{CdcCommandPacket, CdcReplyPacket},
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Decode, DecodeError, Version,
+};
+use crate::{
+    decode::{Decode, DecodeError},
+    version::Version,
 };
 use bitflags::bitflags;
 

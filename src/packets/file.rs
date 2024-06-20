@@ -3,8 +3,8 @@
 use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use super::{
-    j2000_timestamp, Decode, DecodeError, Encode, EncodeError, TerminatedFixedLengthString, Version,
+use crate::{
+    decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::TerminatedFixedLengthString, timestamp::j2000_timestamp, version::Version
 };
 
 #[repr(u8)]

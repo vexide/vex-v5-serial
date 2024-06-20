@@ -2,7 +2,11 @@
 
 use thiserror::Error;
 
-use crate::packets::{cdc2::Cdc2Ack, DecodeError, EncodeError};
+use crate::{
+    packets::cdc2::Cdc2Ack,
+    encode::EncodeError,
+    decode::DecodeError,
+};
 
 pub mod bluetoothv5;
 pub mod device;

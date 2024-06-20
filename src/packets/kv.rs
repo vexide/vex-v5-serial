@@ -1,8 +1,9 @@
 //! Global key-value store.
 
-use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Encode, TerminatedFixedLengthString, VarLengthString,
+use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use crate::{
+    encode::{Encode, EncodeError},
+    string::{TerminatedFixedLengthString, VarLengthString},
 };
 
 pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2e, TerminatedFixedLengthString<31>>;
@@ -16,7 +17,7 @@ pub struct WriteKeyValuePayload {
     pub value: VarLengthString<255>,
 }
 impl Encode for WriteKeyValuePayload {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
 
         encoded.extend(self.key.encode()?);

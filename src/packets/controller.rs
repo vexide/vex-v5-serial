@@ -1,7 +1,5 @@
-use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Encode,
-};
+use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use crate::encode::{Encode, EncodeError};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -16,7 +14,7 @@ pub enum ControllerChannel {
     Download = 0x01,
 }
 impl Encode for ControllerChannel {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(vec![*self as u8])
     }
 }

@@ -13,8 +13,9 @@ use crate::{
             LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket,
             WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
         },
-        TerminatedFixedLengthString,
     },
+    string::TerminatedFixedLengthString,
+    crc::VEX_CRC32,
 };
 
 use super::Command;
@@ -129,7 +130,7 @@ impl Command for UploadFile {
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
-        let crc = crc::Crc::<u32>::new(&crate::VEX_CRC32).checksum(&self.data);
+        let crc = crc::Crc::<u32>::new(&VEX_CRC32).checksum(&self.data);
 
         device
             .send_packet(InitFileTransferPacket::new(Cdc2CommandPayload::new(

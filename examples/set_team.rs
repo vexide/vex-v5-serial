@@ -1,12 +1,12 @@
 use std::time::Duration;
 
+use vexv5_serial::string::{TerminatedFixedLengthString, VarLengthString};
 use vexv5_serial::packets::{
     cdc2::Cdc2CommandPayload,
     kv::{
         ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
         WriteKeyValueReplyPacket,
     },
-    TerminatedFixedLengthString, VarLengthString,
 };
 
 #[tokio::main]

@@ -1,9 +1,7 @@
 use vexv5_serial::{
     commands::file::DownloadFile,
-    packets::{
-        file::{FileDownloadTarget, FileVendor},
-        TerminatedFixedLengthString,
-    },
+    string::TerminatedFixedLengthString,
+    packets::file::{FileDownloadTarget, FileVendor},
 };
 
 #[tokio::main]

@@ -1,8 +1,9 @@
 //! Factory Control
 
-use super::{
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
-    Decode, DecodeError, Encode,
+use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use crate::{
+    encode::{Encode, EncodeError},
+    decode::{Decode, DecodeError}
 };
 
 pub struct FdtStatus {
@@ -71,7 +72,7 @@ pub type FactoryEnableReplyPacket = Cdc2CommandPacket<0x56, 0xFF, ()>;
 
 pub struct FactoryEnablePayload(pub [u8; 4]);
 impl Encode for FactoryEnablePayload {
-    fn encode(&self) -> Result<Vec<u8>, super::EncodeError> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(self.0.to_vec())
     }
 }
