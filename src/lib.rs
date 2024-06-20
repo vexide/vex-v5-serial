@@ -38,3 +38,4 @@ pub mod string;
 pub mod timestamp;
 pub mod varint;
 pub mod version;
+pub mod array;

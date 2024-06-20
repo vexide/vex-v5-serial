@@ -2,19 +2,18 @@
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    encode::{Encode, EncodeError},
-    decode::{Decode, DecodeError}
+    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}
 };
 
 pub struct FdtStatus {
     pub count: u8,
-    pub entries: Vec<Fdt>,
+    pub entries: Array<Fdt>,
 }
 impl Decode for FdtStatus {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
-        let entries = Vec::decode(&mut data)?;
+        let entries = Array::decode_with_len(&mut data, count as _)?;
         Ok(Self { count, entries })
     }
 }

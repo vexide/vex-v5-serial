@@ -1,7 +1,8 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    encode::{Encode, EncodeError},
+    array::Array,
     decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
 };
 
 pub struct Log {
@@ -19,6 +20,23 @@ pub struct Log {
 
     /// How long (in milliseconds) after the brain powered on
     pub time: u16,
+}
+impl Decode for Log {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let code = u8::decode(&mut data)?;
+        let log_type = u8::decode(&mut data)?;
+        let description = u8::decode(&mut data)?;
+        let spare = u8::decode(&mut data)?;
+        let time = u16::decode(&mut data)?;
+        Ok(Self {
+            code,
+            log_type,
+            description,
+            spare,
+            time,
+        })
+    }
 }
 
 pub type GetLogCountPacket = Cdc2CommandPacket<0x56, 0x24, ()>;
@@ -59,5 +77,18 @@ pub struct ReadLogPageReplyPayload {
     pub offset: u32,
     /// Number of elements in the following array.
     pub count: u32,
-    pub entries: Vec<Log>,
+    pub entries: Array<Log>,
+}
+impl Decode for ReadLogPageReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let offset = u32::decode(&mut data)?;
+        let count = u32::decode(&mut data)?;
+        let entries = Array::decode_with_len(&mut data, count as _)?;
+        Ok(Self {
+            offset,
+            count,
+            entries,
+        })
+    }
 }

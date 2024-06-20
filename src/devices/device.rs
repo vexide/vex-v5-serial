@@ -99,6 +99,9 @@ impl Device {
         }
         .into_inner() as usize;
 
+        println!("Size: {}", size);
+        println!("Packet: {:x?}", packet);
+
         // Read the rest of the packet
         let mut payload = vec![0; size];
         self.system_port.read_exact(&mut payload).await?;

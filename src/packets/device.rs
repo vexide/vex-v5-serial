@@ -1,5 +1,5 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::decode::{Decode, DecodeError};
+use crate::{array::Array, decode::{Decode, DecodeError}};
 
 pub struct DeviceStatus {
     /// The value starts from 1. Port 22 is the internal ADI and Port 23 is the battery.
@@ -40,13 +40,13 @@ pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x21, GetDeviceStatu
 pub struct GetDeviceStatusReplyPayload {
     /// Number of elements in the following array.
     pub count: u8,
-    pub devices: Vec<DeviceStatus>,
+    pub devices: Array<DeviceStatus>,
 }
 impl Decode for GetDeviceStatusReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
-        let devices = Vec::decode(&mut data)?;
+        let devices = Array::decode_with_len(&mut data, count as _)?;
         Ok(Self { count, devices })
     }
 }

@@ -75,13 +75,3 @@ impl<D: Decode, const N: usize> Decode for [D; N] {
         std::array::try_from_fn(move |_| D::decode(&mut data))
     }
 }
-impl<D: Decode> Decode for Vec<D> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let mut decoded = vec![];
-        while let Ok(d) = D::decode(&mut data) {
-            decoded.push(d);
-        }
-        Ok(decoded)
-    }
-}

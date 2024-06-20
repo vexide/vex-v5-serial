@@ -4,7 +4,7 @@ use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, timestamp::j2000_timestamp, version::Version
+    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, timestamp::j2000_timestamp, version::Version
 };
 
 #[repr(u8)]
@@ -212,16 +212,29 @@ pub struct ReadFileReplyPayload {
     pub address: u32,
 
     /// The data from the brain
-    pub chunk_data: Vec<u8>,
+    pub chunk_data: Array<u8>,
 }
 impl Decode for ReadFileReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
     where
         Self: Sized,
     {
-        let mut data = data.into_iter();
+        let data = data.into_iter();
+
+        // This is a cursed way to get the number of bytes in chunk_data.
+        let data_vec = data.collect::<Vec<_>>();
+        // The last two bytes are the CRC checksum.
+        let num_bytes = data_vec.len() - 2;
+
+        fn eraser(vec: Vec<u8>) -> impl IntoIterator<Item = u8> + Iterator<Item = u8> {
+            vec.into_iter()
+        }
+        let mut data = eraser(data_vec);
+
+
         let address = u32::decode(&mut data)?;
-        let chunk_data = Vec::decode(&mut data)?;
+        
+        let chunk_data = Array::decode_with_len(&mut data, num_bytes)?;
 
         Ok(Self {
             address,
