@@ -88,10 +88,11 @@ impl Command for DownloadFile {
                 .recieve_packet::<ReadFileReplyPacket>(Duration::from_millis(100))
                 .await?;
             let read = read.payload.try_into_inner()?;
-            offset += read.chunk_data.len() as u32;
+            let chunk_data = read.chunk_data.into_inner();
+            offset += chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
-            data.extend(read.chunk_data);
+            data.extend(chunk_data);
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
             }
