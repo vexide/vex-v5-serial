@@ -219,11 +219,13 @@ impl Encode for ReadFilePayload {
 pub enum ReadFileReplyContents {
     Failure {
         nack: Cdc2Ack,
+        crc: u16,
     },
     Success {
         /// Memory address to read from.
         address: u32,
         data: Array<u8>,
+        crc: u16,
     },
 }
 impl Decode for ReadFileReplyContents {
@@ -231,6 +233,7 @@ impl Decode for ReadFileReplyContents {
         struct Success {
             address: u32,
             data: Array<u8>,
+            crc: u16,
         }
         impl Decode for Success {
             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
@@ -241,22 +244,27 @@ impl Decode for ReadFileReplyContents {
                 let data_vec = data.collect::<Vec<_>>();
                 // The last two bytes are the CRC checksum.
                 let num_bytes = data_vec.len() - 2;
-                let data = data_vec.into_iter();
+                let mut data = data_vec.into_iter();
 
-                let chunk_data = Array::decode_with_len(data, num_bytes)?;
+                let chunk_data = Array::decode_with_len(&mut data, num_bytes)?;
+                let crc = u16::decode(&mut data)?.swap_bytes();
                 Ok(Self {
                     address,
                     data: chunk_data,
+                    crc,
                 })
             }
         }
         struct Failure {
             nack: Cdc2Ack,
+            crc: u16,
         }
         impl Decode for Failure {
             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-                let nack = Cdc2Ack::decode(data)?;
-                Ok(Self { nack })
+                let mut data = data.into_iter();
+                let nack = Cdc2Ack::decode(&mut data)?;
+                let crc = u16::decode(&mut data)?.swap_bytes();
+                Ok(Self { nack, crc })
             }
         }
 
@@ -265,15 +273,18 @@ impl Decode for ReadFileReplyContents {
             PrefferedChoice::Left(success) => Self::Success {
                 address: success.address,
                 data: success.data,
+                crc: success.crc,
             },
-            PrefferedChoice::Right(failure) => Self::Failure { nack: failure.nack },
+            PrefferedChoice::Right(failure) => Self::Failure {
+                nack: failure.nack,
+                crc: failure.crc,
+            },
         })
     }
 }
 
 pub struct ReadFileReplyPayload {
     pub contents: ReadFileReplyContents,
-    pub crc: u16,
 }
 impl Decode for ReadFileReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
@@ -286,17 +297,14 @@ impl Decode for ReadFileReplyPayload {
             return Err(DecodeError::UnexpectedValue);
         }
         let contents = ReadFileReplyContents::decode(&mut data)?;
-        // the checksum is in big endian.
-        let crc = u16::decode(&mut data)?.swap_bytes();
-
-        Ok(Self { contents, crc })
+        Ok(Self { contents })
     }
 }
 impl ReadFileReplyPayload {
     pub fn unwrap(self) -> Result<(u32, Array<u8>), Cdc2Ack> {
         match self.contents {
-            ReadFileReplyContents::Success { address, data } => Ok((address, data)),
-            ReadFileReplyContents::Failure { nack } => Err(nack),
+            ReadFileReplyContents::Success { address, data, crc: _ } => Ok((address, data)),
+            ReadFileReplyContents::Failure { nack, crc: _ } => Err(nack),
         }
     }
 }

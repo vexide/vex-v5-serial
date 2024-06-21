@@ -66,9 +66,6 @@ impl Command for DownloadFile {
             .await?;
         let transfer_response = transfer_response.payload.try_into_inner()?;
 
-        println!("File size: {}", transfer_response.file_size);
-        println!("Max packet size: {}", transfer_response.window_size);
-
         let max_chunk_size = if transfer_response.window_size > 0
             && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
         {

@@ -77,8 +77,6 @@ impl Device {
             _ = sleep_until(time + timeout) => Err(DeviceError::Timeout)
         }?;
 
-        println!("Recieved header: {:x?}", header);
-
         // Verify that the header is correct
         decode_header(header)?;
 
@@ -90,7 +88,6 @@ impl Device {
         // Get the length of the packet payload
         let first_size_byte = self.system_port.read_u8().await?;
         let size = if VarU16::check_wide(first_size_byte) {
-            println!("Wide size byte");
             let second_size_byte = self.system_port.read_u8().await?;
             packet.extend([first_size_byte, second_size_byte]);
             VarU16::decode(vec![first_size_byte, second_size_byte])?
@@ -100,13 +97,10 @@ impl Device {
         }
         .into_inner() as usize;
 
-        println!("Packet size: {} from {:x?}", size, packet);
-
         // Read the rest of the packet
         let mut payload = vec![0; size];
         self.system_port.read_exact(&mut payload).await?;
         packet.extend(payload);
-        println!("Recieved packet: {:x?}", packet);
 
         // Decode the packet
         P::decode(packet).map_err(Into::into)

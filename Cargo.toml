@@ -20,6 +20,9 @@ chrono = "0.4.38"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_ini = "0.2.0"
 
+[dev-dependencies]
+image = "0.25.1"
+
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
 [patch.crates-io]
 mio-serial = { git="https://github.com/berkowski/mio-serial.git" }

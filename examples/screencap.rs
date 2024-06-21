@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use image::{GenericImageView, RgbImage};
 use vexv5_serial::{
     commands::file::DownloadFile,
     packets::{
@@ -33,26 +34,32 @@ async fn main() {
             vendor: FileVendor::Sys,
             target: Some(FileDownloadTarget::Cbuf),
             load_addr: 0,
-            size: 512,
+            size: 512 * 272 * 4,
             progress_callback: Some(Box::new(|progress| {
-                println!("Downloading screencap: {progress:.2}")
+                if progress != 100.0 {
+                    print!("\x1B[sDownloading screencap: {progress:.2}%\x1B[u")
+                } else {
+                    println!("\x1B[sDownloading screencap: {progress:.2}%")
+                }
             })),
         })
         .await
         .unwrap();
 
-    println!("Downloaded screencap: {:?}", cap);
-    println!("Downloaded screencap: {:?}", cap.len());
     let colors = cap
         .chunks(4)
-        .map(|p| {
+        .filter_map(|p| {
             if p.len() == 4 {
-                let bytes = [p[0], p[1], p[2], p[3]];
-                Some(u32::from_le_bytes(bytes))
+                // little endian
+                let color = [p[2], p[1], p[0]];
+                Some(color)
             } else {
                 None
             }
         })
-        .filter(|p| p.is_some());
-    println!("Colors: {:x?}", colors.collect::<Vec<_>>());
+        .flatten()
+        .collect::<Vec<_>>();
+
+    let image = RgbImage::from_vec(512, 272, colors).unwrap();
+    image.view(0, 0, 480, 272).to_image().save("screencap.png").unwrap();
 }

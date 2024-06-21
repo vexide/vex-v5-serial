@@ -18,7 +18,7 @@ async fn main() {
     device
         .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
             key: VarLengthString::new("teamnumber".to_string()).unwrap(),
-            value: VarLengthString::new("vexide is number 1!".to_string()).unwrap(),
+            value: VarLengthString::new("vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!".to_string()).unwrap(),
         }))
         .await
         .unwrap();
