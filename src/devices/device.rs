@@ -76,6 +76,9 @@ impl Device {
                 },
             _ = sleep_until(time + timeout) => Err(DeviceError::Timeout)
         }?;
+
+        println!("Recieved header: {:x?}", header);
+
         // Verify that the header is correct
         decode_header(header)?;
 
@@ -96,6 +99,8 @@ impl Device {
             VarU16::decode(vec![first_size_byte])?
         }
         .into_inner() as usize;
+
+        println!("Packet size: {} from {:x?}", size, packet);
 
         // Read the rest of the packet
         let mut payload = vec![0; size];

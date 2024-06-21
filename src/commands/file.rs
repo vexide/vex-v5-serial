@@ -89,8 +89,8 @@ impl Command for DownloadFile {
             let read = device
                 .recieve_packet::<ReadFileReplyPacket>(Duration::from_millis(100))
                 .await?;
-            let read = read.payload.try_into_inner()?;
-            let chunk_data = read.chunk_data.into_inner();
+            let read = read.payload.unwrap().map_err(DeviceError::Nack)?;
+            let chunk_data = read.1.into_inner();
             offset += chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;

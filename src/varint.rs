@@ -48,7 +48,7 @@ impl Decode for VarU16 {
         if wide {
             let last = u8::decode(&mut data)?;
             let both = [first & u8::MAX >> 1, last];
-            Ok(Self(u16::from_le_bytes(both)))
+            Ok(Self(u16::from_be_bytes(both)))
         } else {
             Ok(Self(first as u16))
         }

@@ -1,6 +1,11 @@
+use std::time::Duration;
+
 use vexv5_serial::{
     commands::file::DownloadFile,
-    packets::file::{FileDownloadTarget, FileVendor},
+    packets::{
+        capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
+        file::{FileDownloadTarget, FileVendor},
+    },
     string::FixedLengthString,
 };
 
@@ -12,6 +17,14 @@ async fn main() {
     // Open the device
     let mut device = vex_ports[0].open().unwrap();
 
+    device
+        .send_packet(ScreenCapturePacket::new(()))
+        .await
+        .unwrap();
+    device
+        .recieve_packet::<ScreenCaptureReplyPacket>(Duration::from_millis(100))
+        .await
+        .unwrap();
     // Take a screenshot
     let cap = device
         .execute_command(DownloadFile {

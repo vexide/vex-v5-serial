@@ -28,6 +28,7 @@
 #![feature(array_try_from_fn)]
 
 pub mod array;
+pub mod choice;
 pub mod commands;
 pub mod crc;
 pub mod decode;

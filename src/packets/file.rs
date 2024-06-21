@@ -2,9 +2,13 @@
 
 use std::vec;
 
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use super::{
+    cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket},
+    HostBoundPacket,
+};
 use crate::{
     array::Array,
+    choice::{Choice, PrefferedChoice},
     decode::{Decode, DecodeError},
     encode::{Encode, EncodeError},
     string::FixedLengthString,
@@ -194,7 +198,7 @@ impl Encode for WriteFilePayload {
 /// Read from the brain
 pub type ReadFilePacket = Cdc2CommandPacket<0x56, 0x14, ReadFilePayload>;
 /// Returns the file content. This packet doesn't have an ack if the data is available.
-pub type ReadFileReplyPacket = Cdc2ReplyPacket<0x56, 0x14, ReadFileReplyPayload>;
+pub type ReadFileReplyPacket = HostBoundPacket<ReadFileReplyPayload, 0x56>;
 
 pub struct ReadFilePayload {
     /// Memory address to read from.
@@ -212,38 +216,88 @@ impl Encode for ReadFilePayload {
     }
 }
 
-pub struct ReadFileReplyPayload {
-    /// Memory address to read from.
-    pub address: u32,
+pub enum ReadFileReplyContents {
+    Failure {
+        nack: Cdc2Ack,
+    },
+    Success {
+        /// Memory address to read from.
+        address: u32,
+        data: Array<u8>,
+    },
+}
+impl Decode for ReadFileReplyContents {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        struct Success {
+            address: u32,
+            data: Array<u8>,
+        }
+        impl Decode for Success {
+            fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+                let mut data = data.into_iter();
+                let address = u32::decode(&mut data)?;
 
-    /// The data from the brain
-    pub chunk_data: Array<u8>,
+                // This is a cursed way to get the number of bytes in chunk_data.
+                let data_vec = data.collect::<Vec<_>>();
+                // The last two bytes are the CRC checksum.
+                let num_bytes = data_vec.len() - 2;
+                let data = data_vec.into_iter();
+
+                let chunk_data = Array::decode_with_len(data, num_bytes)?;
+                Ok(Self {
+                    address,
+                    data: chunk_data,
+                })
+            }
+        }
+        struct Failure {
+            nack: Cdc2Ack,
+        }
+        impl Decode for Failure {
+            fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+                let nack = Cdc2Ack::decode(data)?;
+                Ok(Self { nack })
+            }
+        }
+
+        let result = Choice::<Success, Failure>::decode(data)?.prefer_left();
+        Ok(match result {
+            PrefferedChoice::Left(success) => Self::Success {
+                address: success.address,
+                data: success.data,
+            },
+            PrefferedChoice::Right(failure) => Self::Failure { nack: failure.nack },
+        })
+    }
+}
+
+pub struct ReadFileReplyPayload {
+    pub contents: ReadFileReplyContents,
+    pub crc: u16,
 }
 impl Decode for ReadFileReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
     where
         Self: Sized,
     {
-        let data = data.into_iter();
-
-        // This is a cursed way to get the number of bytes in chunk_data.
-        let data_vec = data.collect::<Vec<_>>();
-        // The last two bytes are the CRC checksum.
-        let num_bytes = data_vec.len() - 2;
-
-        fn eraser(vec: Vec<u8>) -> impl IntoIterator<Item = u8> + Iterator<Item = u8> {
-            vec.into_iter()
+        let mut data = data.into_iter();
+        let id = u8::decode(&mut data)?;
+        if id != 0x14 {
+            return Err(DecodeError::UnexpectedValue);
         }
-        let mut data = eraser(data_vec);
+        let contents = ReadFileReplyContents::decode(&mut data)?;
+        // the checksum is in big endian.
+        let crc = u16::decode(&mut data)?.swap_bytes();
 
-        let address = u32::decode(&mut data)?;
-
-        let chunk_data = Array::decode_with_len(&mut data, num_bytes)?;
-
-        Ok(Self {
-            address,
-            chunk_data,
-        })
+        Ok(Self { contents, crc })
+    }
+}
+impl ReadFileReplyPayload {
+    pub fn unwrap(self) -> Result<(u32, Array<u8>), Cdc2Ack> {
+        match self.contents {
+            ReadFileReplyContents::Success { address, data } => Ok((address, data)),
+            ReadFileReplyContents::Failure { nack } => Err(nack),
+        }
     }
 }
 

@@ -96,7 +96,7 @@ impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> Encode
         encoded.extend(payload_bytes);
 
         // Push the CRC checksum of the entire packet
-        let hash = crc::Crc::<u16>::new(&VEX_CRC16).checksum(&encoded);
+        let hash = self.crc.checksum(&encoded);
         encoded.extend(hash.to_be_bytes());
 
         Ok(encoded)
@@ -153,7 +153,15 @@ impl<P: Decode + Debug, const ID: u8> Debug for HostBoundPacket<P, ID> {
             .finish()
     }
 }
-
+impl<P: Decode + Clone, const ID: u8> Clone for HostBoundPacket<P, ID> {
+    fn clone(&self) -> Self {
+        Self {
+            header: self.header,
+            payload_size: self.payload_size,
+            payload: self.payload.clone(),
+        }
+    }
+}
 impl<P: Decode, const ID: u8> HostBoundPacket<P, ID> {
     /// Header byte sequence used for all host-bound packets.
     pub const HEADER: [u8; 2] = [0xAA, 0x55];
