@@ -3,6 +3,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    crc::VEX_CRC32,
     devices::{device::Device, DeviceError},
     packets::{
         cdc2::Cdc2CommandPayload,
@@ -15,7 +16,8 @@ use crate::{
         },
     },
     string::FixedLengthString,
-    crc::VEX_CRC32,
+    timestamp::j2000_timestamp,
+    version::Version,
 };
 
 use super::Command;
@@ -53,6 +55,13 @@ impl Command for DownloadFile {
                     load_address: self.load_addr,
                     write_file_crc: 0,
                     file_extension: self.filetype.clone(),
+                    timestamp: j2000_timestamp(),
+                    version: Version {
+                        major: 1,
+                        minor: 0,
+                        build: 0,
+                        beta: 0,
+                    },
                     file_name: self.filename.clone(),
                 },
             )))
@@ -144,6 +153,13 @@ impl Command for UploadFile {
                     load_address: self.load_addr,
                     write_file_crc: crc,
                     file_extension: self.filetype.clone(),
+                    timestamp: j2000_timestamp(),
+                    version: Version {
+                        major: 1,
+                        minor: 0,
+                        build: 0,
+                        beta: 0,
+                    },
                     file_name: self.filename.clone(),
                 },
             )))

@@ -4,7 +4,7 @@ use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, timestamp::j2000_timestamp, version::Version
+    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, version::Version
 };
 
 #[repr(u8)]
@@ -92,6 +92,8 @@ pub struct InitFileTransferPayload {
     pub load_address: u32,
     pub write_file_crc: u32,
     pub file_extension: FixedLengthString<3>,
+    pub timestamp: i32,
+    pub version: Version,
     pub file_name: FixedLengthString<23>,
 }
 
@@ -107,10 +109,8 @@ impl Encode for InitFileTransferPayload {
         encoded.extend(self.load_address.to_le_bytes());
         encoded.extend(self.write_file_crc.to_le_bytes());
         encoded.extend(self.file_extension.encode()?);
-        encoded.extend(j2000_timestamp().to_le_bytes());
-        // Version
-        //TODO: Possibly allow for setting a custom verison.
-        encoded.extend([1, 0, 0, 0]);
+        encoded.extend(self.timestamp.to_le_bytes());
+        encoded.extend(self.version.encode()?);
         encoded.extend(self.file_name.encode()?);
 
         Ok(encoded)
@@ -418,6 +418,7 @@ pub struct SetFileMetadataPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub file_type: FixedLengthString<3>,
+    pub timestamp: i32,
     pub version: Version,
     pub file_name: FixedLengthString<23>,
 }
@@ -426,7 +427,7 @@ impl Encode for SetFileMetadataPayload {
         let mut encoded = vec![self.vendor as _, self.option];
         encoded.extend(self.load_address.to_le_bytes());
         encoded.extend(self.file_type.encode()?);
-        encoded.extend(j2000_timestamp().to_le_bytes());
+        encoded.extend(self.timestamp.to_le_bytes());
         encoded.extend(self.version.encode()?);
         encoded.extend(self.file_name.encode()?);
         Ok(encoded)
