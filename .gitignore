@@ -6,3 +6,8 @@
 
 # Examples
 /screencap.png
+
+# Flamegraph
+/flamegraph.svg
+/perf.data
+/perf.data.old

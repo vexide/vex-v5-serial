@@ -112,7 +112,7 @@ impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> DeviceBoundCdc2Packet<ID, E
         Self {
             header: Self::HEADER,
             payload,
-            crc: crc::Crc::<u16>::new(&VEX_CRC16),
+            crc: VEX_CRC16,
         }
     }
 }
