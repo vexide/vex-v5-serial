@@ -38,7 +38,7 @@ impl<P: Encode, const ID: u8> Encode for DeviceBoundCdcPacket<ID, P> {
         let payload_bytes = self.payload.encode()?;
 
         // We only encode the payload size if there is a payload
-        if payload_bytes.len() > 0 {
+        if !payload_bytes.is_empty() {
             let size = VarU16::new(payload_bytes.len() as _);
             encoded.extend(size.encode()?);
             encoded.extend(payload_bytes);
