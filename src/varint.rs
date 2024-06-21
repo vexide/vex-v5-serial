@@ -30,9 +30,9 @@ impl Encode for VarU16 {
         }
 
         if self.0 > (u8::MAX >> 1) as _ {
-            let mut val = self.0.to_le_bytes();
-            val[0] |= 1 << 7;
-            Ok(val.to_vec())
+            let first = (self.0 >> 8) as u8 | 0x80;
+            let last = (self.0 & u8::MAX as u16) as u8;
+            Ok([first, last].to_vec())
         } else {
             let val = self.0 as u8;
             Ok(vec![val])

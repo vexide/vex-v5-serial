@@ -181,9 +181,7 @@ impl Command for UploadFile {
         };
 
         let mut offset = 0;
-        //TODO: actually use the correct chunk size
-        //TODO: this is just a temporary solution
-        for chunk in self.data.chunks(16) {
+        for chunk in self.data.chunks(max_chunk_size as _) {
             let chunk = if chunk.len() < max_chunk_size as _ && chunk.len() % 4 != 0 {
                 let mut new_chunk = Vec::new();
                 new_chunk.extend_from_slice(chunk);
