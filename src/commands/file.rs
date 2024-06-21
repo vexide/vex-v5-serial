@@ -168,28 +168,29 @@ impl Command for UploadFile {
                 .await?;
             device
                 .recieve_packet::<LinkFileReplyPacket>(Duration::from_millis(100))
-                .await?;
+                .await?
+                .payload
+                .try_into_inner()?;
         }
 
-        let max_chunk_size = if transfer_response.window_size > 0
-            && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
-        {
-            // Align to 4 bytes
-            if transfer_response.window_size % 4 != 0 {
-                transfer_response.window_size + (4 - transfer_response.window_size % 4)
-            } else {
-                transfer_response.window_size
-            }
+        let window_size = transfer_response.window_size;
+        let max_chunk_size = if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+            window_size
         } else {
             USER_PROGRAM_CHUNK_SIZE
         };
-        println!(
-            "max_chunk_size: {} from {}",
-            max_chunk_size, transfer_response.window_size
-        );
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
+            let chunk = if chunk.len() < max_chunk_size as _ && chunk.len() % 4 != 0 {
+                let mut new_chunk = Vec::new();
+                new_chunk.extend_from_slice(chunk);
+                new_chunk.resize(chunk.len() + (4 - chunk.len() % 4), 0);
+                new_chunk
+            } else {
+                chunk.to_vec()
+            };
+            println!("sending chunk of size: {}", chunk.len());
             let progress = (offset as f32 / self.data.len() as f32) * 100.0;
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
@@ -202,7 +203,9 @@ impl Command for UploadFile {
                 .await?;
             device
                 .recieve_packet::<WriteFileReplyPacket>(Duration::from_millis(100))
-                .await?;
+                .await?
+                .payload
+                .try_into_inner()?;
             offset += chunk.len() as u32;
         }
         if let Some(callback) = &mut self.progress_callback {
@@ -214,7 +217,9 @@ impl Command for UploadFile {
             .await?;
         device
             .recieve_packet::<ExitFileTransferReplyPacket>(Duration::from_millis(200))
-            .await?;
+            .await?
+            .payload
+            .try_into_inner()?;
 
         Ok(())
     }

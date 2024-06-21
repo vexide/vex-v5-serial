@@ -102,6 +102,7 @@ impl Device {
         self.system_port.read_exact(&mut payload).await?;
         packet.extend(payload);
 
+        println!("Recieved packet: {:x?}", packet);
         // Decode the packet
         P::decode(packet).map_err(Into::into)
     }
