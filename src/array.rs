@@ -12,7 +12,10 @@ impl<T> Array<T> {
     }
 }
 impl<T: Decode> Array<T> {
-    pub fn decode_with_len(data: impl IntoIterator<Item = u8>, len: usize) -> Result<Self, DecodeError> {
+    pub fn decode_with_len(
+        data: impl IntoIterator<Item = u8>,
+        len: usize,
+    ) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let mut vec = Vec::with_capacity(len);
         for _ in 0..len {
@@ -20,7 +23,10 @@ impl<T: Decode> Array<T> {
         }
         Ok(Self { data: vec })
     }
-    pub fn decode_with_max_len(data: impl IntoIterator<Item = u8>, max_len: usize) -> Result<Self, DecodeError> {
+    pub fn decode_with_max_len(
+        data: impl IntoIterator<Item = u8>,
+        max_len: usize,
+    ) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let mut vec = Vec::with_capacity(max_len);
         for _ in 0..max_len {

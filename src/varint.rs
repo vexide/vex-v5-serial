@@ -1,5 +1,5 @@
-use crate::encode::{Encode, EncodeError};
 use crate::decode::{Decode, DecodeError};
+use crate::encode::{Encode, EncodeError};
 
 /// Variable-width u16 type.
 #[repr(transparent)]

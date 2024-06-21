@@ -5,17 +5,16 @@ use serde::{Deserialize, Serialize};
 use crate::{
     crc::VEX_CRC32,
     devices::{device::Device, DeviceError},
-    packets::{
-        cdc2::Cdc2CommandPayload,
-        file::{
-            ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
-            FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
-            InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
-            LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket,
-            WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
-        },
+    packets::file::{
+        ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
+        FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
+        InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
+        LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket,
+        WriteFilePayload, WriteFileReplyPacket,
     },
-    string::FixedLengthString, timestamp::j2000_timestamp, version::Version,
+    string::FixedLengthString,
+    timestamp::j2000_timestamp,
+    version::Version,
 };
 
 use super::Command;
@@ -43,26 +42,24 @@ impl Command for DownloadFile {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
         device
-            .send_packet(InitFileTransferPacket::new(Cdc2CommandPayload::new(
-                InitFileTransferPayload {
-                    operation: FileInitAction::Read,
-                    target,
-                    vendor: self.vendor,
-                    options: FileInitOption::None,
-                    write_file_size: self.size,
-                    load_address: self.load_addr,
-                    write_file_crc: 0,
-                    file_extension: self.filetype.clone(),
-                    timestamp: j2000_timestamp(),
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
-                    file_name: self.filename.clone(),
+            .send_packet(InitFileTransferPacket::new(InitFileTransferPayload {
+                operation: FileInitAction::Read,
+                target,
+                vendor: self.vendor,
+                options: FileInitOption::None,
+                write_file_size: self.size,
+                load_address: self.load_addr,
+                write_file_crc: 0,
+                file_extension: self.filetype.clone(),
+                timestamp: j2000_timestamp(),
+                version: Version {
+                    major: 1,
+                    minor: 0,
+                    build: 0,
+                    beta: 0,
                 },
-            )))
+                file_name: self.filename.clone(),
+            }))
             .await?;
         let transfer_response = device
             .recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100))
@@ -84,12 +81,10 @@ impl Command for DownloadFile {
         let mut offset = 0;
         loop {
             device
-                .send_packet(ReadFilePacket::new(Cdc2CommandPayload::new(
-                    ReadFilePayload {
-                        address: self.load_addr + offset,
-                        size: max_chunk_size,
-                    },
-                )))
+                .send_packet(ReadFilePacket::new(ReadFilePayload {
+                    address: self.load_addr + offset,
+                    size: max_chunk_size,
+                }))
                 .await?;
             let read = device
                 .recieve_packet::<ReadFileReplyPacket>(Duration::from_millis(100))
@@ -141,26 +136,24 @@ impl Command for UploadFile {
         let crc = crc::Crc::<u32>::new(&VEX_CRC32).checksum(&self.data);
 
         device
-            .send_packet(InitFileTransferPacket::new(Cdc2CommandPayload::new(
-                InitFileTransferPayload {
-                    operation: FileInitAction::Write,
-                    target,
-                    vendor,
-                    options: FileInitOption::Overwrite,
-                    write_file_size: self.data.len() as u32,
-                    load_address: self.load_addr,
-                    write_file_crc: crc,
-                    file_extension: self.filetype.clone(),
-                    timestamp: j2000_timestamp(),
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
-                    file_name: self.filename.clone(),
+            .send_packet(InitFileTransferPacket::new(InitFileTransferPayload {
+                operation: FileInitAction::Write,
+                target,
+                vendor,
+                options: FileInitOption::Overwrite,
+                write_file_size: self.data.len() as u32,
+                load_address: self.load_addr,
+                write_file_crc: crc,
+                file_extension: self.filetype.clone(),
+                timestamp: j2000_timestamp(),
+                version: Version {
+                    major: 1,
+                    minor: 0,
+                    build: 0,
+                    beta: 0,
                 },
-            )))
+                file_name: self.filename.clone(),
+            }))
             .await?;
         let transfer_response = device
             .recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100))
@@ -170,13 +163,11 @@ impl Command for UploadFile {
 
         if let Some(linked_file) = &self.linked_file {
             device
-                .send_packet(LinkFilePacket::new(Cdc2CommandPayload::new(
-                    LinkFilePayload {
-                        vendor: linked_file.vendor.unwrap_or(FileVendor::User),
-                        option: 0,
-                        required_file: linked_file.filename.clone(),
-                    },
-                )))
+                .send_packet(LinkFilePacket::new(LinkFilePayload {
+                    vendor: linked_file.vendor.unwrap_or(FileVendor::User),
+                    option: 0,
+                    required_file: linked_file.filename.clone(),
+                }))
                 .await?;
             device
                 .recieve_packet::<LinkFileReplyPacket>(Duration::from_millis(100))
@@ -207,12 +198,10 @@ impl Command for UploadFile {
                 callback(progress);
             }
             device
-                .send_packet(WriteFilePacket::new(Cdc2CommandPayload::new(
-                    WriteFilePayload {
-                        address: (self.load_addr + offset) as _,
-                        chunk_data: chunk.to_vec(),
-                    },
-                )))
+                .send_packet(WriteFilePacket::new(WriteFilePayload {
+                    address: (self.load_addr + offset) as _,
+                    chunk_data: chunk.to_vec(),
+                }))
                 .await?;
             device
                 .recieve_packet::<WriteFileReplyPacket>(Duration::from_millis(100))
@@ -224,9 +213,7 @@ impl Command for UploadFile {
         }
 
         device
-            .send_packet(ExitFileTransferPacket::new(Cdc2CommandPayload::new(
-                self.after_upload,
-            )))
+            .send_packet(ExitFileTransferPacket::new(self.after_upload))
             .await?;
         device
             .recieve_packet::<ExitFileTransferReplyPacket>(Duration::from_millis(200))

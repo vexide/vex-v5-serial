@@ -27,15 +27,15 @@
 //TODO: Figure out a better alternate to this feature
 #![feature(array_try_from_fn)]
 
+pub mod array;
 pub mod commands;
-pub mod devices;
-pub mod errors;
-pub mod packets;
 pub mod crc;
 pub mod decode;
+pub mod devices;
 pub mod encode;
+pub mod errors;
+pub mod packets;
 pub mod string;
 pub mod timestamp;
 pub mod varint;
 pub mod version;
-pub mod array;

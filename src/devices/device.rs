@@ -9,11 +9,7 @@ use tokio::{
 use tokio_serial::SerialStream;
 
 use crate::{
-    commands::Command,
-    packets::decode_header,
-    encode::Encode,
-    decode::Decode,
-    varint::VarU16,
+    commands::Command, decode::Decode, encode::Encode, packets::decode_header, varint::VarU16,
 };
 
 use super::DeviceError;

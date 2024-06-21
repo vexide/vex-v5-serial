@@ -1,5 +1,8 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::{array::Array, decode::{Decode, DecodeError}};
+use crate::{
+    array::Array,
+    decode::{Decode, DecodeError},
+};
 
 pub struct DeviceStatus {
     /// The value starts from 1. Port 22 is the internal ADI and Port 23 is the battery.

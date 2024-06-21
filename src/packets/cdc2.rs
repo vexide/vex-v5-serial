@@ -1,13 +1,7 @@
-use std::mem::size_of;
-
 use crate::devices::DeviceError;
 
-use super::{DeviceBoundPacket, HostBoundPacket};
-use crate::{
-    decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
-    varint::VarU16,
-};
+use super::{DeviceBoundCdc2Packet, HostBoundPacket};
+use crate::decode::{Decode, DecodeError};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -95,36 +89,7 @@ impl Decode for Cdc2Ack {
 }
 
 pub type Cdc2CommandPacket<const ID: u8, const EXT_ID: u8, P> =
-    DeviceBoundPacket<Cdc2CommandPayload<EXT_ID, P>, ID>;
-
-pub struct Cdc2CommandPayload<const ID: u8, P: Encode> {
-    pub payload: P,
-    pub crc: crc::Crc<u32>,
-}
-impl<const ID: u8, P: Encode> Cdc2CommandPayload<ID, P> {
-    pub fn new(payload: P) -> Self {
-        Self {
-            payload,
-            crc: crc::Crc::<u32>::new(&crate::crc::VEX_CRC32),
-        }
-    }
-}
-
-impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![ID];
-        let payload_bytes = self.payload.encode()?;
-        let size = VarU16::new(payload_bytes.len() as _);
-
-        encoded.extend(size.encode()?);
-        encoded.extend(payload_bytes);
-        Ok(encoded)
-    }
-
-    fn extended() -> bool {
-        true
-    }
-}
+    DeviceBoundCdc2Packet<ID, EXT_ID, P>;
 
 pub type Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P> =
     HostBoundPacket<Cdc2CommandReplyPayload<EXT_ID, P>, ID>;

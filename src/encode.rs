@@ -18,11 +18,6 @@ pub trait Encode {
     {
         self.encode()
     }
-    
-    // TODO: Come up with a better solution than this. This is a band-aid fix to allow encoding crc checksums
-    fn extended() -> bool {
-        false
-    }
 }
 impl Encode for () {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {

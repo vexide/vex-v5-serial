@@ -4,7 +4,11 @@ use std::vec;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, string::FixedLengthString, version::Version
+    array::Array,
+    decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
+    string::FixedLengthString,
+    version::Version,
 };
 
 #[repr(u8)]
@@ -232,9 +236,8 @@ impl Decode for ReadFileReplyPayload {
         }
         let mut data = eraser(data_vec);
 
-
         let address = u32::decode(&mut data)?;
-        
+
         let chunk_data = Array::decode_with_len(&mut data, num_bytes)?;
 
         Ok(Self {

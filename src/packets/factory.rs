@@ -2,7 +2,9 @@
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    array::Array, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}
+    array::Array,
+    decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
 };
 
 pub struct FdtStatus {

@@ -1,7 +1,8 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
 use super::{
-    DeviceError, VexDevice, VexDeviceType, VexPortType, VEX_USB_VID, VEX_V5_BRAIN_USB_PID, VEX_V5_CONTROLLER_USB_PID
+    DeviceError, VexDevice, VexDeviceType, VexPortType, VEX_USB_VID, VEX_V5_BRAIN_USB_PID,
+    VEX_V5_CONTROLLER_USB_PID,
 };
 
 /// The information of a generic vex serial port

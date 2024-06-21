@@ -1,8 +1,8 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::file::FileVendor;
 use crate::{
-    encode::{Encode, EncodeError},
     decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
     string::{DynamicVarLengthString, FixedLengthString},
 };
 

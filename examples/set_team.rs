@@ -1,13 +1,10 @@
 use std::time::Duration;
 
-use vexv5_serial::string::{FixedLengthString, VarLengthString};
-use vexv5_serial::packets::{
-    cdc2::Cdc2CommandPayload,
-    kv::{
-        ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
-        WriteKeyValueReplyPacket,
-    },
+use vexv5_serial::packets::kv::{
+    ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
+    WriteKeyValueReplyPacket,
 };
+use vexv5_serial::string::{FixedLengthString, VarLengthString};
 
 #[tokio::main]
 async fn main() {
@@ -19,12 +16,10 @@ async fn main() {
 
     // Set the team number on the brain
     device
-        .send_packet(WriteKeyValuePacket::new(Cdc2CommandPayload::new(
-            WriteKeyValuePayload {
-                key: VarLengthString::new("teamnumber".to_string()).unwrap(),
-                value: VarLengthString::new("vexide".to_string()).unwrap(),
-            },
-        )))
+        .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
+            key: VarLengthString::new("teamnumber".to_string()).unwrap(),
+            value: VarLengthString::new("vexide".to_string()).unwrap(),
+        }))
         .await
         .unwrap();
     device
@@ -34,9 +29,9 @@ async fn main() {
 
     // Get the new team number and print it
     device
-        .send_packet(ReadKeyValuePacket::new(Cdc2CommandPayload::new(
+        .send_packet(ReadKeyValuePacket::new(
             FixedLengthString::new("teamnumber".to_string()).unwrap(),
-        )))
+        ))
         .await
         .unwrap();
     let res = device

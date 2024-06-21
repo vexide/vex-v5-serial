@@ -1,6 +1,6 @@
 use crate::{
-    encode::{Encode, EncodeError},
     decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
 };
 
 pub struct DynamicVarLengthString(pub String, pub usize);

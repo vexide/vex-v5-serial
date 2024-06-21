@@ -1,10 +1,10 @@
-use super::{DeviceBoundPacket, HostBoundPacket};
+use super::{DeviceBoundCdcPacket, HostBoundPacket};
 
 /// CDC (Simple) Command Packet
 ///
 /// Encodes a simple device-bound message over the protocol containing
 /// an ID and a payload.
-pub type CdcCommandPacket<const ID: u8, P> = DeviceBoundPacket<P, ID>;
+pub type CdcCommandPacket<const ID: u8, P> = DeviceBoundCdcPacket<ID, P>;
 
 /// CDC (Simple) Command Reply Packet
 ///
