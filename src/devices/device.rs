@@ -51,6 +51,8 @@ impl Device {
         // Encode the packet
         let encoded = packet.encode()?;
 
+        // println!("Sending packet: {:x?}", encoded);
+
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
             Ok(_) => (),
@@ -98,9 +100,6 @@ impl Device {
             VarU16::decode(vec![first_size_byte])?
         }
         .into_inner() as usize;
-
-        println!("Size: {}", size);
-        println!("Packet: {:x?}", packet);
 
         // Read the rest of the packet
         let mut payload = vec![0; size];

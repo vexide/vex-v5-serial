@@ -2,12 +2,12 @@ use std::mem::size_of;
 
 use crate::devices::DeviceError;
 
+use super::{DeviceBoundPacket, HostBoundPacket};
 use crate::{
-    encode::{Encode, EncodeError},
     decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
     varint::VarU16,
 };
-use super::{DeviceBoundPacket, HostBoundPacket};
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -120,7 +120,7 @@ impl<const ID: u8, P: Encode> Encode for Cdc2CommandPayload<ID, P> {
         encoded.extend(payload_bytes);
         Ok(encoded)
     }
-    
+
     fn extended() -> bool {
         true
     }
@@ -152,11 +152,7 @@ impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
         }
         let ack = Cdc2Ack::decode(&mut data)?;
         let data_ = P::decode(&mut data)?;
-        let crc = if size_of::<P>() > 0 {
-            u16::decode(&mut data)?
-        } else {
-            0
-        };
+        let crc = u16::decode(&mut data)?;
 
         Ok(Self {
             ack,

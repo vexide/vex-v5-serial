@@ -15,9 +15,7 @@ use crate::{
             WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
         },
     },
-    string::FixedLengthString,
-    timestamp::j2000_timestamp,
-    version::Version,
+    string::FixedLengthString, timestamp::j2000_timestamp, version::Version,
 };
 
 use super::Command;
@@ -167,6 +165,7 @@ impl Command for UploadFile {
         let transfer_response = device
             .recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100))
             .await?;
+        println!("transfer init responded");
         let transfer_response = transfer_response.payload.try_into_inner()?;
 
         if let Some(linked_file) = &self.linked_file {
@@ -187,10 +186,19 @@ impl Command for UploadFile {
         let max_chunk_size = if transfer_response.window_size > 0
             && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
         {
-            transfer_response.window_size
+            // Align to 4 bytes
+            if transfer_response.window_size % 4 != 0 {
+                transfer_response.window_size + (4 - transfer_response.window_size % 4)
+            } else {
+                transfer_response.window_size
+            }
         } else {
             USER_PROGRAM_CHUNK_SIZE
         };
+        println!(
+            "max_chunk_size: {} from {}",
+            max_chunk_size, transfer_response.window_size
+        );
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
@@ -294,7 +302,9 @@ impl Command for UploadProgram {
             load_addr: COLD_START,
             linked_file: None,
             after_upload: FileExitAtion::Halt,
-            progress_callback: None,
+            progress_callback: Some(Box::new(|progress| {
+                println!("Uploading INI: {:.2}%", progress)
+            })),
         };
         device.execute_command(file_transfer).await.unwrap();
 

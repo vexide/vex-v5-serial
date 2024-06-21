@@ -107,7 +107,7 @@ impl Encode for InitFileTransferPayload {
         ];
         encoded.extend(self.write_file_size.to_le_bytes());
         encoded.extend(self.load_address.to_le_bytes());
-        encoded.extend(self.write_file_crc.to_le_bytes());
+        encoded.extend(self.write_file_crc.to_be_bytes());
         encoded.extend(self.file_extension.encode()?);
         encoded.extend(self.timestamp.to_le_bytes());
         encoded.extend(self.version.encode()?);
@@ -129,7 +129,7 @@ pub struct InitFileTransferReplyPayload {
     /// In read operation, the device returns the CRC value of the target file.
     ///
     /// In write operation, the device returns the same CRC value as the previous packets.
-    pub file_crc: u16,
+    pub file_crc: u32,
 }
 
 impl Decode for InitFileTransferReplyPayload {
@@ -137,7 +137,8 @@ impl Decode for InitFileTransferReplyPayload {
         let mut data = data.into_iter();
         let window_size = u16::decode(&mut data)?;
         let file_size = u32::decode(&mut data)?;
-        let file_crc = u16::decode(&mut data)?;
+        // Convert from big endian
+        let file_crc = u32::decode(&mut data)?.swap_bytes();
         Ok(Self {
             window_size,
             file_size,
