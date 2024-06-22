@@ -8,6 +8,13 @@ use vexv5_serial::string::{FixedLengthString, VarLengthString};
 
 #[tokio::main]
 async fn main() {
+    simplelog::TermLogger::init(
+        log::LevelFilter::Debug,
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Always,
+    )
+    .unwrap();
     // Find all vex devices on the serial ports
     let vex_ports = vexv5_serial::connection::genericv5::find_generic_devices().unwrap();
 
@@ -18,7 +25,11 @@ async fn main() {
     device
         .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
             key: VarLengthString::new("teamnumber".to_string()).unwrap(),
-            value: VarLengthString::new("vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!".to_string()).unwrap(),
+            value: VarLengthString::new(
+                "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!"
+                    .to_string(),
+            )
+            .unwrap(),
         }))
         .await
         .unwrap();

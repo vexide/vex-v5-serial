@@ -1,3 +1,4 @@
+use log::info;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
@@ -12,10 +13,7 @@ pub enum DecodeError {
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] FromUtf8Error),
     #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
-    UnexpectedValue {
-        value: u8,
-        expected: &'static [u8],
-    },
+    UnexpectedValue { value: u8, expected: &'static [u8] },
 }
 
 pub trait Decode {

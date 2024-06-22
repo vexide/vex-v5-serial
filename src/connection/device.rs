@@ -1,5 +1,6 @@
 //! Implements an async compatible device.
 
+use log::{debug, trace};
 use std::{pin::Pin, time::Duration};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
@@ -47,7 +48,7 @@ impl Device {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        // println!("Sending packet: {:x?}", encoded);
+        trace!("Sending packet: {:x?}", encoded);
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
@@ -102,7 +103,7 @@ impl Device {
         self.system_port.read_exact(&mut payload).await?;
         packet.extend(payload);
 
-        println!("Recieved packet: {:x?}", packet);
+        trace!("Recieved packet: {:x?}", packet);
         // Decode the packet
         P::decode(packet).map_err(Into::into)
     }

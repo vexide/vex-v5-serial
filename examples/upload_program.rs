@@ -5,6 +5,15 @@ use vexv5_serial::{
 
 #[tokio::main]
 async fn main() {
+    // Initialize the logger
+    simplelog::TermLogger::init(
+        log::LevelFilter::Debug,
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Always,
+    )
+    .unwrap();
+
     // Find all vex devices on the serial ports
     let vex_ports = vexv5_serial::connection::genericv5::find_generic_devices().unwrap();
 

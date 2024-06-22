@@ -30,9 +30,9 @@
 pub mod array;
 pub mod choice;
 pub mod commands;
+pub mod connection;
 pub mod crc;
 pub mod decode;
-pub mod connection;
 pub mod encode;
 pub mod errors;
 pub mod packets;

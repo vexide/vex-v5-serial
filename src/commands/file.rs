@@ -1,11 +1,12 @@
 use std::{io::Write, time::Duration};
 
 use flate2::{Compression, GzBuilder};
+use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    crc::VEX_CRC32,
     connection::{device::Device, DeviceError},
+    crc::VEX_CRC32,
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
         FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
@@ -128,6 +129,7 @@ impl Command for UploadFile {
         &mut self,
         device: &mut crate::connection::device::Device,
     ) -> Result<Self::Output, DeviceError> {
+        info!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
@@ -156,7 +158,7 @@ impl Command for UploadFile {
         let transfer_response = device
             .recieve_packet::<InitFileTransferReplyPacket>(Duration::from_millis(100))
             .await?;
-        println!("transfer init responded");
+        debug!("transfer init responded");
         let transfer_response = transfer_response.payload.try_into_inner()?;
 
         if let Some(linked_file) = &self.linked_file {
@@ -191,7 +193,7 @@ impl Command for UploadFile {
             } else {
                 chunk.to_vec()
             };
-            println!("sending chunk of size: {}", chunk.len());
+            trace!("sending chunk of size: {}", chunk.len());
             let progress = (offset as f32 / self.data.len() as f32) * 100.0;
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
@@ -222,6 +224,7 @@ impl Command for UploadFile {
             .payload
             .try_into_inner()?;
 
+        info!("Successfully uploaded file: {}", self.filename);
         Ok(())
     }
 }
@@ -294,7 +297,7 @@ impl Command for UploadProgram {
             linked_file: None,
             after_upload: FileExitAtion::Halt,
             progress_callback: Some(Box::new(|progress| {
-                println!("Uploading INI: {:.2}%", progress)
+                info!("Uploading INI: {:.2}%", progress)
             })),
         };
         device.execute_command(file_transfer).await.unwrap();
@@ -306,6 +309,7 @@ impl Command for UploadProgram {
         };
 
         if let Some(cold) = cold {
+            info!("Uploading cold binary");
             let after_upload = if hot.is_some() {
                 FileExitAtion::Halt
             } else {
@@ -315,9 +319,9 @@ impl Command for UploadProgram {
             // Compress the cold program
             // We don't need to change any other flags, the brain is smart enough to decompress it
             if self.compress_program {
+                debug!("Compressing cold binary");
                 let compressed = Vec::new();
-                let mut encoder = GzBuilder::new()
-                    .write(compressed, Compression::default());
+                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
                 encoder.write_all(cold).unwrap();
                 *cold = encoder.finish().unwrap();
             }
@@ -333,21 +337,22 @@ impl Command for UploadProgram {
                     linked_file: None,
                     after_upload,
                     progress_callback: Some(Box::new(|progress| {
-                        println!("Uploading cold: {:.2}%", progress)
+                        info!("Uploading cold: {:.2}%", progress)
                     })),
                 })
                 .await?;
         }
 
         if let Some(hot) = hot {
+            info!("Uploading hot binary");
             let linked_file = Some(LinkedFile {
                 filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
                 vendor: None,
             });
             if self.compress_program {
+                debug!("Compressing hot binary");
                 let compressed = Vec::new();
-                let mut encoder = GzBuilder::new()
-                    .write(compressed, Compression::default());
+                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
                 encoder.write_all(hot).unwrap();
                 *hot = encoder.finish().unwrap();
             }
@@ -362,7 +367,7 @@ impl Command for UploadProgram {
                     linked_file,
                     after_upload: self.after_upload,
                     progress_callback: Some(Box::new(|progress| {
-                        println!("Uploading hot: {:.2}%", progress)
+                        info!("Uploading hot: {:.2}%", progress)
                     })),
                 })
                 .await?;

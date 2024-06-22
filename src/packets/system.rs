@@ -22,7 +22,10 @@ impl Decode for ProductType {
         match val {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
-            v => Err(DecodeError::UnexpectedValue { value: v, expected: &[0x10, 0x11] }),
+            v => Err(DecodeError::UnexpectedValue {
+                value: v,
+                expected: &[0x10, 0x11],
+            }),
         }
     }
 }

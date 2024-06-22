@@ -77,7 +77,9 @@ impl Decode for FileVendor {
             241 => Ok(Self::Undefined),
             v => Err(DecodeError::UnexpectedValue {
                 value: v,
-                expected: &[0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1],
+                expected: &[
+                    0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
+                ],
             }),
         }
     }
@@ -309,7 +311,11 @@ impl Decode for ReadFileReplyPayload {
 impl ReadFileReplyPayload {
     pub fn unwrap(self) -> Result<(u32, Array<u8>), Cdc2Ack> {
         match self.contents {
-            ReadFileReplyContents::Success { address, data, crc: _ } => Ok((address, data)),
+            ReadFileReplyContents::Success {
+                address,
+                data,
+                crc: _,
+            } => Ok((address, data)),
             ReadFileReplyContents::Failure { nack, crc: _ } => Err(nack),
         }
     }
@@ -569,7 +575,6 @@ impl Decode for FileClearUpResult {
             value => Err(DecodeError::UnexpectedValue {
                 value,
                 expected: &[0x00, 0x01, 0x02, 0x03, 0x04],
-            
             }),
         }
     }

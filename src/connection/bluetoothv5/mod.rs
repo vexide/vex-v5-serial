@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bluest::{Adapter, AdvertisingDevice, Characteristic, Service, Uuid};
 
+use log::debug;
 use tokio_stream::StreamExt;
 
 use super::DeviceError;
@@ -71,7 +72,6 @@ impl BluetoothBrain {
                 .ok_or(DeviceError::InvalidDevice)?
                 .clone(),
         );
-        println!("ok");
         if let Some(service) = &self.service {
             // Get all characteristics of this service
             let chars = service.discover_characteristics().await?;
@@ -113,12 +113,12 @@ impl BluetoothBrain {
         // Parse the bytes into a big endian u32
         let magic = u32::from_be_bytes(data.try_into().unwrap());
 
-        // If the magic number is nod 0xdeadface, then it is an invalid device
+        // If the magic number is not 0xdeadface, then it is an invalid device
         if magic != 0xdeadface {
             return Err(DeviceError::InvalidMagic);
         }
 
-        println!("{magic:x}");
+        debug!("{magic:x}");
 
         Ok(())
     }

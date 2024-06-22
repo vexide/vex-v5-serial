@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     decode::{Decode, DecodeError},
     encode::{Encode, EncodeError},
@@ -121,6 +123,11 @@ impl<const LEN: usize> Decode for FixedLengthString<LEN> {
         } else {
             Ok(Self(String::from_utf8(string_bytes.to_vec())?))
         }
+    }
+}
+impl<const LEN: usize> Display for FixedLengthString<LEN> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
