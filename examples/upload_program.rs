@@ -19,6 +19,7 @@ async fn main() {
             program_type: "vexide".to_string(),
             slot: 4,
             data: ProgramData::Cold(cold_bytes),
+            compress_program: true,
             after_upload: FileExitAtion::RunProgram,
         })
         .await

@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{io::Write, time::Duration};
 
+use flate2::{Compression, GzBuilder};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -259,6 +260,7 @@ pub struct UploadProgram {
     pub program_type: String,
     /// 0-indexed slot
     pub slot: u8,
+    pub compress_program: bool,
     pub data: ProgramData,
     pub after_upload: FileExitAtion,
 }
@@ -297,7 +299,7 @@ impl Command for UploadProgram {
         };
         device.execute_command(file_transfer).await.unwrap();
 
-        let (cold, hot) = match &self.data {
+        let (cold, hot) = match &mut self.data {
             ProgramData::Cold(cold) => (Some(cold), None),
             ProgramData::Hot(hot) => (None, Some(hot)),
             ProgramData::Both { hot, cold } => (Some(cold), Some(hot)),
@@ -309,6 +311,16 @@ impl Command for UploadProgram {
             } else {
                 self.after_upload
             };
+
+            // Compress the cold program
+            // We don't need to change any other flags, the brain is smart enough to decompress it
+            if self.compress_program {
+                let compressed = Vec::new();
+                let mut encoder = GzBuilder::new()
+                    .write(compressed, Compression::default());
+                encoder.write_all(cold).unwrap();
+                *cold = encoder.finish().unwrap();
+            }
 
             device
                 .execute_command(UploadFile {
@@ -332,6 +344,13 @@ impl Command for UploadProgram {
                 filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
                 vendor: None,
             });
+            if self.compress_program {
+                let compressed = Vec::new();
+                let mut encoder = GzBuilder::new()
+                    .write(compressed, Compression::default());
+                encoder.write_all(hot).unwrap();
+                *hot = encoder.finish().unwrap();
+            }
             device
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
