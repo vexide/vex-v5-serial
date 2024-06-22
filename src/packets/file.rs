@@ -75,7 +75,10 @@ impl Decode for FileVendor {
             64 => Ok(Self::VexVm),
             240 => Ok(Self::Vex),
             241 => Ok(Self::Undefined),
-            _ => Err(DecodeError::UnexpectedValue),
+            v => Err(DecodeError::UnexpectedValue {
+                value: v,
+                expected: &[0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1],
+            }),
         }
     }
 }
@@ -294,7 +297,10 @@ impl Decode for ReadFileReplyPayload {
         let mut data = data.into_iter();
         let id = u8::decode(&mut data)?;
         if id != 0x14 {
-            return Err(DecodeError::UnexpectedValue);
+            return Err(DecodeError::UnexpectedValue {
+                value: id,
+                expected: &[0x14],
+            });
         }
         let contents = ReadFileReplyContents::decode(&mut data)?;
         Ok(Self { contents })
@@ -560,7 +566,11 @@ impl Decode for FileClearUpResult {
             2 => Ok(Self::LinkedFiles),
             3 => Ok(Self::AllFilesAfterRestart),
             4 => Ok(Self::LinkedFilesAfterRestart),
-            _ => Err(DecodeError::UnexpectedValue),
+            value => Err(DecodeError::UnexpectedValue {
+                value,
+                expected: &[0x00, 0x01, 0x02, 0x03, 0x04],
+            
+            }),
         }
     }
 }

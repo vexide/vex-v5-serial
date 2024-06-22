@@ -11,8 +11,11 @@ pub enum DecodeError {
     UnterminatedString,
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] FromUtf8Error),
-    #[error("Could not decode byte with unexpected value")]
-    UnexpectedValue,
+    #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
+    UnexpectedValue {
+        value: u8,
+        expected: &'static [u8],
+    },
 }
 
 pub trait Decode {
