@@ -8,13 +8,25 @@ use crate::{
 };
 use bitflags::bitflags;
 
-#[repr(u8)]
+#[repr(u16)]
+#[derive(Debug, Clone, Copy)]
 pub enum ProductType {
     Brain = 0x10,
     Controller = 0x11,
 }
+impl Decode for ProductType {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let val = u16::decode(data)?.swap_bytes();
+        match val {
+            0x10 => Ok(Self::Brain),
+            0x11 => Ok(Self::Controller),
+            v => Err(DecodeError::UnexpectedValue { value: v as _, expected: &[0x10, 0x11] }),
+        }
+    }
+}
 
 bitflags! {
+    #[derive(Debug, Clone, Copy)]
     pub struct ProductFlags: u8 {
         /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
         const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
@@ -175,10 +187,25 @@ pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
 pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
 pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, GetSystemVersionReplyPayload>;
 
+#[derive(Debug)]
 pub struct GetSystemVersionReplyPayload {
     pub version: Version,
     pub product_type: ProductType,
     pub flags: ProductFlags,
+}
+impl Decode for GetSystemVersionReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let version = Version::decode(&mut data)?;
+        let product_type = ProductType::decode(&mut data)?;
+        let flags = ProductFlags::from_bits_truncate(u8::decode(&mut data)?);
+
+        Ok(Self {
+            version,
+            product_type,
+            flags,
+        })
+    }
 }
 
 pub type Query1Packet = CdcCommandPacket<0x21, ()>;

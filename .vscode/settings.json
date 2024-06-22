@@ -2,5 +2,5 @@
     "pros.showInstallOnStartup": false,
     "rust-analyzer.check.extraArgs": [
         "--examples"
-    ]
+    ],
 }

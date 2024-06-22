@@ -11,17 +11,20 @@
     let eachSystem = nixpkgs.lib.genAttrs (import systems);
     in {
       devShells = eachSystem (system:
-        let pkgs = import nixpkgs {
-          overlays = [ (import rust-overlay) ];
-          inherit system;
-        };
+        let
+          pkgs = import nixpkgs {
+            overlays = [ (import rust-overlay) ];
+            inherit system;
+          };
         in {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
-              rust-bin.nightly.latest.default
+              (rust-bin.nightly.latest.default.override {
+                extensions = [ "rust-analyzer" "rust-src" ];
+              })
               pkg-config
               dbus
-              udev 
+              udev
             ];
           };
         });
