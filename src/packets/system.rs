@@ -16,11 +16,13 @@ pub enum ProductType {
 }
 impl Decode for ProductType {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let val = u16::decode(data)?.swap_bytes();
+        let mut data = data.into_iter();
+        let _unknown = u8::decode(&mut data)?;
+        let val = u8::decode(data)?;
         match val {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
-            v => Err(DecodeError::UnexpectedValue { value: v as _, expected: &[0x10, 0x11] }),
+            v => Err(DecodeError::UnexpectedValue { value: v, expected: &[0x10, 0x11] }),
         }
     }
 }
