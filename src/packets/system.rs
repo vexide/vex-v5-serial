@@ -6,6 +6,23 @@ use crate::{
     decode::{Decode, DecodeError},
     version::Version,
 };
+use bitflags::bitflags;
+
+#[repr(u8)]
+pub enum ProductType {
+    Brain = 0x10,
+    Controller = 0x11,
+}
+
+bitflags! {
+    pub struct ProductFlags: u8 {
+        /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
+        const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
+
+        /// Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
+        const CONNECTED_WIRELESS = 1 << 1;
+    }
+}
 
 pub struct SystemFlags {
     /// Bit mask.
@@ -156,7 +173,13 @@ pub type GetSystemStatusPacket = Cdc2CommandPacket<0x56, 0x22, ()>;
 pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
 
 pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
-pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, Version>;
+pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, GetSystemVersionReplyPayload>;
+
+pub struct GetSystemVersionReplyPayload {
+    pub version: Version,
+    pub product_type: ProductType,
+    pub flags: ProductFlags,
+}
 
 pub type Query1Packet = CdcCommandPacket<0x21, ()>;
 pub type Query1ReplyPacket = CdcReplyPacket<0x21, Query1ReplyPayload>;
