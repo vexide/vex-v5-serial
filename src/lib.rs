@@ -32,7 +32,7 @@ pub mod choice;
 pub mod commands;
 pub mod crc;
 pub mod decode;
-pub mod devices;
+pub mod connection;
 pub mod encode;
 pub mod errors;
 pub mod packets;

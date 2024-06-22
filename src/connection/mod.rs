@@ -91,8 +91,8 @@ impl VexDevice {
             &tokio_serial::new(&self.system_port, 115200)
                 .parity(tokio_serial::Parity::None)
                 .timeout(std::time::Duration::new(
-                    crate::devices::SERIAL_TIMEOUT_SECONDS,
-                    crate::devices::SERIAL_TIMEOUT_NS,
+                    crate::connection::SERIAL_TIMEOUT_SECONDS,
+                    crate::connection::SERIAL_TIMEOUT_NS,
                 ))
                 .stop_bits(tokio_serial::StopBits::One),
         ) {
@@ -107,8 +107,8 @@ impl VexDevice {
                 &tokio_serial::new(port, 115200)
                     .parity(tokio_serial::Parity::None)
                     .timeout(std::time::Duration::new(
-                        crate::devices::SERIAL_TIMEOUT_SECONDS,
-                        crate::devices::SERIAL_TIMEOUT_NS,
+                        crate::connection::SERIAL_TIMEOUT_SECONDS,
+                        crate::connection::SERIAL_TIMEOUT_NS,
                     ))
                     .stop_bits(tokio_serial::StopBits::One),
             ) {

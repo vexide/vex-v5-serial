@@ -6,7 +6,7 @@ use vexv5_serial::{
 #[tokio::main]
 async fn main() {
     // Find all vex devices on the serial ports
-    let vex_ports = vexv5_serial::devices::genericv5::find_generic_devices().unwrap();
+    let vex_ports = vexv5_serial::connection::genericv5::find_generic_devices().unwrap();
 
     // Open the device
     let mut device = vex_ports[0].open().unwrap();

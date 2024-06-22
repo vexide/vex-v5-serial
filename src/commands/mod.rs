@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::devices::{device::Device, DeviceError};
+use crate::connection::{device::Device, DeviceError};
 
 pub mod file;
 

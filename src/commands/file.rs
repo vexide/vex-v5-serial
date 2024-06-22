@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     crc::VEX_CRC32,
-    devices::{device::Device, DeviceError},
+    connection::{device::Device, DeviceError},
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
         FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
@@ -37,7 +37,7 @@ impl Command for DownloadFile {
 
     async fn execute(
         &mut self,
-        device: &mut crate::devices::device::Device,
+        device: &mut crate::connection::device::Device,
     ) -> Result<Self::Output, DeviceError> {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
@@ -125,7 +125,7 @@ impl Command for UploadFile {
     type Output = ();
     async fn execute(
         &mut self,
-        device: &mut crate::devices::device::Device,
+        device: &mut crate::connection::device::Device,
     ) -> Result<Self::Output, DeviceError> {
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);

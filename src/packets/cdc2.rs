@@ -1,4 +1,4 @@
-use crate::devices::DeviceError;
+use crate::connection::DeviceError;
 
 use super::{DeviceBoundCdc2Packet, HostBoundPacket};
 use crate::decode::{Decode, DecodeError};
