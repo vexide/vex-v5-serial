@@ -149,6 +149,7 @@ impl Device {
                     for packet in self.incoming_packets.iter_mut() {
                         if let Ok(decoded) = P::decode(packet.clone().bytes) {
                             packet.used = true;
+                            self.trim_packets();
                             return Ok(decoded);
                         }
                     }
