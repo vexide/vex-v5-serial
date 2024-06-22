@@ -7,7 +7,7 @@ use vexv5_serial::{
 async fn main() {
     // Initialize the logger
     simplelog::TermLogger::init(
-        log::LevelFilter::Debug,
+        log::LevelFilter::Info,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,

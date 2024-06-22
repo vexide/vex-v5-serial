@@ -1,11 +1,11 @@
 //! Implements an async compatible device.
 
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use std::{pin::Pin, time::Duration};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     select,
-    time::{sleep_until, Instant},
+    time::{sleep, Instant},
 };
 use tokio_serial::SerialStream;
 
@@ -15,11 +15,18 @@ use crate::{
 
 use super::DeviceError;
 
+#[derive(Debug, Clone)]
+struct Packet {
+    bytes: Vec<u8>,
+    used: bool,
+    timestamp: Instant,
+}
+
 /// The representation of a V5 device that supports async.
 pub struct Device {
     system_port: SerialStream,
     user_port: Option<SerialStream>,
-    user_read_size: u8,
+    incoming_packets: Vec<Packet>,
 }
 
 impl Device {
@@ -27,13 +34,8 @@ impl Device {
         Device {
             system_port,
             user_port,
-            user_read_size: 0x20, // By default, read chunks of 32 bytes
+            incoming_packets: Vec::new(),
         }
-    }
-
-    /// Updates the size of the chunks to read from the system port when a user port is not available
-    pub fn update_user_read_size(&mut self, user_read_size: u8) {
-        self.user_read_size = user_read_size;
     }
 
     pub async fn execute_command<C: Command>(
@@ -64,36 +66,39 @@ impl Device {
         Ok(())
     }
 
-    pub async fn recieve_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, DeviceError> {
-        let time = Instant::now();
-        let mut header = [0; 2];
+    async fn receive_one_packet(&mut self) -> Result<(), DeviceError> {
+        // Read the header into an array
+        let mut header = [0u8; 2];
+        self.system_port.read_exact(&mut header).await?;
 
-        // Return an error if the header is not recieved within the timeout
-        select! {
-            result = self.system_port.read_exact(&mut header) =>
-                match result {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(DeviceError::IoError(e)),
-                },
-            _ = sleep_until(time + timeout) => Err(DeviceError::Timeout)
-        }?;
+        // Verify that the header is valid
+        if let Err(e) = decode_header(header) {
+            warn!(
+                "Skipping packet with invalid header: {:x?}. Error: {}",
+                header, e
+            );
+            return Ok(());
+        }
 
-        // Verify that the header is correct
-        decode_header(header)?;
-
-        // Start to accumulate header/metadata bits
+        // Create a buffer to store the entire packet
         let mut packet = Vec::from(header);
-        // Add the command id
+
+        // Push the command's ID
         packet.push(self.system_port.read_u8().await?);
 
-        // Get the length of the packet payload
+        // Get the size of the packet
+        // We do some extra logic to make sure we only read the necessary amount of bytes
         let first_size_byte = self.system_port.read_u8().await?;
         let size = if VarU16::check_wide(first_size_byte) {
             let second_size_byte = self.system_port.read_u8().await?;
             packet.extend([first_size_byte, second_size_byte]);
+
+            // Decode the size of the packet
             VarU16::decode(vec![first_size_byte, second_size_byte])?
         } else {
             packet.push(first_size_byte);
+
+            // Decode the size of the packet
             VarU16::decode(vec![first_size_byte])?
         }
         .into_inner() as usize;
@@ -101,11 +106,58 @@ impl Device {
         // Read the rest of the packet
         let mut payload = vec![0; size];
         self.system_port.read_exact(&mut payload).await?;
+
+        // Completely fill the packet
         packet.extend(payload);
 
-        trace!("Recieved packet: {:x?}", packet);
-        // Decode the packet
-        P::decode(packet).map_err(Into::into)
+        debug!("Recieved packet: {:x?}", packet);
+
+        // Push the packet to the incoming packets buffer
+        self.incoming_packets.push(Packet {
+            bytes: packet,
+            used: false,
+            timestamp: Instant::now(),
+        });
+
+        Ok(())
+    }
+
+    fn trim_packets(&mut self) {
+        debug!(
+            "Trimming packets. Length before: {}",
+            self.incoming_packets.len()
+        );
+
+        // Remove packets that have been used
+        self.incoming_packets.retain(|packet| !packet.used);
+
+        // Remove packets that are too old
+        self.incoming_packets
+            .retain(|packet| packet.timestamp.elapsed() < Duration::from_millis(500));
+
+        debug!(
+            "Trimmed packets. Length after: {}",
+            self.incoming_packets.len()
+        );
+    }
+
+    pub async fn recieve_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, DeviceError> {
+        // Return an error if the right packet is not recieved within the timeout
+        select! {
+            result = async {
+                loop {
+                    for packet in self.incoming_packets.iter_mut() {
+                        if let Ok(decoded) = P::decode(packet.clone().bytes) {
+                            packet.used = true;
+                            return Ok(decoded);
+                        }
+                    }
+                    self.trim_packets();
+                    self.receive_one_packet().await?;
+                }
+            } => result,
+            _ = sleep(timeout) => Err(DeviceError::Timeout)
+        }
     }
 }
 
