@@ -413,7 +413,7 @@ pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<0x56, 0x18, ()>;
 
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
-    pub action: FileInitAction,
+    pub action: FileLoadAction,
     pub file_name: FixedLengthString<23>,
 }
 impl Encode for LoadFileActionPayload {
