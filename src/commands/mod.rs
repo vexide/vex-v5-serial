@@ -3,6 +3,7 @@ use std::future::Future;
 use crate::connection::{device::Device, DeviceError};
 
 pub mod file;
+pub mod screen;
 
 pub trait Command {
     type Output;

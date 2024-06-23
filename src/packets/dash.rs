@@ -65,6 +65,7 @@ impl Encode for SendDashTouchPayload {
 pub type SelectDashPacket = Cdc2CommandPacket<0x56, 0x2b, SelectDashPayload>;
 pub type SelectDashReplyPacket = Cdc2ReplyPacket<0x56, 0x2b, ()>;
 
+#[derive(Debug, Clone)]
 pub struct SelectDashPayload {
     pub screen: DashScreen,
     /// (RESEARCH NEEDED)

@@ -1,14 +1,7 @@
 use std::time::Duration;
 
-use image::{GenericImageView, RgbImage};
-use vexv5_serial::{
-    commands::file::{DownloadFile, ScreenCapture},
-    packets::{
-        capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
-        file::{FileDownloadTarget, FileVendor},
-    },
-    string::FixedLengthString,
-};
+use tokio::time::sleep;
+use vexv5_serial::{commands::screen::{MockTap, OpenDashScreen, ScreenCapture}, packets::dash::DashScreen};
 
 #[tokio::main]
 async fn main() {
@@ -31,4 +24,14 @@ async fn main() {
         .unwrap()
         .save("screencap.png")
         .unwrap();
+
+    device.execute_command(OpenDashScreen {
+        dash: DashScreen::Home
+    }).await.unwrap();
+    sleep(Duration::from_millis(50)).await;
+
+    device.execute_command(MockTap {
+        x: 300,
+        y: 100,
+    }).await.unwrap();
 }
