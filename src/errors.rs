@@ -11,7 +11,7 @@ pub enum DecodeError {
     /// Raised whenever there is an error decoding UTF8
     #[error("UTF8 decode error")]
     UTF8Error(#[from] FromUtf8Error),
-    /// Raised when the timeout for recieving the packet header is reached
+    /// Raised when the timeout for receiving the packet header is reached
     #[error("timedout when waiting for header")]
     HeaderTimeout,
     /// Raised whenever we expected an extended packet but got garbage instead
