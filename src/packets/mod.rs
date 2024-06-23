@@ -57,6 +57,14 @@ impl<P: Encode, const ID: u8> DeviceBoundCdcPacket<ID, P> {
         }
     }
 }
+impl<P: Encode + Clone, const ID: u8> Clone for DeviceBoundCdcPacket<ID, P> {
+    fn clone(&self) -> Self {
+        Self {
+            header: self.header,
+            payload: self.payload.clone(),
+        }
+    }
+} 
 
 /// Device-bound CDC2 Packet
 ///

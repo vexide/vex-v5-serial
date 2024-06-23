@@ -17,12 +17,12 @@ async fn main() {
     // Open the device
     let mut device = vex_ports[0].open().unwrap();
 
-    device
-        .send_packet(GetSystemVersionPacket::new(()))
-        .await
-        .unwrap();
     let response = device
-        .recieve_packet::<GetSystemVersionReplyPacket>(Duration::from_millis(100))
+        .packet_handshake::<GetSystemVersionReplyPacket>(
+            Duration::from_millis(700),
+            5,
+            GetSystemVersionPacket::new(()),
+        )
         .await
         .unwrap();
 
