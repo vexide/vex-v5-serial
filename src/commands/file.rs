@@ -5,15 +5,15 @@ use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{serial::SerialConnection, ConnectionError},
+    connection::{Connection, ConnectionError},
     crc::VEX_CRC32,
     packets::file::{
-            ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
-            FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
-            InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
-            LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket,
-            WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
-        },
+        ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
+        FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
+        InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
+        LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket,
+        WriteFilePayload, WriteFileReplyPacket,
+    },
     string::FixedLengthString,
     timestamp::j2000_timestamp,
     version::Version,
@@ -37,9 +37,9 @@ pub struct DownloadFile {
 impl Command for DownloadFile {
     type Output = Vec<u8>;
 
-    async fn execute(
+    async fn execute<C: Connection>(
         &mut self,
-        connection: &mut SerialConnection,
+        connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
@@ -64,7 +64,7 @@ impl Command for DownloadFile {
                         beta: 0,
                     },
                     file_name: self.filename.clone(),
-                })
+                }),
             )
             .await?;
         let transfer_response = transfer_response.payload.try_into_inner()?;
@@ -127,9 +127,9 @@ pub struct UploadFile {
 }
 impl Command for UploadFile {
     type Output = ();
-    async fn execute(
+    async fn execute<C: Connection>(
         &mut self,
-        connection: &mut SerialConnection,
+        connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
         info!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
@@ -279,7 +279,10 @@ pub struct UploadProgram {
 impl Command for UploadProgram {
     type Output = ();
 
-    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
+    async fn execute<C: Connection>(
+        &mut self,
+        connection: &mut C,
+    ) -> Result<Self::Output, ConnectionError> {
         let base_file_name = format!("slot{}", self.slot);
 
         let ini = ProgramIniConfig {

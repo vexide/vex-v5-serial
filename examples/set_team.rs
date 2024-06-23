@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use vexv5_serial::connection::serial::find_devices;
+use vexv5_serial::connection::{Connection, serial};
 use vexv5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
@@ -18,7 +18,7 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = find_devices().unwrap();
+    let devices = serial::find_devices().unwrap();
 
     // Open a connection to the device
     let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
@@ -36,7 +36,7 @@ async fn main() {
         .await
         .unwrap();
     connection
-        .recieve_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
+        .receive_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
         .await
         .unwrap();
 
@@ -48,7 +48,7 @@ async fn main() {
         .await
         .unwrap();
     let res = connection
-        .recieve_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
+        .receive_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
         .await
         .unwrap()
         .payload

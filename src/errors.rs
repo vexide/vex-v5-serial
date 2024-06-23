@@ -23,14 +23,14 @@ pub enum DecodeError {
     /// Raised whenever a packet length does not match the expected length
     #[error("packet length is incorrect")]
     PacketLengthError,
-    /// Raised whenever an invalid ACK number is recieved
+    /// Raised whenever an invalid ACK number is received
     #[error("invalid ack number")]
     InvalidAck,
-    /// Raised whenever a NACK is recieved
-    #[error("recieved a nack")]
+    /// Raised whenever a NACK is received
+    #[error("received a nack")]
     NACK(VexACKType),
-    /// Raised whenever we recieve a response to a packet that we did not expect a response to
-    #[error("expected packet _ recieved packet _")]
+    /// Raised whenever we receive a response to a packet that we did not expect a response to
+    #[error("expected packet _ received packet _")]
     ExpectedPacket(u8, u8),
     /// Raised whenever a ConnectionError is raised
     #[error("device error")]
@@ -75,7 +75,7 @@ pub enum ConnectionError {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VexACKType {
-    /// ACKnowledges that a packet has been recieved.
+    /// ACKnowledges that a packet has been received.
     ACK = 0x76,
     /// Returned by the brain when a CRC Checksum does not validate
     NACKCrcError = 0xCE,
@@ -103,7 +103,7 @@ pub enum VexACKType {
     NACKNoFileRoom = 0xDA,
     /// Returned when a file already exists and we did not specify overwrite when initializing the transfer
     NACKFileAlreadyExists = 0xDB,
-    /// A general NACK that is sometimes recieved.
+    /// A general NACK that is sometimes received.
     NACKGeneral = 0xFF,
 }
 

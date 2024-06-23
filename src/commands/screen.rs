@@ -3,10 +3,13 @@ use std::time::Duration;
 use log::info;
 
 use crate::{
-    connection::{serial::SerialConnection, ConnectionError},
+    connection::{Connection, ConnectionError},
     packets::{
         capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
-        dash::{DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket, SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket},
+        dash::{
+            DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket,
+            SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket,
+        },
         file::{FileDownloadTarget, FileVendor},
     },
     string::FixedLengthString,
@@ -19,7 +22,10 @@ pub struct ScreenCapture;
 impl Command for ScreenCapture {
     type Output = image::RgbImage;
 
-    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
+    async fn execute<C: Connection>(
+        &mut self,
+        connection: &mut C,
+    ) -> Result<Self::Output, ConnectionError> {
         // Tell the brain we want to take a screenshot
         connection
             .packet_handshake::<ScreenCaptureReplyPacket>(
@@ -73,7 +79,10 @@ pub struct MockTouch {
 impl Command for MockTouch {
     type Output = ();
 
-    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
+    async fn execute<C: Connection>(
+        &mut self,
+        connection: &mut C,
+    ) -> Result<Self::Output, ConnectionError> {
         connection
             .packet_handshake::<SendDashTouchReplyPacket>(
                 Duration::from_millis(100),
@@ -97,9 +106,9 @@ pub struct MockTap {
 impl Command for MockTap {
     type Output = ();
 
-    async fn execute(
+    async fn execute<C: Connection>(
         &mut self,
-        connection: &mut SerialConnection,
+        connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
         connection
             .execute_command(MockTouch {
@@ -115,7 +124,7 @@ impl Command for MockTap {
                 pressed: false,
             })
             .await?;
-        
+
         Ok(())
     }
 }
@@ -126,11 +135,20 @@ pub struct OpenDashScreen {
 }
 impl Command for OpenDashScreen {
     type Output = ();
-    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
-        connection.packet_handshake::<SelectDashReplyPacket>(Duration::from_millis(100), 5, SelectDashPacket::new(SelectDashPayload {
-            screen: self.dash,
-            port: 0,
-        })).await?;
+    async fn execute<C: Connection>(
+        &mut self,
+        connection: &mut C,
+    ) -> Result<Self::Output, ConnectionError> {
+        connection
+            .packet_handshake::<SelectDashReplyPacket>(
+                Duration::from_millis(100),
+                5,
+                SelectDashPacket::new(SelectDashPayload {
+                    screen: self.dash,
+                    port: 0,
+                }),
+            )
+            .await?;
 
         Ok(())
     }

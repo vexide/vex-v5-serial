@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use vexv5_serial::{
-    connection::serial::find_devices,
+    connection::{Connection, serial},
     packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
 };
 
@@ -16,7 +16,7 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = find_devices().unwrap();
+    let devices = serial::find_devices().unwrap();
 
     // Open a connection to the device
     let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();

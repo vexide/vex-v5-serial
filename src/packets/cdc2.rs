@@ -7,10 +7,10 @@ use crate::decode::{Decode, DecodeError};
 #[derive(Debug, Clone, Copy)]
 /// CDC2 Packet Acknowledgement Codes
 pub enum Cdc2Ack {
-    /// Acknowledges that a packet has been recieved successfully.
+    /// Acknowledges that a packet has been received successfully.
     Ack = 0x76,
 
-    /// A general negative-acknowledgement (NACK) that is sometimes recieved.
+    /// A general negative-acknowledgement (NACK) that is sometimes received.
     Nack = 0xFF,
 
     /// Returned by the brain when a CDC2 packet's CRC Checksum does not validate.
