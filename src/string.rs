@@ -25,7 +25,7 @@ impl DynamicVarLengthString {
         let mut data = data.into_iter();
 
         let mut string_bytes = vec![0u8; max_size];
-        for i in 0..=max_size {
+        for (i, string_byte) in string_bytes.iter_mut().enumerate() {
             let byte = u8::decode(&mut data)?;
             if i == max_size {
                 if byte != 0 {
@@ -37,7 +37,7 @@ impl DynamicVarLengthString {
                 break;
             }
 
-            string_bytes[i] = byte;
+            *string_byte = byte;
         }
         Ok(Self(String::from_utf8(string_bytes.to_vec())?, max_size))
     }
@@ -66,7 +66,7 @@ impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
         let mut data = data.into_iter();
 
         let mut string_bytes = [0u8; MAX_LEN];
-        for i in 0..=MAX_LEN {
+        for (i, string_byte) in string_bytes.iter_mut().enumerate() {
             let byte = u8::decode(&mut data)?;
             if i == MAX_LEN {
                 if byte != 0 {
@@ -78,7 +78,7 @@ impl<const MAX_LEN: usize> Decode for VarLengthString<MAX_LEN> {
                 break;
             }
 
-            string_bytes[i] = byte;
+            *string_byte = byte;
         }
 
         Ok(Self(String::from_utf8(string_bytes.to_vec())?))
