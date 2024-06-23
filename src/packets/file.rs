@@ -350,6 +350,7 @@ impl Encode for LinkFilePayload {
 pub type GetDirectoryFileCountPacket = Cdc2CommandPacket<0x56, 0x16, GetDirectoryFileCountPayload>;
 pub type GetDirectoryFileCountReplyPacket = Cdc2ReplyPacket<0x56, 0x16, u16>;
 
+#[derive(Debug, Clone)]
 pub struct GetDirectoryFileCountPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -365,6 +366,7 @@ pub type GetDirectoryEntryPacket = Cdc2CommandPacket<0x56, 0x17, GetDirectoryEnt
 pub type GetDirectoryEntryReplyPacket =
     Cdc2ReplyPacket<0x56, 0x17, Option<GetDirectoryEntryReplyPayload>>;
 
+#[derive(Debug, Clone, Copy)]
 pub struct GetDirectoryEntryPayload {
     pub file_index: u8,
     /// 0 = default. (RESEARCH NEEDED)
@@ -421,6 +423,7 @@ impl Decode for GetDirectoryEntryReplyPayload {
 pub type LoadFileActionPacket = Cdc2CommandPacket<0x56, 0x18, LoadFileActionPayload>;
 pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<0x56, 0x18, ()>;
 
+#[derive(Debug, Clone)]
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
     pub action: FileLoadAction,
@@ -439,6 +442,7 @@ pub type GetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x19, GetFileMetadataPa
 pub type GetFileMetadataReplyPacket =
     Cdc2ReplyPacket<0x56, 0x19, Option<GetFileMetadataReplyPayload>>;
 
+#[derive(Debug, Clone)]
 pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -493,6 +497,7 @@ impl Decode for GetFileMetadataReplyPayload {
 pub type SetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x1a, SetFileMetadataPayload>;
 pub type SetFileMetadataReplyPacket = Cdc2ReplyPacket<0x56, 0x1a, ()>;
 
+#[derive(Debug, Clone)]
 pub struct SetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -519,6 +524,7 @@ impl Encode for SetFileMetadataPayload {
 pub type EraseFilePacket = Cdc2CommandPacket<0x56, 0x1b, EraseFilePayload>;
 pub type EraseFileReplyPacket = Cdc2ReplyPacket<0x56, 0x1b, ()>;
 
+#[derive(Debug, Clone)]
 pub struct EraseFilePayload {
     pub vendor: FileVendor,
     /// 128 = default. (RESEARCH NEEDED)
@@ -537,6 +543,7 @@ impl Encode for EraseFilePayload {
 pub type FileClearUpPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpPayload>;
 pub type FileClearUpReplyPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpResult>;
 
+#[derive(Debug, Clone)]
 pub struct FileClearUpPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -588,6 +595,7 @@ impl Decode for FileClearUpResult {
 pub type FileFormatPacket = Cdc2CommandPacket<0x56, 0x1f, FileFormatConfirmation>;
 pub type FileFormatReplyPacket = Cdc2CommandPacket<0x56, 0x1f, ()>;
 
+#[derive(Debug, Clone)]
 pub struct FileFormatConfirmation {
     /// Must be [0x44, 0x43, 0x42, 0x41].
     pub confirmation_code: [u8; 4],

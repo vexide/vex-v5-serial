@@ -30,6 +30,7 @@ impl Decode for Slot {
 pub type GetProgramSlotInfoPacket = Cdc2CommandPacket<0x56, 0x1c, GetProgramSlotInfoPayload>;
 pub type GetLogCountReplyPacket = Cdc2ReplyPacket<0x56, 0x1c, GetProgramSlotInfoReplyPayload>;
 
+#[derive(Debug, Clone)]
 pub struct GetProgramSlotInfoPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)

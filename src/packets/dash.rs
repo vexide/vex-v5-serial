@@ -45,6 +45,7 @@ pub enum DashScreen {
 pub type SendDashTouchPacket = Cdc2CommandPacket<0x56, 0x2a, SendDashTouchPayload>;
 pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<0x56, 0x2a, ()>;
 
+#[derive(Debug, Clone)]
 pub struct SendDashTouchPayload {
     pub x: u16,
     pub y: u16,

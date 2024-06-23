@@ -71,6 +71,7 @@ pub type GetFactoryStatusReplyPacket = Cdc2ReplyPacket<0x56, 0xF1, FactoryStatus
 pub type FactoryEnablePacket = Cdc2CommandPacket<0x56, 0xFF, FactoryEnablePayload>;
 pub type FactoryEnableReplyPacket = Cdc2CommandPacket<0x56, 0xFF, ()>;
 
+#[derive(Debug, Clone, Copy)]
 pub struct FactoryEnablePayload(pub [u8; 4]);
 impl Encode for FactoryEnablePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
