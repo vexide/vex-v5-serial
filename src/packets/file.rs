@@ -96,6 +96,7 @@ pub enum FileLoadAction {
 pub type InitFileTransferPacket = Cdc2CommandPacket<0x56, 0x11, InitFileTransferPayload>;
 pub type InitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x11, InitFileTransferReplyPayload>;
 
+#[derive(Debug, Clone)]
 pub struct InitFileTransferPayload {
     pub operation: FileInitAction,
     pub target: FileDownloadTarget,
@@ -182,6 +183,7 @@ impl Encode for FileExitAtion {
 pub type WriteFilePacket = Cdc2CommandPacket<0x56, 0x13, WriteFilePayload>;
 pub type WriteFileReplyPacket = Cdc2ReplyPacket<0x56, 0x13, ()>;
 
+#[derive(Debug, Clone)]
 pub struct WriteFilePayload {
     /// Memory address to write to.
     pub address: i32,
@@ -205,6 +207,7 @@ pub type ReadFilePacket = Cdc2CommandPacket<0x56, 0x14, ReadFilePayload>;
 /// Returns the file content. This packet doesn't have an ack if the data is available.
 pub type ReadFileReplyPacket = HostBoundPacket<ReadFileReplyPayload, 0x56>;
 
+#[derive(Debug, Clone)]
 pub struct ReadFilePayload {
     /// Memory address to read from.
     pub address: u32,
@@ -327,6 +330,7 @@ impl ReadFileReplyPayload {
 pub type LinkFilePacket = Cdc2CommandPacket<0x56, 0x15, LinkFilePayload>;
 pub type LinkFileReplyPacket = Cdc2ReplyPacket<0x56, 0x15, ()>;
 
+#[derive(Debug, Clone)]
 pub struct LinkFilePayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)

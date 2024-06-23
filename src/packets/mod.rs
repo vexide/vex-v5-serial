@@ -102,6 +102,17 @@ impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> Encode
         Ok(encoded)
     }
 }
+impl<P: Encode + Clone, const ID: u8, const EXTENDED_ID: u8> Clone
+    for DeviceBoundCdc2Packet<ID, EXTENDED_ID, P>
+{
+    fn clone(&self) -> Self {
+        Self {
+            header: self.header,
+            payload: self.payload.clone(),
+            crc: self.crc.clone(),
+        }
+    }
+}
 
 impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> DeviceBoundCdc2Packet<ID, EXTENDED_ID, P> {
     /// Header byte sequence used for all device-bound packets.
