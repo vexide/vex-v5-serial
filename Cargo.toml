@@ -20,9 +20,9 @@ serde_ini = "0.2.0"
 bitflags = "2.5.0"
 flate2 = "1.0.30"
 log = "0.4.21"
+image = "0.25.1"
 
 [dev-dependencies]
-image = "0.25.1"
 simplelog = "0.12.2"
 
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial

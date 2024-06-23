@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use image::{GenericImageView, RgbImage};
 use vexv5_serial::{
-    commands::file::DownloadFile,
+    commands::file::{DownloadFile, ScreenCapture},
     packets::{
         capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
         file::{FileDownloadTarget, FileVendor},
@@ -13,7 +13,7 @@ use vexv5_serial::{
 #[tokio::main]
 async fn main() {
     simplelog::TermLogger::init(
-        log::LevelFilter::Debug,
+        log::LevelFilter::Info,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,
@@ -26,51 +26,9 @@ async fn main() {
     let mut device = vex_ports[0].open().unwrap();
 
     device
-        .send_packet(ScreenCapturePacket::new(()))
+        .execute_command(ScreenCapture)
         .await
-        .unwrap();
-    device
-        .recieve_packet::<ScreenCaptureReplyPacket>(Duration::from_millis(100))
-        .await
-        .unwrap();
-    // Take a screenshot
-    let cap = device
-        .execute_command(DownloadFile {
-            filename: FixedLengthString::new("screen".to_string()).unwrap(),
-            filetype: FixedLengthString::new("".to_string()).unwrap(),
-            vendor: FileVendor::Sys,
-            target: Some(FileDownloadTarget::Cbuf),
-            load_addr: 0,
-            size: 512 * 272 * 4,
-            progress_callback: Some(Box::new(|progress| {
-                if progress != 100.0 {
-                    print!("\x1B[sDownloading screencap: {progress:.2}%\x1B[u")
-                } else {
-                    println!("\x1B[sDownloading screencap: {progress:.2}%")
-                }
-            })),
-        })
-        .await
-        .unwrap();
-
-    let colors = cap
-        .chunks(4)
-        .filter_map(|p| {
-            if p.len() == 4 {
-                // little endian
-                let color = [p[2], p[1], p[0]];
-                Some(color)
-            } else {
-                None
-            }
-        })
-        .flatten()
-        .collect::<Vec<_>>();
-
-    let image = RgbImage::from_vec(512, 272, colors).unwrap();
-    image
-        .view(0, 0, 480, 272)
-        .to_image()
+        .unwrap()
         .save("screencap.png")
         .unwrap();
 }

@@ -166,9 +166,14 @@ impl Device {
     /// before giving up and erroring with the error thrown on the last retry.
     /// # Note
     /// This function will fail immediately if the given packet fails to encode.
-    pub async fn packet_handshake<D: Decode>(&mut self, timeout: Duration, retries: usize, packet: impl Encode + Clone) -> Result<D, DeviceError> {
+    pub async fn packet_handshake<D: Decode>(
+        &mut self,
+        timeout: Duration,
+        retries: usize,
+        packet: impl Encode + Clone,
+    ) -> Result<D, DeviceError> {
         let mut last_error = DeviceError::Timeout;
-        
+
         for _ in 0..retries {
             self.send_packet(packet.clone()).await?;
             match self.recieve_packet::<D>(timeout).await {
@@ -179,7 +184,10 @@ impl Device {
                 }
             }
         }
-        error!("Handshake failed after {} retries with error: {}", retries, last_error);
+        error!(
+            "Handshake failed after {} retries with error: {}",
+            retries, last_error
+        );
         Err(last_error)
     }
 }
