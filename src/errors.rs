@@ -32,9 +32,9 @@ pub enum DecodeError {
     /// Raised whenever we recieve a response to a packet that we did not expect a response to
     #[error("expected packet _ recieved packet _")]
     ExpectedPacket(u8, u8),
-    /// Raised whenever a DeviceError is raised
+    /// Raised whenever a ConnectionError is raised
     #[error("device error")]
-    DeviceError(#[from] DeviceError),
+    ConnectionError(#[from] ConnectionError),
     /// Raised whenever we encounter an invalid value
     #[error("invalid value")]
     InvalidValue(String),
@@ -42,7 +42,7 @@ pub enum DecodeError {
 
 /// Represents an error communicating with a device.
 #[derive(Error, Debug)]
-pub enum DeviceError {
+pub enum ConnectionError {
     /// Raised whenever there is an std::io::Error
     #[error("IO Error")]
     IoError(#[from] std::io::Error),

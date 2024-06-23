@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use vexv5_serial::packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket};
+use vexv5_serial::{
+    connection::serial::find_devices,
+    packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
+};
 
 #[tokio::main]
 async fn main() {
@@ -11,13 +14,14 @@ async fn main() {
         simplelog::ColorChoice::Always,
     )
     .unwrap();
+
     // Find all vex devices on the serial ports
-    let vex_ports = vexv5_serial::connection::genericv5::find_generic_devices().unwrap();
+    let devices = find_devices().unwrap();
 
-    // Open the device
-    let mut device = vex_ports[0].open().unwrap();
+    // Open a connection to the device
+    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
 
-    let response = device
+    let response = connection
         .packet_handshake::<GetSystemVersionReplyPacket>(
             Duration::from_millis(700),
             5,

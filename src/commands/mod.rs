@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::connection::{device::Device, DeviceError};
+use crate::connection::{serial::SerialConnection, ConnectionError};
 
 pub mod file;
 pub mod screen;
@@ -10,6 +10,6 @@ pub trait Command {
 
     fn execute(
         &mut self,
-        device: &mut Device,
-    ) -> impl Future<Output = Result<Self::Output, DeviceError>>;
+        connection: &mut SerialConnection,
+    ) -> impl Future<Output = Result<Self::Output, ConnectionError>>;
 }

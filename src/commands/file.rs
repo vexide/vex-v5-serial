@@ -5,7 +5,7 @@ use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{device::Device, DeviceError},
+    connection::{serial::SerialConnection, ConnectionError},
     crc::VEX_CRC32,
     packets::file::{
             ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
@@ -39,11 +39,11 @@ impl Command for DownloadFile {
 
     async fn execute(
         &mut self,
-        device: &mut crate::connection::device::Device,
-    ) -> Result<Self::Output, DeviceError> {
+        connection: &mut SerialConnection,
+    ) -> Result<Self::Output, ConnectionError> {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
-        let transfer_response = device
+        let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
                 Duration::from_millis(100),
                 5,
@@ -64,7 +64,7 @@ impl Command for DownloadFile {
                         beta: 0,
                     },
                     file_name: self.filename.clone(),
-                }),
+                })
             )
             .await?;
         let transfer_response = transfer_response.payload.try_into_inner()?;
@@ -80,7 +80,7 @@ impl Command for DownloadFile {
         let mut data = Vec::with_capacity(transfer_response.file_size as usize);
         let mut offset = 0;
         loop {
-            let read = device
+            let read = connection
                 .packet_handshake::<ReadFileReplyPacket>(
                     Duration::from_millis(100),
                     5,
@@ -90,7 +90,7 @@ impl Command for DownloadFile {
                     }),
                 )
                 .await?;
-            let read = read.payload.unwrap().map_err(DeviceError::Nack)?;
+            let read = read.payload.unwrap().map_err(ConnectionError::Nack)?;
             let chunk_data = read.1.into_inner();
             offset += chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
@@ -129,15 +129,15 @@ impl Command for UploadFile {
     type Output = ();
     async fn execute(
         &mut self,
-        device: &mut crate::connection::device::Device,
-    ) -> Result<Self::Output, DeviceError> {
+        connection: &mut SerialConnection,
+    ) -> Result<Self::Output, ConnectionError> {
         info!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
         let crc = VEX_CRC32.checksum(&self.data);
 
-        let transfer_response = device
+        let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
                 Duration::from_millis(100),
                 5,
@@ -165,7 +165,7 @@ impl Command for UploadFile {
         let transfer_response = transfer_response.payload.try_into_inner()?;
 
         if let Some(linked_file) = &self.linked_file {
-            device
+            connection
                 .packet_handshake::<LinkFileReplyPacket>(
                     Duration::from_millis(100),
                     5,
@@ -203,7 +203,7 @@ impl Command for UploadFile {
                 callback(progress);
             }
 
-            device
+            connection
                 .packet_handshake::<WriteFileReplyPacket>(
                     Duration::from_millis(100),
                     5,
@@ -221,7 +221,7 @@ impl Command for UploadFile {
             callback(100.0);
         }
 
-        device
+        connection
             .packet_handshake::<ExitFileTransferReplyPacket>(
                 Duration::from_millis(100),
                 5,
@@ -279,7 +279,7 @@ pub struct UploadProgram {
 impl Command for UploadProgram {
     type Output = ();
 
-    async fn execute(&mut self, device: &mut Device) -> Result<Self::Output, DeviceError> {
+    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
         let base_file_name = format!("slot{}", self.slot);
 
         let ini = ProgramIniConfig {
@@ -309,7 +309,7 @@ impl Command for UploadProgram {
                 info!("Uploading INI: {:.2}%", progress)
             })),
         };
-        device.execute_command(file_transfer).await.unwrap();
+        connection.execute_command(file_transfer).await.unwrap();
 
         let (cold, hot) = match &mut self.data {
             ProgramData::Cold(cold) => (Some(cold), None),
@@ -335,7 +335,7 @@ impl Command for UploadProgram {
                 *cold = encoder.finish().unwrap();
             }
 
-            device
+            connection
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
                     filetype: FixedLengthString::new("bin".to_string())?,
@@ -365,7 +365,7 @@ impl Command for UploadProgram {
                 encoder.write_all(hot).unwrap();
                 *hot = encoder.finish().unwrap();
             }
-            device
+            connection
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
                     filetype: FixedLengthString::new("bin".to_string())?,

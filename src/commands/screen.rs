@@ -3,7 +3,7 @@ use std::time::Duration;
 use log::info;
 
 use crate::{
-    connection::{device::Device, DeviceError},
+    connection::{serial::SerialConnection, ConnectionError},
     packets::{
         capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
         dash::{DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket, SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket},
@@ -19,9 +19,9 @@ pub struct ScreenCapture;
 impl Command for ScreenCapture {
     type Output = image::RgbImage;
 
-    async fn execute(&mut self, device: &mut Device) -> Result<Self::Output, DeviceError> {
+    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
         // Tell the brain we want to take a screenshot
-        device
+        connection
             .packet_handshake::<ScreenCaptureReplyPacket>(
                 Duration::from_millis(100),
                 5,
@@ -30,7 +30,7 @@ impl Command for ScreenCapture {
             .await?;
 
         // Grab the image data
-        let cap = device
+        let cap = connection
             .execute_command(DownloadFile {
                 filename: FixedLengthString::new("screen".to_string()).unwrap(),
                 filetype: FixedLengthString::new("".to_string()).unwrap(),
@@ -73,8 +73,8 @@ pub struct MockTouch {
 impl Command for MockTouch {
     type Output = ();
 
-    async fn execute(&mut self, device: &mut Device) -> Result<Self::Output, DeviceError> {
-        device
+    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
+        connection
             .packet_handshake::<SendDashTouchReplyPacket>(
                 Duration::from_millis(100),
                 5,
@@ -99,16 +99,16 @@ impl Command for MockTap {
 
     async fn execute(
         &mut self,
-        device: &mut Device,
-    ) -> Result<Self::Output, DeviceError> {
-        device
+        connection: &mut SerialConnection,
+    ) -> Result<Self::Output, ConnectionError> {
+        connection
             .execute_command(MockTouch {
                 x: self.x,
                 y: self.y,
                 pressed: true,
             })
             .await?;
-        device
+        connection
             .execute_command(MockTouch {
                 x: self.x,
                 y: self.y,
@@ -126,8 +126,8 @@ pub struct OpenDashScreen {
 }
 impl Command for OpenDashScreen {
     type Output = ();
-    async fn execute(&mut self, device: &mut Device) -> Result<Self::Output, DeviceError> {
-        device.packet_handshake::<SelectDashReplyPacket>(Duration::from_millis(100), 5, SelectDashPacket::new(SelectDashPayload {
+    async fn execute(&mut self, connection: &mut SerialConnection) -> Result<Self::Output, ConnectionError> {
+        connection.packet_handshake::<SelectDashReplyPacket>(Duration::from_millis(100), 5, SelectDashPacket::new(SelectDashPayload {
             screen: self.dash,
             port: 0,
         })).await?;

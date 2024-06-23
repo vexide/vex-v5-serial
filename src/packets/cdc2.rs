@@ -1,4 +1,4 @@
-use crate::connection::DeviceError;
+use crate::connection::ConnectionError;
 
 use super::{DeviceBoundCdc2Packet, HostBoundPacket};
 use crate::decode::{Decode, DecodeError};
@@ -106,11 +106,11 @@ pub struct Cdc2CommandReplyPayload<const ID: u8, P: Decode> {
     pub crc: u16,
 }
 impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
-    pub fn try_into_inner(self) -> Result<P, DeviceError> {
+    pub fn try_into_inner(self) -> Result<P, ConnectionError> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.data)
         } else {
-            Err(DeviceError::Nack(self.ack))
+            Err(ConnectionError::Nack(self.ack))
         }
     }
 }

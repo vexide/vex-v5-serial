@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use vexv5_serial::connection::serial::find_devices;
 use vexv5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
@@ -15,14 +16,15 @@ async fn main() {
         simplelog::ColorChoice::Always,
     )
     .unwrap();
-    // Find all vex devices on the serial ports
-    let vex_ports = vexv5_serial::connection::genericv5::find_generic_devices().unwrap();
 
-    // Open the device
-    let mut device = vex_ports[0].open().unwrap();
+    // Find all vex devices on the serial ports
+    let devices = find_devices().unwrap();
+
+    // Open a connection to the device
+    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
 
     // Set the team number on the brain
-    device
+    connection
         .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
             key: VarLengthString::new("teamnumber".to_string()).unwrap(),
             value: VarLengthString::new(
@@ -33,19 +35,19 @@ async fn main() {
         }))
         .await
         .unwrap();
-    device
+    connection
         .recieve_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
         .await
         .unwrap();
 
     // Get the new team number and print it
-    device
+    connection
         .send_packet(ReadKeyValuePacket::new(
             FixedLengthString::new("teamnumber".to_string()).unwrap(),
         ))
         .await
         .unwrap();
-    let res = device
+    let res = connection
         .recieve_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
         .await
         .unwrap()
