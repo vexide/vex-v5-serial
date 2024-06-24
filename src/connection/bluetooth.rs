@@ -108,7 +108,7 @@ pub struct BluetoothConnection {
     system_rx: Characteristic,
     user_tx: Characteristic,
     user_rx: Characteristic,
-    auth: Characteristic,
+    pairing: Characteristic,
 }
 
 impl BluetoothConnection {
@@ -127,7 +127,7 @@ impl BluetoothConnection {
         let mut system_rx: Option<Characteristic> = None;
         let mut user_tx: Option<Characteristic> = None;
         let mut user_rx: Option<Characteristic> = None;
-        let mut auth: Option<Characteristic> = None;
+        let mut pairing: Option<Characteristic> = None;
 
         for characteric in peripheral.characteristics() {
             match characteric.uuid {
@@ -144,7 +144,7 @@ impl BluetoothConnection {
                     user_rx = Some(characteric);
                 }
                 CHARACTERISTIC_PAIRING => {
-                    auth = Some(characteric);
+                    pairing = Some(characteric);
                 }
                 _ => {}
             }
@@ -156,7 +156,7 @@ impl BluetoothConnection {
             system_rx: system_rx.ok_or(ConnectionError::MissingCharacteristic)?,
             user_tx: user_tx.ok_or(ConnectionError::MissingCharacteristic)?,
             user_rx: user_rx.ok_or(ConnectionError::MissingCharacteristic)?,
-            auth: auth.ok_or(ConnectionError::MissingCharacteristic)?,
+            pairing: pairing.ok_or(ConnectionError::MissingCharacteristic)?,
         };
 
         connection.peripheral.subscribe(&connection.system_tx).await?;
@@ -165,16 +165,16 @@ impl BluetoothConnection {
         Ok(connection)
     }
 
-    pub async fn is_authenticated(&self) -> Result<bool, ConnectionError> {
-        let auth_bytes = self.peripheral.read(&self.auth).await?;
+    pub async fn is_paired(&self) -> Result<bool, ConnectionError> {
+        let auth_bytes = self.peripheral.read(&self.pairing).await?;
 
         Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) != AUTH_REQUIRED_SEQUENCE)
     }
 
-    pub async fn request_pin(&mut self) -> Result<(), ConnectionError> {
+    pub async fn request_pairing(&mut self) -> Result<(), ConnectionError> {
         self.peripheral
             .write(
-                &self.auth,
+                &self.pairing,
                 &[0xFF, 0xFF, 0xFF, 0xFF],
                 WriteType::WithoutResponse,
             )
@@ -185,10 +185,10 @@ impl BluetoothConnection {
 
     pub async fn authenticate(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
         self.peripheral
-            .write(&self.auth, &pin, WriteType::WithoutResponse)
+            .write(&self.pairing, &pin, WriteType::WithoutResponse)
             .await?;
 
-        let read = self.peripheral.read(&self.auth).await?;
+        let read = self.peripheral.read(&self.pairing).await?;
 
         if read != pin {
             return Err(ConnectionError::IncorrectPin);
@@ -207,8 +207,8 @@ impl BluetoothConnection {
 
 impl Connection for BluetoothConnection {
     async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
-        if !self.is_authenticated().await? {
-            return Err(ConnectionError::AuthenticationRequired);
+        if !self.is_paired().await? {
+            return Err(ConnectionError::PairingRequired);
         }
 
         // Encode the packet

@@ -103,6 +103,6 @@ pub enum ConnectionError {
     MissingCharacteristic,
     #[error("Authentication PIN code was incorrect")]
     IncorrectPin,
-    #[error("Authentication is required")]
-    AuthenticationRequired,
+    #[error("Pairing is required")]
+    PairingRequired,
 }

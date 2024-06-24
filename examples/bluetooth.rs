@@ -30,8 +30,8 @@ async fn main() {
         .await
         .unwrap();
 
-    if !connection.is_authenticated().await.unwrap() {
-        connection.request_pin().await.unwrap();
+    if !connection.is_paired().await.unwrap() {
+        connection.request_pairing().await.unwrap();
 
         let mut editor = DefaultEditor::new().unwrap();
         let pin = editor.readline("Enter PIN: >> ").unwrap();
