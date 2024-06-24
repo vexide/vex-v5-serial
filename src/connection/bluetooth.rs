@@ -17,15 +17,15 @@ use super::{Connection, ConnectionError};
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
 
 /// User port GATT characteristic
-pub const CHARACTERISTIC_TX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13f5); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIFY
-pub const CHARACTERISTIC_RX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
+pub const CHARACTERISTIC_SYSTEM_TX: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
+pub const CHARACTERISTIC_SYSTEM_RX: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13f5); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIFY
 
 /// System port GATT characteristic
-pub const CHARACTERISTIC_TX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1326); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIF
-pub const CHARACTERISTIC_RX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1316); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
+pub const CHARACTERISTIC_USER_TX: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1316); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
+pub const CHARACTERISTIC_USER_RX: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1326); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIF
 
 /// PIN authentication characteristic
-pub const CHARACTERISTIC_AUTH: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
+pub const CHARACTERISTIC_PAIRING: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
 
 pub const AUTH_REQUIRED_SEQUENCE: u32 = 0xdeadface;
 
@@ -104,14 +104,16 @@ pub async fn find_devices(
 
 pub struct BluetoothConnection {
     peripheral: Peripheral,
-    tx_system: Characteristic,
-    rx_system: Characteristic,
-    tx_user: Characteristic,
-    rx_user: Characteristic,
+    system_tx: Characteristic,
+    system_rx: Characteristic,
+    user_tx: Characteristic,
+    user_rx: Characteristic,
     auth: Characteristic,
 }
 
 impl BluetoothConnection {
+    const MAX_PACKET_SIZE: usize = 244;
+
     pub async fn open(peripheral: Peripheral) -> Result<Self, ConnectionError> {
         if !peripheral.is_connected().await? {
             peripheral.connect().await?;
@@ -121,27 +123,27 @@ impl BluetoothConnection {
     
         peripheral.discover_services().await?;
 
-        let mut tx_system: Option<Characteristic> = None;
-        let mut rx_system: Option<Characteristic> = None;
-        let mut tx_user: Option<Characteristic> = None;
-        let mut rx_user: Option<Characteristic> = None;
+        let mut system_tx: Option<Characteristic> = None;
+        let mut system_rx: Option<Characteristic> = None;
+        let mut user_tx: Option<Characteristic> = None;
+        let mut user_rx: Option<Characteristic> = None;
         let mut auth: Option<Characteristic> = None;
 
         for characteric in peripheral.characteristics() {
             match characteric.uuid {
-                CHARACTERISTIC_TX_SYSTEM => {
-                    tx_system = Some(characteric);
+                CHARACTERISTIC_SYSTEM_TX => {
+                    system_tx = Some(characteric);
                 }
-                CHARACTERISTIC_RX_SYSTEM => {
-                    rx_system = Some(characteric);
+                CHARACTERISTIC_SYSTEM_RX => {
+                    system_rx = Some(characteric);
                 }
-                CHARACTERISTIC_TX_USER => {
-                    tx_user = Some(characteric);
+                CHARACTERISTIC_USER_TX => {
+                    user_tx = Some(characteric);
                 }
-                CHARACTERISTIC_RX_USER => {
-                    rx_user = Some(characteric);
+                CHARACTERISTIC_USER_RX => {
+                    user_rx = Some(characteric);
                 }
-                CHARACTERISTIC_AUTH => {
+                CHARACTERISTIC_PAIRING => {
                     auth = Some(characteric);
                 }
                 _ => {}
@@ -150,15 +152,15 @@ impl BluetoothConnection {
 
         let connection = Self {
             peripheral,
-            tx_system: tx_system.ok_or(ConnectionError::MissingCharacteristic)?,
-            rx_system: rx_system.ok_or(ConnectionError::MissingCharacteristic)?,
-            tx_user: tx_user.ok_or(ConnectionError::MissingCharacteristic)?,
-            rx_user: rx_user.ok_or(ConnectionError::MissingCharacteristic)?,
+            system_tx: system_tx.ok_or(ConnectionError::MissingCharacteristic)?,
+            system_rx: system_rx.ok_or(ConnectionError::MissingCharacteristic)?,
+            user_tx: user_tx.ok_or(ConnectionError::MissingCharacteristic)?,
+            user_rx: user_rx.ok_or(ConnectionError::MissingCharacteristic)?,
             auth: auth.ok_or(ConnectionError::MissingCharacteristic)?,
         };
 
-        connection.peripheral.subscribe(&connection.rx_system).await?;
-        connection.peripheral.subscribe(&connection.rx_user).await?;
+        connection.peripheral.subscribe(&connection.system_tx).await?;
+        connection.peripheral.subscribe(&connection.user_tx).await?;
 
         Ok(connection)
     }
@@ -197,7 +199,7 @@ impl BluetoothConnection {
 
     pub async fn read_stdio(&mut self) -> Vec<u8> {
         self.peripheral
-            .read(&self.rx_user)
+            .read(&self.user_rx)
             .await
             .unwrap()
     }
@@ -216,7 +218,7 @@ impl Connection for BluetoothConnection {
 
         // Write the packet to the system tx characteristic.
         self.peripheral
-            .write(&self.tx_system, &encoded, WriteType::WithoutResponse)
+            .write(&self.system_tx, &encoded, WriteType::WithoutResponse)
             .await?;
 
         Ok(())
