@@ -1,10 +1,13 @@
-# V5 Serial Protocol
+# VEX V5 Serial Protocol
 
-![Serial Experiments VEX](https://github.com/vexide/v5-serial-protocol-rust/assets/42101043/5ecca72d-9307-40ae-a0b5-1d1c9cf74000)
+![image](https://github.com/vexide/v5-serial-protocol-rust/assets/42101043/6eea71ca-cc28-4f87-82fb-7b476a0becd3)
 
-This project provides a partial Rust implementation of the serial communications protocol used by VEX V5 devices over USB and Bluetooth.
+This project provides a Rust implementation of the serial communications protocol used by VEX V5 devices over USB and Bluetooth.
 
-> [!NOTE]  
-> This information is derived from [PROS-CLI](https://github.com/purduesigbots/pros-cli) as well as JerryLum's reverse engineering efforts in [v5-serial-protocol](https://github.com/lemlib/v5-serial-protocol).
+> [!NOTE]
+> Information regarding the protocol is derived from the open-source [PROS-CLI project](https://github.com/purduesigbots/pros-cli) as well as JerryLum's reverse engineering efforts in [v5-serial-protocol](https://github.com/lemlib/v5-serial-protocol).
 
-This project is a fork of some prior work done by the [vexv5-serial](https://github.com/vexrs/vexv5_serial) project, but virtually everything except for device port finding has been rewritten from the ground up.
+## Features
+- Asynchronous USB and Bluetooth LE support.
+- Most CDC and CDC2 (extended) command packets implemented.
+- `Command` API for higher level abstractions over basic packet exchange.
