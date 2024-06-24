@@ -353,4 +353,8 @@ impl Connection for SerialConnection {
             _ = sleep(timeout) => Err(ConnectionError::Timeout)
         }
     }
+
+    fn is_bluetooth(&self) -> bool {
+        false
+    }
 }

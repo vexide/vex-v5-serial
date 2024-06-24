@@ -110,6 +110,9 @@ pub trait Connection: Sized {
         );
         Err(last_error)
     }
+
+    /// Returns whether or not the connection is over bluetooth.
+    fn is_bluetooth(&self) -> bool;
 }
 
 #[derive(Error, Debug)]

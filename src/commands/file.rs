@@ -45,7 +45,7 @@ impl Command for DownloadFile {
 
         let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
-                Duration::from_millis(100),
+                Duration::from_millis(500),
                 5,
                 InitFileTransferPacket::new(InitFileTransferPayload {
                     operation: FileInitAction::Read,
@@ -82,7 +82,7 @@ impl Command for DownloadFile {
         loop {
             let read = connection
                 .packet_handshake::<ReadFileReplyPacket>(
-                    Duration::from_millis(100),
+                    Duration::from_millis(500),
                     5,
                     ReadFilePacket::new(ReadFilePayload {
                         address: self.load_addr + offset,
@@ -139,7 +139,7 @@ impl Command for UploadFile {
 
         let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
-                Duration::from_millis(100),
+                Duration::from_millis(500),
                 5,
                 InitFileTransferPacket::new(InitFileTransferPayload {
                     operation: FileInitAction::Write,
@@ -167,7 +167,7 @@ impl Command for UploadFile {
         if let Some(linked_file) = &self.linked_file {
             connection
                 .packet_handshake::<LinkFileReplyPacket>(
-                    Duration::from_millis(100),
+                    Duration::from_millis(500),
                     5,
                     LinkFilePacket::new(LinkFilePayload {
                         vendor: linked_file.vendor.unwrap_or(FileVendor::User),
@@ -181,11 +181,18 @@ impl Command for UploadFile {
         }
 
         let window_size = transfer_response.window_size;
-        let max_chunk_size = if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+
+        // The maximum packet size is 244 bytes for bluetooth
+        let max_chunk_size = if connection.is_bluetooth() {
+            let max_chunk_size = 244.min(window_size / 2) - 14;
+            max_chunk_size - (max_chunk_size % 4)
+        } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
             window_size
         } else {
             USER_PROGRAM_CHUNK_SIZE
         };
+
+        debug!("max_chunk_size: {}", max_chunk_size);
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
@@ -203,18 +210,22 @@ impl Command for UploadFile {
                 callback(progress);
             }
 
-            connection
-                .packet_handshake::<WriteFileReplyPacket>(
-                    Duration::from_millis(100),
-                    5,
-                    WriteFilePacket::new(WriteFilePayload {
-                        address: (self.load_addr + offset) as _,
-                        chunk_data: chunk.clone(),
-                    }),
-                )
-                .await?
-                .payload
-                .try_into_inner()?;
+            let packet = WriteFilePacket::new(WriteFilePayload {
+                address: (self.load_addr + offset) as _,
+                chunk_data: chunk.clone(),
+            });
+
+            // On bluetooth, we dont wait for the reply
+            if connection.is_bluetooth() {
+                connection.send_packet(packet).await?;
+            } else {
+                connection
+                    .packet_handshake::<WriteFileReplyPacket>(Duration::from_millis(500), 5, packet)
+                    .await?
+                    .payload
+                    .try_into_inner()?;
+            }
+
             offset += chunk.len() as u32;
         }
         if let Some(callback) = &mut self.progress_callback {
@@ -223,7 +234,7 @@ impl Command for UploadFile {
 
         connection
             .packet_handshake::<ExitFileTransferReplyPacket>(
-                Duration::from_millis(100),
+                Duration::from_millis(800),
                 5,
                 ExitFileTransferPacket::new(self.after_upload),
             )

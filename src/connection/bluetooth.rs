@@ -282,4 +282,8 @@ impl Connection for BluetoothConnection {
             _ = sleep(timeout) => Err(ConnectionError::Timeout)
         }
     }
+
+    fn is_bluetooth(&self) -> bool {
+        true
+    }
 }
