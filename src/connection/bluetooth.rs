@@ -27,7 +27,7 @@ pub const CHARACTERISTIC_USER_RX: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_87
 /// PIN authentication characteristic
 pub const CHARACTERISTIC_PAIRING: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
 
-pub const AUTH_REQUIRED_SEQUENCE: u32 = 0xdeadface;
+pub const UNPAIRED_MAGIC: u32 = 0xdeadface;
 
 /// Discover and locate bluetooth-compatible V5 peripherals.
 pub async fn find_devices(
@@ -120,7 +120,7 @@ impl BluetoothConnection {
         } else {
             warn!("Peripheral already connected?");
         }
-    
+
         peripheral.discover_services().await?;
 
         let mut system_tx: Option<Characteristic> = None;
@@ -159,7 +159,10 @@ impl BluetoothConnection {
             pairing: pairing.ok_or(ConnectionError::MissingCharacteristic)?,
         };
 
-        connection.peripheral.subscribe(&connection.system_tx).await?;
+        connection
+            .peripheral
+            .subscribe(&connection.system_tx)
+            .await?;
         connection.peripheral.subscribe(&connection.user_tx).await?;
 
         Ok(connection)
@@ -168,7 +171,7 @@ impl BluetoothConnection {
     pub async fn is_paired(&self) -> Result<bool, ConnectionError> {
         let auth_bytes = self.peripheral.read(&self.pairing).await?;
 
-        Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) != AUTH_REQUIRED_SEQUENCE)
+        Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) != UNPAIRED_MAGIC)
     }
 
     pub async fn request_pairing(&mut self) -> Result<(), ConnectionError> {
@@ -198,10 +201,7 @@ impl BluetoothConnection {
     }
 
     pub async fn read_stdio(&mut self) -> Vec<u8> {
-        self.peripheral
-            .read(&self.user_rx)
-            .await
-            .unwrap()
+        self.peripheral.read(&self.user_tx).await.unwrap()
     }
 }
 
