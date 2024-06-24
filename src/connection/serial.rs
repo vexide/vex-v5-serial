@@ -1,16 +1,22 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
-use log::{debug, error, trace, warn};
+use log::{debug, trace, warn};
 use std::time::Duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     select,
-    time::{sleep, Instant},
+    time::sleep,
 };
 use tokio_serial::SerialStream;
 
 use super::{Connection, ConnectionError};
-use crate::{decode::Decode, encode::Encode, packets::decode_header, varint::VarU16};
+use crate::{
+    connection::{trim_packets, RawPacket},
+    decode::Decode,
+    encode::Encode,
+    packets::decode_header,
+    varint::VarU16,
+};
 
 /// The USB venddor ID for VEX devices
 pub const VEX_USB_VID: u16 = 0x2888;
@@ -210,13 +216,6 @@ impl SerialDevice {
     }
 }
 
-#[derive(Debug, Clone)]
-struct RawPacket {
-    bytes: Vec<u8>,
-    used: bool,
-    timestamp: Instant,
-}
-
 /// An open serial connection to a V5 device.
 #[derive(Debug)]
 pub struct SerialConnection {
@@ -226,10 +225,11 @@ pub struct SerialConnection {
 }
 
 impl SerialConnection {
+    /// Opens a new serial connection to a V5 Brain.
     pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, ConnectionError> {
         // Open the system port
         let system_port = match tokio_serial::SerialStream::open(
-            &tokio_serial::new(&device.system_port(), 115200)
+            &tokio_serial::new(device.system_port(), 115200)
                 .parity(tokio_serial::Parity::None)
                 .timeout(timeout)
                 .stop_bits(tokio_serial::StopBits::One),
@@ -260,6 +260,7 @@ impl SerialConnection {
         })
     }
 
+    /// Receives a single packet from the serial port and adds it to the queue of incoming packets.
     async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {
         // Read the header into an array
         let mut header = [0u8; 2];
@@ -307,32 +308,9 @@ impl SerialConnection {
         debug!("received packet: {:x?}", packet);
 
         // Push the packet to the incoming packets buffer
-        self.incoming_packets.push(RawPacket {
-            bytes: packet,
-            used: false,
-            timestamp: Instant::now(),
-        });
+        self.incoming_packets.push(RawPacket::new(packet));
 
         Ok(())
-    }
-
-    fn trim_packets(&mut self) {
-        debug!(
-            "Trimming packets. Length before: {}",
-            self.incoming_packets.len()
-        );
-
-        // Remove packets that have been used
-        self.incoming_packets.retain(|packet| !packet.used);
-
-        // Remove packets that are too old
-        self.incoming_packets
-            .retain(|packet| packet.timestamp.elapsed() < Duration::from_millis(500));
-
-        debug!(
-            "Trimmed packets. Length after: {}",
-            self.incoming_packets.len()
-        );
     }
 }
 
@@ -363,13 +341,12 @@ impl Connection for SerialConnection {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
-                        if let Ok(decoded) = P::decode(packet.clone().bytes) {
-                            packet.used = true;
-                            self.trim_packets();
+                        if let Ok(decoded) = packet.decode_and_use::<P>() {
+                            trim_packets(&mut self.incoming_packets);
                             return Ok(decoded);
                         }
                     }
-                    self.trim_packets();
+                    trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }
             } => result,

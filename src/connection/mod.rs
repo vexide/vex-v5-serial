@@ -1,8 +1,8 @@
 //! Implements functions and structures for interacting with vex devices.
 
-use std::future::Future;
+use std::{future::Future, time::Instant};
 
-use log::{error, warn};
+use log::{debug, error, warn};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -15,6 +15,45 @@ use crate::{
 
 pub mod bluetooth;
 pub mod serial;
+
+#[derive(Debug, Clone)]
+pub(crate) struct RawPacket {
+    bytes: Vec<u8>,
+    used: bool,
+    timestamp: Instant,
+}
+impl RawPacket {
+    pub fn new(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
+            used: false,
+            timestamp: Instant::now(),
+        }
+    }
+
+    pub fn is_obsolete(&self, timeout: Duration) -> bool {
+        self.timestamp.elapsed() > timeout || self.used
+    }
+
+    /// Decodes the packet into the given type.
+    /// If successful, marks the packet as used.
+    /// # Note
+    /// This function will **NOT** fail if the packet has already been used.
+    pub fn decode_and_use<D: Decode>(&mut self) -> Result<D, DecodeError> {
+        let decoded = D::decode(self.bytes.clone())?;
+        self.used = true;
+        Ok(decoded)
+    }
+}
+/// Removes old and used packets from the incoming packets buffer.
+pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
+    debug!("Trimming packets. Length before: {}", packets.len());
+
+    // Remove packets that are obsolete
+    packets.retain(|packet| !packet.is_obsolete(Duration::from_secs(2)));
+
+    debug!("Trimmed packets. Length after: {}", packets.len());
+}
 
 /// Represents an open connection to a V5 peripheral.
 #[allow(async_fn_in_trait)]

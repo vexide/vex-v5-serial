@@ -5,13 +5,16 @@ use btleplug::api::{
 };
 use btleplug::platform::{Manager, Peripheral};
 use log::{debug, error, info, trace, warn};
+use tokio::select;
+use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
+use crate::connection::trim_packets;
 use crate::decode::Decode;
 use crate::encode::Encode;
 
-use super::{Connection, ConnectionError};
+use super::{Connection, ConnectionError, RawPacket};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -118,6 +121,8 @@ pub struct BluetoothConnection {
     user_tx: Characteristic,
     user_rx: Characteristic,
     pairing: Characteristic,
+
+    incoming_packets: Vec<RawPacket>,
 }
 
 impl BluetoothConnection {
@@ -168,6 +173,8 @@ impl BluetoothConnection {
             user_tx: user_tx.ok_or(ConnectionError::MissingCharacteristic)?,
             user_rx: user_rx.ok_or(ConnectionError::MissingCharacteristic)?,
             pairing: pairing.ok_or(ConnectionError::MissingCharacteristic)?,
+
+            incoming_packets: Vec::new(),
         };
 
         connection
@@ -214,6 +221,28 @@ impl BluetoothConnection {
     pub async fn read_stdio(&mut self) -> Vec<u8> {
         self.peripheral.read(&self.user_tx).await.unwrap()
     }
+
+    async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {
+        //TODO: get notifications and store it rather than creating it every time this method is called
+        let mut notifs = self.peripheral.notifications().await?;
+
+        loop {
+            let Some(notification) = notifs.next().await else {
+                //TODO: get a better error
+                return Err(ConnectionError::Timeout);
+            };
+
+            if notification.uuid == CHARACTERISTIC_SYSTEM_TX {
+                let data = notification.value;
+                debug!("Received packet: {:x?}", data);
+                let packet = RawPacket::new(data);
+                self.incoming_packets.push(packet);
+                break;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Connection for BluetoothConnection {
@@ -236,6 +265,21 @@ impl Connection for BluetoothConnection {
     }
 
     async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, ConnectionError> {
-        todo!();
+        // Return an error if the right packet is not received within the timeout
+        select! {
+            result = async {
+                loop {
+                    for packet in self.incoming_packets.iter_mut() {
+                        if let Ok(decoded) = packet.decode_and_use::<P>() {
+                            trim_packets(&mut self.incoming_packets);
+                            return Ok(decoded);
+                        }
+                    }
+                    trim_packets(&mut self.incoming_packets);
+                    self.receive_one_packet().await?;
+                }
+            } => result,
+            _ = sleep(timeout) => Err(ConnectionError::Timeout)
+        }
     }
 }
