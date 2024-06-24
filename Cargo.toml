@@ -25,6 +25,7 @@ btleplug = "0.11.5"
 
 [dev-dependencies]
 simplelog = "0.12.2"
+rustyline = "14.0.0"
 
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
 [patch.crates-io]
