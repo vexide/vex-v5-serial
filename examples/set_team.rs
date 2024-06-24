@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use vexv5_serial::connection::{Connection, serial};
+use vexv5_serial::connection::{serial, Connection, ConnectionError};
 use vexv5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
@@ -8,7 +8,7 @@ use vexv5_serial::packets::kv::{
 use vexv5_serial::string::{FixedLengthString, VarLengthString};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConnectionError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Debug,
         simplelog::Config::default(),
@@ -18,42 +18,38 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = serial::find_devices().unwrap();
+    let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
+    let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     // Set the team number on the brain
     connection
         .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
-            key: VarLengthString::new("teamnumber".to_string()).unwrap(),
+            key: VarLengthString::new("teamnumber".to_string())?,
             value: VarLengthString::new(
                 "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!"
                     .to_string(),
-            )
-            .unwrap(),
+            )?,
         }))
-        .await
-        .unwrap();
+        .await?;
     connection
         .receive_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
-        .await
-        .unwrap();
+        .await?;
 
     // Get the new team number and print it
     connection
         .send_packet(ReadKeyValuePacket::new(
             FixedLengthString::new("teamnumber".to_string()).unwrap(),
         ))
-        .await
-        .unwrap();
+        .await?;
     let res = connection
         .receive_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
-        .await
-        .unwrap()
+        .await?
         .payload
-        .try_into_inner()
-        .unwrap();
+        .try_into_inner()?;
 
     println!("{:?}", res);
+
+    Ok(())
 }

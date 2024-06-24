@@ -184,36 +184,8 @@ pub enum SerialDevice {
 }
 
 impl SerialDevice {
-    /// Open a serial connection to the device
-    pub fn open(&self, timeout: Duration) -> Result<SerialConnection, ConnectionError> {
-        // Open the system port
-        let system_port = match tokio_serial::SerialStream::open(
-            &tokio_serial::new(&self.system_port(), 115200)
-                .parity(tokio_serial::Parity::None)
-                .timeout(timeout)
-                .stop_bits(tokio_serial::StopBits::One),
-        ) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(ConnectionError::SerialportError(e)),
-        }?;
-
-        // Open the user port (if it exists)
-
-        let user_port = if let Some(port) = &self.user_port() {
-            Some(match tokio_serial::SerialStream::open(
-                &tokio_serial::new(port, V5_SERIAL_BAUDRATE)
-                    .parity(tokio_serial::Parity::None)
-                    .timeout(timeout)
-                    .stop_bits(tokio_serial::StopBits::One),
-            ) {
-                Ok(v) => Ok(v),
-                Err(e) => Err(ConnectionError::SerialportError(e)),
-            }?)
-        } else {
-            None
-        };
-
-        Ok(SerialConnection::new(system_port, user_port))
+    pub fn connect(&self, timeout: Duration) -> Result<SerialConnection, ConnectionError> {
+        SerialConnection::open(self.clone(), timeout)
     }
 
     pub fn system_port(&self) -> String {
@@ -254,12 +226,38 @@ pub struct SerialConnection {
 }
 
 impl SerialConnection {
-    pub fn new(system_port: SerialStream, user_port: Option<SerialStream>) -> Self {
-        Self {
+    pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, ConnectionError> {
+        // Open the system port
+        let system_port = match tokio_serial::SerialStream::open(
+            &tokio_serial::new(&device.system_port(), 115200)
+                .parity(tokio_serial::Parity::None)
+                .timeout(timeout)
+                .stop_bits(tokio_serial::StopBits::One),
+        ) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(ConnectionError::SerialportError(e)),
+        }?;
+
+        // Open the user port (if it exists)
+        let user_port = if let Some(port) = &device.user_port() {
+            Some(match tokio_serial::SerialStream::open(
+                &tokio_serial::new(port, V5_SERIAL_BAUDRATE)
+                    .parity(tokio_serial::Parity::None)
+                    .timeout(timeout)
+                    .stop_bits(tokio_serial::StopBits::One),
+            ) {
+                Ok(v) => Ok(v),
+                Err(e) => Err(ConnectionError::SerialportError(e)),
+            }?)
+        } else {
+            None
+        };
+
+        Ok(Self {
             system_port,
             user_port,
-            incoming_packets: Vec::new(),
-        }
+            incoming_packets: Default::default(),
+        })
     }
 
     async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {

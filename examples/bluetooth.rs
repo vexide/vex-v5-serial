@@ -2,15 +2,12 @@ use std::time::Duration;
 
 use rustyline::DefaultEditor;
 use vexv5_serial::{
-    connection::{
-        bluetooth::{self, BluetoothConnection},
-        Connection,
-    },
+    connection::{bluetooth, Connection, ConnectionError},
     packets::dash::{DashScreen, SelectDashPacket, SelectDashPayload},
 };
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConnectionError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
         simplelog::Config::default(),
@@ -20,18 +17,13 @@ async fn main() {
     .unwrap();
 
     // Scan for 10 seconds, or until we find one device.
-    let mut devices = bluetooth::find_devices(Duration::from_secs(10), Some(1))
-        .await
-        .unwrap()
-        .into_iter();
+    let devices = bluetooth::find_devices(Duration::from_secs(10), Some(1)).await?;
 
     // Open a connection to the device
-    let mut connection = BluetoothConnection::open(devices.nth(0).unwrap())
-        .await
-        .unwrap();
+    let mut connection = devices[0].connect().await?;
 
-    if !connection.is_paired().await.unwrap() {
-        connection.request_pairing().await.unwrap();
+    if !connection.is_paired().await? {
+        connection.request_pairing().await?;
 
         let mut editor = DefaultEditor::new().unwrap();
         let pin = editor.readline("Enter PIN: >> ").unwrap();
@@ -45,8 +37,7 @@ async fn main() {
                 chars.next().unwrap().to_digit(10).unwrap() as u8,
                 chars.next().unwrap().to_digit(10).unwrap() as u8,
             ])
-            .await
-            .unwrap();
+            .await?;
     }
 
     // Send a dash packet to test things out
@@ -55,6 +46,7 @@ async fn main() {
             screen: DashScreen::ScaryConfiguration,
             port: 0,
         }))
-        .await
-        .unwrap();
+        .await?;
+
+    Ok(())
 }

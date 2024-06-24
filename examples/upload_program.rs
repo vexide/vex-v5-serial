@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use vexv5_serial::{
     commands::file::{ProgramData, UploadProgram},
+    connection::{serial, Connection, ConnectionError},
     packets::file::FileExitAtion,
-    connection::{Connection, serial},
 };
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConnectionError> {
     // Initialize the logger
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
@@ -18,10 +18,10 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = serial::find_devices().unwrap();
+    let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
+    let mut connection = devices[0].connect(Duration::from_secs(30))?;
     let cold_bytes = include_bytes!("./basic.bin").to_vec();
 
     // Upload program file
@@ -36,6 +36,7 @@ async fn main() {
             compress_program: true,
             after_upload: FileExitAtion::RunProgram,
         })
-        .await
-        .unwrap();
+        .await?;
+
+    Ok(())
 }

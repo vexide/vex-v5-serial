@@ -29,11 +29,20 @@ pub const CHARACTERISTIC_PAIRING: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_87
 
 pub const UNPAIRED_MAGIC: u32 = 0xdeadface;
 
+#[derive(Debug, Clone)]
+pub struct BluetoothDevice(pub Peripheral);
+
+impl BluetoothDevice {
+    pub async fn connect(&self) -> Result<BluetoothConnection, ConnectionError> {
+        BluetoothConnection::open(self.clone()).await
+    }
+}
+
 /// Discover and locate bluetooth-compatible V5 peripherals.
 pub async fn find_devices(
     scan_time: Duration,
     max_device_count: Option<usize>,
-) -> Result<Vec<Peripheral>, ConnectionError> {
+) -> Result<Vec<BluetoothDevice>, ConnectionError> {
     // Create a new bluetooth device manager.
     let manager = Manager::new().await?;
 
@@ -51,7 +60,7 @@ pub async fn find_devices(
     let mut events = adapter.events().await?;
 
     // List of devices that we'll add to during discovery.
-    let mut devices = Vec::<Peripheral>::new();
+    let mut devices = Vec::<BluetoothDevice>::new();
 
     // Scan for peripherals using the V5 service UUID.
     let scan_start_time = Instant::now();
@@ -73,7 +82,7 @@ pub async fn find_devices(
                         // Assuming the peripheral contains the V5 service UUID, we have a brain.
                         debug!("Found V5 brain at {}", peripheral.address());
 
-                        devices.push(peripheral);
+                        devices.push(BluetoothDevice(peripheral));
 
                         // Break the discovery loop if we have found enough devices.
                         if let Some(count) = max_device_count {
@@ -114,7 +123,9 @@ pub struct BluetoothConnection {
 impl BluetoothConnection {
     const MAX_PACKET_SIZE: usize = 244;
 
-    pub async fn open(peripheral: Peripheral) -> Result<Self, ConnectionError> {
+    pub async fn open(device: BluetoothDevice) -> Result<Self, ConnectionError> {
+        let peripheral = device.0;
+
         if !peripheral.is_connected().await? {
             peripheral.connect().await?;
         } else {
@@ -216,7 +227,7 @@ impl Connection for BluetoothConnection {
 
         trace!("Sending packet: {:x?}", encoded);
 
-        // Write the packet to the system tx characteristic.
+        // Write the packet to the system rx characteristic.
         self.peripheral
             .write(&self.system_rx, &encoded, WriteType::WithoutResponse)
             .await?;

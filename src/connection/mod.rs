@@ -2,8 +2,8 @@
 
 use std::future::Future;
 
+use log::{error, warn};
 use std::time::Duration;
-use log::{warn, error};
 use thiserror::Error;
 
 use crate::{

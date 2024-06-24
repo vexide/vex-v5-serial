@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use log::info;
 use vexv5_serial::{
-    connection::{serial, Connection},
+    connection::{serial, Connection, ConnectionError},
     packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
 };
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConnectionError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Debug,
         simplelog::Config::default(),
@@ -17,10 +17,10 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = serial::find_devices().unwrap();
+    let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
+    let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
         .packet_handshake::<GetSystemVersionReplyPacket>(
@@ -28,8 +28,9 @@ async fn main() {
             5,
             GetSystemVersionPacket::new(()),
         )
-        .await
-        .unwrap();
+        .await?;
 
     info!("{:?}", response.payload.product_type);
+
+    Ok(())
 }

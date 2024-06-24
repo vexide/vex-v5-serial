@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use log::info;
 use vexv5_serial::{
-    connection::{serial, Connection},
+    connection::{serial, Connection, ConnectionError},
     packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
 };
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConnectionError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
         simplelog::Config::default(),
@@ -17,23 +17,24 @@ async fn main() {
     .unwrap();
 
     // Find all vex devices on the serial ports
-    let devices = serial::find_devices().unwrap();
+    let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].open(Duration::from_secs(30)).unwrap();
+    let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
-    let devices = connection
+    let status = connection
         .packet_handshake::<GetDeviceStatusReplyPacket>(
             Duration::from_millis(500),
             10,
             GetDeviceStatusPacket::new(()),
         )
-        .await
-        .unwrap()
+        .await?
         .payload
-        .try_into_inner()
-        .unwrap();
-    for device in devices.devices.into_inner() {
+        .try_into_inner()?;
+
+    for device in status.devices.into_inner() {
         info!("{:?} on port: {}", device.device_type, device.port);
     }
+
+    Ok(())
 }

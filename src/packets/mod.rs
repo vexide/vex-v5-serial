@@ -64,7 +64,7 @@ impl<P: Encode + Clone, const ID: u8> Clone for DeviceBoundCdcPacket<ID, P> {
             payload: self.payload.clone(),
         }
     }
-} 
+}
 
 /// Device-bound CDC2 Packet
 ///
