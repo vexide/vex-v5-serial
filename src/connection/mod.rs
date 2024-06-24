@@ -3,6 +3,7 @@
 use std::future::Future;
 
 use std::time::Duration;
+use log::{warn, error};
 use thiserror::Error;
 
 use crate::{
@@ -46,12 +47,30 @@ pub trait Connection: Sized {
     /// # Note
     ///
     /// This function will fail immediately if the given packet fails to encode.
-    fn packet_handshake<D: Decode>(
+    async fn packet_handshake<D: Decode>(
         &mut self,
         timeout: Duration,
         retries: usize,
         packet: impl Encode + Clone,
-    ) -> impl Future<Output = Result<D, ConnectionError>>;
+    ) -> Result<D, ConnectionError> {
+        let mut last_error = ConnectionError::Timeout;
+
+        for _ in 0..retries {
+            self.send_packet(packet.clone()).await?;
+            match self.receive_packet::<D>(timeout).await {
+                Ok(decoded) => return Ok(decoded),
+                Err(e) => {
+                    warn!("Handshake failed: {}. Retrying...", e);
+                    last_error = e;
+                }
+            }
+        }
+        error!(
+            "Handshake failed after {} retries with error: {}",
+            retries, last_error
+        );
+        Err(last_error)
+    }
 }
 
 #[derive(Error, Debug)]
@@ -71,7 +90,7 @@ pub enum ConnectionError {
     #[error("The user port can not be written to over wireless")]
     NoWriteOnWireless,
     #[error("Bluetooth Error")]
-    BluetoothError(#[from] bluest::Error),
+    BluetoothError(#[from] btleplug::Error),
     #[error("The device is not a supported vex device")]
     InvalidDevice,
     #[error("Invalid Magic Number")]
@@ -80,4 +99,10 @@ pub enum ConnectionError {
     NotConnected,
     #[error("No Bluetooth Adapter Found")]
     NoBluetoothAdapter,
+    #[error("Expected a Bluetooth characteristic that didn't exist")]
+    MissingCharacteristic,
+    #[error("Authentication PIN code was incorrect")]
+    IncorrectPin,
+    #[error("Authentication is required")]
+    AuthenticationRequired,
 }

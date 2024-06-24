@@ -1,11 +1,17 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use bluest::{Adapter, AdvertisingDevice, Uuid, Characteristic, Service};
-
-use log::debug;
+use btleplug::api::{
+    Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
+};
+use btleplug::platform::{Manager, Peripheral};
+use log::{debug, error, info, trace, warn};
 use tokio_stream::StreamExt;
+use uuid::Uuid;
 
-use super::ConnectionError;
+use crate::decode::Decode;
+use crate::encode::Encode;
+
+use super::{Connection, ConnectionError};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -22,180 +28,182 @@ pub const CHARACTERISTIC_TX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_87
 pub const CHARACTERISTIC_RX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1326); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIF
 
 /// PIN authentication characteristic
-pub const CHARACTERISTIC_PIN: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
+pub const CHARACTERISTIC_AUTH: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
 
-pub const PIN_REQUIRED_SEQUENCE: u32 = 0xdeadface;
+pub const AUTH_REQUIRED_SEQUENCE: u32 = 0xdeadface;
 
-/// Represents a brain connected over bluetooth
-#[derive(Clone, Debug)]
-pub struct BluetoothBrain {
-    adapter: Adapter,
-    system_char: Option<Characteristic>,
-    user_char: Option<Characteristic>,
-    service: Option<Service>,
-    device: AdvertisingDevice,
-}
+/// Discover and locate bluetooth-compatible V5 peripherals.
+pub async fn find_devices(
+    scan_time: Duration,
+    max_device_count: Option<usize>,
+) -> Result<Vec<Peripheral>, ConnectionError> {
+    // Create a new bluetooth device manager.
+    let manager = Manager::new().await?;
 
-impl BluetoothBrain {
-    pub fn new(adapter: Adapter, device: AdvertisingDevice) -> BluetoothBrain {
-        Self {
-            adapter,
-            system_char: None,
-            user_char: None,
-            service: None,
-            device,
-        }
-    }
+    // Use the first adapter we can find.
+    let adapter = if let Some(adapter) = manager.adapters().await?.into_iter().nth(0) {
+        adapter
+    } else {
+        // No bluetooth adapters were found.
+        return Err(ConnectionError::NoBluetoothAdapter);
+    };
 
-    /// Connects self to .ok_or(ConnectionError::NotConnected)the brain
-    pub async fn connect(&mut self) -> Result<(), ConnectionError> {
-        // Create the adapter
-        //self.adapter = Some(
-        //    Adapter::default().await.ok_or(
-        //        ConnectionError::NoBluetoothAdapter
-        //    )?
-        //);
+    // Our bluetooth adapter will give us an event stream that can tell us when
+    // a device is discovered. We can use this to get information on when a scan
+    // has found a device.
+    let mut events = adapter.events().await?;
 
-        // Wait for the adapter to be available
-        self.adapter.wait_available().await?;
+    // List of devices that we'll add to during discovery.
+    let mut devices = Vec::<Peripheral>::new();
 
-        // For some reason we need a little delay in here
-        tokio::time::sleep(Duration::from_millis(100)).await;
+    // Scan for peripherals using the V5 service UUID.
+    let scan_start_time = Instant::now();
+    adapter
+        .start_scan(ScanFilter {
+            services: vec![V5_SERVICE],
+        })
+        .await?;
 
-        // Connect to the device
-        self.adapter.connect_device(&self.device.device).await?;
+    // Listen for events. When the adapter indicates that a device has been discovered,
+    // we'll ensure that the peripheral is correct and add it to our device list.
+    while let Some(event) = events.next().await {
+        match event {
+            CentralEvent::DeviceDiscovered(id) | CentralEvent::DeviceUpdated(id) => {
+                let peripheral = adapter.peripheral(&id).await?;
 
-        // And here too
-        tokio::time::sleep(Duration::from_millis(100)).await;
+                if let Some(properties) = peripheral.properties().await? {
+                    if properties.services.contains(&V5_SERVICE) {
+                        // Assuming the peripheral contains the V5 service UUID, we have a brain.
+                        debug!("Found V5 brain at {}", peripheral.address());
 
-        // Get all services on the brain
-        let services = self.device.device.discover_services().await?;
+                        devices.push(peripheral);
 
-        // Find the vex service
-        self.service = Some(
-            services
-                .iter()
-                .find(|v| v.uuid() == CHARACTERISTIC_TX_SYSTEM)
-                .ok_or(ConnectionError::InvalidDevice)?
-                .clone(),
-        );
-        if let Some(service) = &self.service {
-            // Get all characteristics of this service
-            let chars = service.discover_characteristics().await?;
-
-            // Find the system characteristic
-            self.system_char = Some(
-                chars
-                    .iter()
-                    .find(|v| v.uuid() == CHARACTERISTIC_TX_SYSTEM)
-                    .ok_or(ConnectionError::InvalidDevice)?
-                    .clone(),
-            );
-            // Find the user characteristic
-            self.user_char = Some(
-                chars
-                    .iter()
-                    .find(|v| v.uuid() == CHARACTERISTIC_TX_USER)
-                    .ok_or(ConnectionError::InvalidDevice)?
-                    .clone(),
-            );
-        } else {
-            return Err(ConnectionError::InvalidDevice);
+                        // Break the discovery loop if we have found enough devices.
+                        if let Some(count) = max_device_count {
+                            if devices.len() == count {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
 
-        Ok(())
-    }
-
-    /// Handshakes with the device, telling it we have connected
-    pub async fn handshake(&self) -> Result<(), ConnectionError> {
-        // Read data from the system characteristic,
-        // making sure that it equals 0xdeadface (big endian)
-        let data = self.read_system().await?;
-
-        // If there are not four bytes, then error
-        if data.len() != 4 {
-            return Err(ConnectionError::InvalidMagic);
-        }
-
-        // Parse the bytes into a big endian u32
-        let magic = u32::from_be_bytes(data.try_into().unwrap());
-
-        // If the magic number is not 0xdeadface, then it is an invalid device
-        if magic != 0xdeadface {
-            return Err(ConnectionError::InvalidMagic);
-        }
-
-        debug!("{magic:x}");
-
-        Ok(())
-    }
-
-    /// Writes to the system port
-    pub async fn write_system(&self, buf: &[u8]) -> Result<(), ConnectionError> {
-        if let Some(system) = &self.system_char {
-            Ok(system.write(buf).await?)
-        } else {
-            Err(ConnectionError::NotConnected)
-        }
-    }
-
-    /// Reads from the system port
-    pub async fn read_system(&self) -> Result<Vec<u8>, ConnectionError> {
-        if let Some(system) = &self.system_char {
-            Ok(system.read().await?)
-        } else {
-            Err(ConnectionError::NotConnected)
-        }
-    }
-
-    /// Disconnects self from the brain
-    pub async fn disconnect(&self) -> Result<(), ConnectionError> {
-        // Disconnect the device
-        self.adapter.disconnect_device(&self.device.device).await?;
-
-        Ok(())
-    }
-}
-
-/// Discovers all V5 devices that are advertising over bluetooth.
-/// By default it scans for 5 seconds, but this can be configured
-pub async fn scan_for_v5_devices(
-    timeout: Option<Duration>,
-) -> Result<Vec<BluetoothBrain>, ConnectionError> {
-    // If timeout is None, then default to five seconds
-    let timeout = timeout.unwrap_or_else(|| Duration::new(5, 0));
-
-    // Get the adapter and wait for it to be available
-    let adapter = Adapter::default()
-        .await
-        .ok_or(ConnectionError::NoBluetoothAdapter)?;
-    adapter.wait_available().await?;
-
-    // Create the GATT UUID
-    let service: bluest::Uuid = V5_SERVICE;
-    let service = &[service];
-
-    // Start scanning
-    let scan_stream = adapter.scan(service).await?;
-
-    // Set a timeout
-    let timeout_stream = scan_stream.timeout(timeout);
-    tokio::pin!(timeout_stream);
-
-    // Find the current time
-    let time = std::time::SystemTime::now();
-
-    let mut devices = Vec::<BluetoothBrain>::new();
-
-    // Find each device
-    while let Ok(Some(discovered_device)) = timeout_stream.try_next().await {
-        devices.push(BluetoothBrain::new(adapter.clone(), discovered_device));
-        // If over timeout has passed, then break
-        if time.elapsed().unwrap() >= timeout {
+        // Also break if we've exceeded the provided scan time.
+        if scan_start_time.elapsed() > scan_time {
             break;
         }
     }
 
-    // These are our brains
+    info!(
+        "Found {} devices in {:?}",
+        devices.len(),
+        scan_start_time.elapsed()
+    );
+
     Ok(devices)
+}
+
+pub struct BluetoothConnection {
+    peripheral: Peripheral,
+    tx_system: Characteristic,
+    rx_system: Characteristic,
+    tx_user: Characteristic,
+    rx_user: Characteristic,
+    auth: Characteristic,
+}
+
+impl BluetoothConnection {
+    pub async fn open(peripheral: Peripheral) -> Result<Self, ConnectionError> {
+        let mut tx_system: Option<Characteristic> = None;
+        let mut rx_system: Option<Characteristic> = None;
+        let mut tx_user: Option<Characteristic> = None;
+        let mut rx_user: Option<Characteristic> = None;
+        let mut auth: Option<Characteristic> = None;
+
+        for characteric in peripheral.characteristics() {
+            match characteric.uuid {
+                CHARACTERISTIC_TX_SYSTEM => {
+                    tx_system = Some(characteric);
+                }
+                CHARACTERISTIC_RX_SYSTEM => {
+                    rx_system = Some(characteric);
+                }
+                CHARACTERISTIC_TX_USER => {
+                    tx_user = Some(characteric);
+                }
+                CHARACTERISTIC_RX_USER => {
+                    rx_user = Some(characteric);
+                }
+                CHARACTERISTIC_AUTH => {
+                    auth = Some(characteric);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Self {
+            peripheral,
+            tx_system: tx_system.ok_or(ConnectionError::MissingCharacteristic)?,
+            rx_system: rx_system.ok_or(ConnectionError::MissingCharacteristic)?,
+            tx_user: tx_user.ok_or(ConnectionError::MissingCharacteristic)?,
+            rx_user: rx_user.ok_or(ConnectionError::MissingCharacteristic)?,
+            auth: auth.ok_or(ConnectionError::MissingCharacteristic)?,
+        })
+    }
+
+    pub async fn is_authenticated(&self) -> Result<bool, ConnectionError> {
+        let auth_bytes = self.peripheral.read(&self.auth).await?;
+
+        Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) == AUTH_REQUIRED_SEQUENCE)
+    }
+
+    pub async fn request_pin(&mut self) -> Result<(), ConnectionError> {
+        self.peripheral
+            .write(
+                &self.auth,
+                &[0xFF, 0xFF, 0xFF, 0xFF],
+                WriteType::WithoutResponse,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn authenticate(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
+        self.peripheral
+            .write(&self.auth, &pin, WriteType::WithoutResponse)
+            .await?;
+
+        if !self.is_authenticated().await? {
+            return Err(ConnectionError::IncorrectPin);
+        }
+
+        Ok(())
+    }
+}
+
+impl Connection for BluetoothConnection {
+    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
+        if !self.is_authenticated().await? {
+            return Err(ConnectionError::AuthenticationRequired);
+        }
+
+        // Encode the packet
+        let encoded = packet.encode()?;
+
+        trace!("Sending packet: {:x?}", encoded);
+
+        // Write the packet to the system tx characteristic.
+        self.peripheral
+            .write(&self.tx_system, &encoded, WriteType::WithoutResponse)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, ConnectionError> {
+        todo!();
+    }
 }

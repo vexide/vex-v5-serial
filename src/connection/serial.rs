@@ -378,29 +378,4 @@ impl Connection for SerialConnection {
             _ = sleep(timeout) => Err(ConnectionError::Timeout)
         }
     }
-
-    async fn packet_handshake<D: Decode>(
-        &mut self,
-        timeout: Duration,
-        retries: usize,
-        packet: impl Encode + Clone,
-    ) -> Result<D, ConnectionError> {
-        let mut last_error = ConnectionError::Timeout;
-
-        for _ in 0..retries {
-            self.send_packet(packet.clone()).await?;
-            match self.receive_packet::<D>(timeout).await {
-                Ok(decoded) => return Ok(decoded),
-                Err(e) => {
-                    warn!("Handshake failed: {}. Retrying...", e);
-                    last_error = e;
-                }
-            }
-        }
-        error!(
-            "Handshake failed after {} retries with error: {}",
-            retries, last_error
-        );
-        Err(last_error)
-    }
 }

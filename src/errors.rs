@@ -2,6 +2,8 @@ use std::string::FromUtf8Error;
 
 use thiserror::Error;
 
+use crate::connection::ConnectionError;
+
 /// Represents an error in decoding a packet
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -38,35 +40,6 @@ pub enum DecodeError {
     /// Raised whenever we encounter an invalid value
     #[error("invalid value")]
     InvalidValue(String),
-}
-
-/// Represents an error communicating with a device.
-#[derive(Error, Debug)]
-pub enum ConnectionError {
-    /// Raised whenever there is an std::io::Error
-    #[error("IO Error")]
-    IoError(#[from] std::io::Error),
-    /// Raised whenever there is an error with a serial port
-    #[error("Serialport Error")]
-    SerialportError(#[from] tokio_serial::Error),
-    /// Raised whenever a user attempts to write to the user port over wireless joystick access.
-    #[error("The user port can not be currently written to over wireless control")]
-    NoWriteOnWireless,
-    /// Raised whenever a serial device is not a supported vex device
-    #[error("The device is not a supported vex device")]
-    InvalidDevice,
-    /// Raised whenever we encounter an error with bluetooth.
-    #[error("Bluetooth Error")]
-    BluetoothError(#[from] bluest::Error),
-    /// Raised when the user attempts to connect over bluetooth without a bluetooth adapter.
-    #[error("No Bluetooth Adapter Found")]
-    NoBluetoothAdapter,
-    /// Raised whenever a user attempts to communicate with an unconnected device
-    #[error("Not connected to the device")]
-    NotConnected,
-    /// Raised whenever a bluetooth device returns an invalid magic number
-    #[error("Invalid Magic Number")]
-    InvalidMagic,
 }
 
 /// A V5 device can respond with various different acknowledgements.
