@@ -183,7 +183,7 @@ impl BluetoothConnection {
         Ok(())
     }
 
-    pub async fn authenticate(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
+    pub async fn authenticate_pairing(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
         self.peripheral
             .write(&self.pairing, &pin, WriteType::WithoutResponse)
             .await?;
@@ -218,7 +218,7 @@ impl Connection for BluetoothConnection {
 
         // Write the packet to the system tx characteristic.
         self.peripheral
-            .write(&self.system_tx, &encoded, WriteType::WithoutResponse)
+            .write(&self.system_rx, &encoded, WriteType::WithoutResponse)
             .await?;
 
         Ok(())

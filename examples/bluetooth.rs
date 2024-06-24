@@ -39,7 +39,7 @@ async fn main() {
         let mut chars = pin.chars();
 
         connection
-            .authenticate([
+            .authenticate_pairing([
                 chars.next().unwrap().to_digit(10).unwrap() as u8,
                 chars.next().unwrap().to_digit(10).unwrap() as u8,
                 chars.next().unwrap().to_digit(10).unwrap() as u8,
