@@ -17,12 +17,12 @@ use super::{Connection, ConnectionError};
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
 
 /// User port GATT characteristic
-pub const CHARACTERISTIC_TX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
-pub const CHARACTERISTIC_RX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13f5); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIFY
+pub const CHARACTERISTIC_TX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13f5); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIFY
+pub const CHARACTERISTIC_RX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
 
 /// System port GATT characteristic
-pub const CHARACTERISTIC_TX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1316); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
-pub const CHARACTERISTIC_RX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1326); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIF
+pub const CHARACTERISTIC_TX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1326); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIF
+pub const CHARACTERISTIC_RX_USER: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1316); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
 
 /// PIN authentication characteristic
 pub const CHARACTERISTIC_AUTH: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13e5); // READ | WRITE_WITHOUT_RESPONSE | WRITE
@@ -157,8 +157,8 @@ impl BluetoothConnection {
             auth: auth.ok_or(ConnectionError::MissingCharacteristic)?,
         };
 
-        connection.peripheral.subscribe(&connection.rx_system).await.ok();
-        connection.peripheral.subscribe(&connection.rx_user).await.ok();
+        connection.peripheral.subscribe(&connection.rx_system).await?;
+        connection.peripheral.subscribe(&connection.rx_user).await?;
 
         Ok(connection)
     }
