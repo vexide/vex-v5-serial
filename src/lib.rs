@@ -34,7 +34,6 @@ pub mod connection;
 pub mod crc;
 pub mod decode;
 pub mod encode;
-pub mod errors;
 pub mod packets;
 pub mod string;
 pub mod timestamp;
