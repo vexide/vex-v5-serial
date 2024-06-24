@@ -116,6 +116,14 @@ pub struct BluetoothConnection {
 
 impl BluetoothConnection {
     pub async fn open(peripheral: Peripheral) -> Result<Self, ConnectionError> {
+        if !peripheral.is_connected().await? {
+            peripheral.connect().await?;
+        } else {
+            warn!("Peripheral already connected?");
+        }
+    
+        peripheral.discover_services().await?;
+
         let mut tx_system: Option<Characteristic> = None;
         let mut rx_system: Option<Characteristic> = None;
         let mut tx_user: Option<Characteristic> = None;
