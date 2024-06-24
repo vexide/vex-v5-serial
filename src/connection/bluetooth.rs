@@ -166,7 +166,7 @@ impl BluetoothConnection {
     pub async fn is_authenticated(&self) -> Result<bool, ConnectionError> {
         let auth_bytes = self.peripheral.read(&self.auth).await?;
 
-        Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) == AUTH_REQUIRED_SEQUENCE)
+        Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) != AUTH_REQUIRED_SEQUENCE)
     }
 
     pub async fn request_pin(&mut self) -> Result<(), ConnectionError> {
