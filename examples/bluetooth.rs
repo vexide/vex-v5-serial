@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use rustyline::DefaultEditor;
-use vexv5_serial::{
+use vex_v5_serial::{
     connection::{bluetooth, Connection, ConnectionError},
     packets::dash::{DashScreen, SelectDashPacket, SelectDashPayload},
 };

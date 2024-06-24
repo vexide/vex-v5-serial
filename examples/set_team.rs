@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use vexv5_serial::connection::{serial, Connection, ConnectionError};
-use vexv5_serial::packets::kv::{
+use vex_v5_serial::connection::{serial, Connection, ConnectionError};
+use vex_v5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
 };
-use vexv5_serial::string::{FixedLengthString, VarLengthString};
+use vex_v5_serial::string::{FixedLengthString, VarLengthString};
 
 #[tokio::main]
 async fn main() -> Result<(), ConnectionError> {

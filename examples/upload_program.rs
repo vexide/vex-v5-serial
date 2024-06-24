@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use vexv5_serial::{
+use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
     connection::{serial, Connection, ConnectionError},
     packets::file::FileExitAtion,

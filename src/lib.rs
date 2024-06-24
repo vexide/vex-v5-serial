@@ -9,16 +9,16 @@
 //! ```rust
 //!
 //! // Find all vex devices on the serial ports
-//! let vex_ports = vexv5_serial::devices::genericv5::find_generic_devices()?;
+//! let vex_ports = vex_v5_serial::devices::genericv5::find_generic_devices()?;
 //!
 //! // Open the device
 //! let mut device = vex_ports[0].open()?;
 //!
 //! // Set the team number on the brain
-//! let _ = device.send_request(vexv5_serial::commands::KVWrite("teamnumber", "ABCD")).unwrap();
+//! let _ = device.send_request(vex_v5_serial::commands::KVWrite("teamnumber", "ABCD")).unwrap();
 //!
 //! // Get the new team number and print it
-//! let res = device.send_request(vexv5_serial::commands::KVRead("teamnumber")).unwrap();
+//! let res = device.send_request(vex_v5_serial::commands::KVRead("teamnumber")).unwrap();
 //!
 //! println!("{}", res);
 //!

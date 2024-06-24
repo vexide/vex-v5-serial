@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use log::info;
-use vexv5_serial::{
+use vex_v5_serial::{
     connection::{serial, Connection, ConnectionError},
     packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
 };

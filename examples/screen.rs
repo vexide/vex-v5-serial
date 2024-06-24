@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use tokio::time::sleep;
-use vexv5_serial::{
+use vex_v5_serial::{
     commands::screen::{MockTap, OpenDashScreen, ScreenCapture},
     connection::{serial, Connection, ConnectionError},
     packets::dash::DashScreen,

@@ -1,5 +1,5 @@
 [package]
-name = "vexv5_serial"
+name = "vex_v5_serial"
 version = "0.0.1"
 edition = "2021"
 
