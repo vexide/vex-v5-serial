@@ -26,24 +26,28 @@ async fn main() {
         .into_iter();
 
     // Open a connection to the device
-    let mut connection = BluetoothConnection::open(devices.nth(0).unwrap()).await.unwrap();
+    let mut connection = BluetoothConnection::open(devices.nth(0).unwrap())
+        .await
+        .unwrap();
 
     if !connection.is_authenticated().await.unwrap() {
         connection.request_pin().await.unwrap();
-        
+
         let mut editor = DefaultEditor::new().unwrap();
         let pin = editor.readline("Enter PIN: >> ").unwrap();
-        
-        let mut chars = pin.chars();
-        
-        connection.authenticate([
-            chars.next().unwrap().to_digit(10).unwrap() as u8,
-            chars.next().unwrap().to_digit(10).unwrap() as u8,
-            chars.next().unwrap().to_digit(10).unwrap() as u8,
-            chars.next().unwrap().to_digit(10).unwrap() as u8
-        ]).await.unwrap();
-    }
 
+        let mut chars = pin.chars();
+
+        connection
+            .authenticate([
+                chars.next().unwrap().to_digit(10).unwrap() as u8,
+                chars.next().unwrap().to_digit(10).unwrap() as u8,
+                chars.next().unwrap().to_digit(10).unwrap() as u8,
+                chars.next().unwrap().to_digit(10).unwrap() as u8,
+            ])
+            .await
+            .unwrap();
+    }
 
     // Send a dash packet to test things out
     connection

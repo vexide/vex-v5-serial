@@ -16,9 +16,6 @@ use super::{Connection, ConnectionError};
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
 
-/// Unknown GATT characteristic
-pub const CHARACTERISTIC_UNKNOWN: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306);
-
 /// User port GATT characteristic
 pub const CHARACTERISTIC_TX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb1306); // WRITE_WITHOUT_RESPONSE | NOTIFY | INDICATE
 pub const CHARACTERISTIC_RX_SYSTEM: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13f5); // WRITE_WITHOUT_RESPONSE | WRITE | NOTIFY
@@ -151,14 +148,19 @@ impl BluetoothConnection {
             }
         }
 
-        Ok(Self {
+        let connection = Self {
             peripheral,
             tx_system: tx_system.ok_or(ConnectionError::MissingCharacteristic)?,
             rx_system: rx_system.ok_or(ConnectionError::MissingCharacteristic)?,
             tx_user: tx_user.ok_or(ConnectionError::MissingCharacteristic)?,
             rx_user: rx_user.ok_or(ConnectionError::MissingCharacteristic)?,
             auth: auth.ok_or(ConnectionError::MissingCharacteristic)?,
-        })
+        };
+
+        connection.peripheral.subscribe(&connection.rx_system).await.ok();
+        connection.peripheral.subscribe(&connection.rx_user).await.ok();
+
+        Ok(connection)
     }
 
     pub async fn is_authenticated(&self) -> Result<bool, ConnectionError> {
@@ -184,11 +186,20 @@ impl BluetoothConnection {
             .write(&self.auth, &pin, WriteType::WithoutResponse)
             .await?;
 
-        if !self.is_authenticated().await? {
+        let read = self.peripheral.read(&self.auth).await?;
+
+        if read != pin {
             return Err(ConnectionError::IncorrectPin);
         }
 
         Ok(())
+    }
+
+    pub async fn read_stdio(&mut self) -> Vec<u8> {
+        self.peripheral
+            .read(&self.rx_user)
+            .await
+            .unwrap()
     }
 }
 
