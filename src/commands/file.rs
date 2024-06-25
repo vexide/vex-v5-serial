@@ -37,7 +37,7 @@ pub struct DownloadFile {
 impl Command for DownloadFile {
     type Output = Vec<u8>;
 
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
@@ -127,7 +127,7 @@ pub struct UploadFile {
 }
 impl Command for UploadFile {
     type Output = ();
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
@@ -288,7 +288,7 @@ pub struct UploadProgram {
 impl Command for UploadProgram {
     type Output = ();
 
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {

@@ -57,7 +57,7 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
 
 /// Represents an open connection to a V5 peripheral.
 #[allow(async_fn_in_trait)]
-pub trait Connection: Sized {
+pub trait Connection {
     fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.

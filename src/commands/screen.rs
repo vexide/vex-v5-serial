@@ -22,7 +22,7 @@ pub struct ScreenCapture;
 impl Command for ScreenCapture {
     type Output = image::RgbImage;
 
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
@@ -79,7 +79,7 @@ pub struct MockTouch {
 impl Command for MockTouch {
     type Output = ();
 
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
@@ -106,7 +106,7 @@ pub struct MockTap {
 impl Command for MockTap {
     type Output = ();
 
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
@@ -135,7 +135,7 @@ pub struct OpenDashScreen {
 }
 impl Command for OpenDashScreen {
     type Output = ();
-    async fn execute<C: Connection>(
+    async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
     ) -> Result<Self::Output, ConnectionError> {
