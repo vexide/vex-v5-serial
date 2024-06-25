@@ -4,7 +4,7 @@ use btleplug::api::{
     Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use tokio::select;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
@@ -14,7 +14,7 @@ use crate::connection::trim_packets;
 use crate::decode::Decode;
 use crate::encode::Encode;
 
-use super::{Connection, ConnectionError, RawPacket};
+use super::{Connection, ConnectionError, ConnectionType, RawPacket};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -115,18 +115,18 @@ pub async fn find_devices(
 }
 
 pub struct BluetoothConnection {
-    peripheral: Peripheral,
-    system_tx: Characteristic,
-    system_rx: Characteristic,
-    user_tx: Characteristic,
-    user_rx: Characteristic,
-    pairing: Characteristic,
+    pub peripheral: Peripheral,
+    pub system_tx: Characteristic,
+    pub system_rx: Characteristic,
+    pub user_tx: Characteristic,
+    pub user_rx: Characteristic,
+    pub pairing: Characteristic,
 
     incoming_packets: Vec<RawPacket>,
 }
 
 impl BluetoothConnection {
-    const MAX_PACKET_SIZE: usize = 244;
+    pub const MAX_PACKET_SIZE: usize = 244;
 
     pub async fn open(device: BluetoothDevice) -> Result<Self, ConnectionError> {
         let peripheral = device.0;
@@ -218,10 +218,6 @@ impl BluetoothConnection {
         Ok(())
     }
 
-    pub async fn read_stdio(&mut self) -> Vec<u8> {
-        self.peripheral.read(&self.user_tx).await.unwrap()
-    }
-
     async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {
         //TODO: get notifications and store it rather than creating it every time this method is called
         let mut notifs = self.peripheral.notifications().await?;
@@ -246,6 +242,10 @@ impl BluetoothConnection {
 }
 
 impl Connection for BluetoothConnection {
+    fn connection_type(&self) -> ConnectionType {
+        ConnectionType::Bluetooth
+    }
+
     async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
         if !self.is_paired().await? {
             return Err(ConnectionError::PairingRequired);
@@ -283,7 +283,11 @@ impl Connection for BluetoothConnection {
         }
     }
 
-    fn is_bluetooth(&self) -> bool {
-        true
+    async fn read_user(&mut self, _buf: &mut [u8]) -> Result<usize, ConnectionError> {
+        todo!();
+    }
+
+    async fn write_user(&mut self, _buf: &[u8]) -> Result<usize, ConnectionError> {
+        todo!();
     }
 }

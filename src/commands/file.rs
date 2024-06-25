@@ -5,7 +5,7 @@ use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{Connection, ConnectionError},
+    connection::{bluetooth::BluetoothConnection, Connection, ConnectionError, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
@@ -183,8 +183,9 @@ impl Command for UploadFile {
         let window_size = transfer_response.window_size;
 
         // The maximum packet size is 244 bytes for bluetooth
-        let max_chunk_size = if connection.is_bluetooth() {
-            let max_chunk_size = 244.min(window_size / 2) - 14;
+        let max_chunk_size = if connection.connection_type() == ConnectionType::Bluetooth {
+            let max_chunk_size =
+                (BluetoothConnection::MAX_PACKET_SIZE as u16).min(window_size / 2) - 14;
             max_chunk_size - (max_chunk_size % 4)
         } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
             window_size
@@ -216,7 +217,7 @@ impl Command for UploadFile {
             });
 
             // On bluetooth, we dont wait for the reply
-            if connection.is_bluetooth() {
+            if connection.connection_type() == ConnectionType::Bluetooth {
                 connection.send_packet(packet).await?;
             } else {
                 connection

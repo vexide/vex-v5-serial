@@ -9,7 +9,7 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 
-use super::{Connection, ConnectionError};
+use super::{Connection, ConnectionError, ConnectionType};
 use crate::{
     connection::{trim_packets, RawPacket},
     decode::Decode,
@@ -315,6 +315,14 @@ impl SerialConnection {
 }
 
 impl Connection for SerialConnection {
+    fn connection_type(&self) -> ConnectionType {
+        if self.user_port.is_some() {
+            ConnectionType::Wired
+        } else {
+            ConnectionType::Controller
+        }
+    }
+
     async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
         // Encode the packet
         let encoded = packet.encode()?;
@@ -354,7 +362,19 @@ impl Connection for SerialConnection {
         }
     }
 
-    fn is_bluetooth(&self) -> bool {
-        false
+    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, ConnectionError> {
+        if let Some(user_port) = &mut self.user_port {
+            Ok(user_port.read(buf).await?)
+        } else {
+            todo!();
+        }
+    }
+
+    async fn write_user(&mut self, buf: &[u8]) -> Result<usize, ConnectionError> {
+        if let Some(user_port) = &mut self.user_port {
+            Ok(user_port.write(buf).await?)
+        } else {
+            todo!();
+        }
     }
 }

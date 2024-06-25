@@ -58,13 +58,7 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
 /// Represents an open connection to a V5 peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection: Sized {
-    /// Executes a [`Command`].
-    async fn execute_command<C: Command>(
-        &mut self,
-        mut command: C,
-    ) -> Result<C::Output, ConnectionError> {
-        command.execute(self).await
-    }
+    fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.
     fn send_packet(
@@ -77,6 +71,20 @@ pub trait Connection: Sized {
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, ConnectionError>>;
+
+    /// Read user program output.
+    fn read_user(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, ConnectionError>>;
+
+    /// Write to user program stdio.
+    fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, ConnectionError>>;
+
+    /// Executes a [`Command`].
+    async fn execute_command<C: Command>(
+        &mut self,
+        mut command: C,
+    ) -> Result<C::Output, ConnectionError> {
+        command.execute(self).await
+    }
 
     /// Sends a packet and waits for a response.
     ///
@@ -110,9 +118,13 @@ pub trait Connection: Sized {
         );
         Err(last_error)
     }
+}
 
-    /// Returns whether or not the connection is over bluetooth.
-    fn is_bluetooth(&self) -> bool;
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ConnectionType {
+    Wired,
+    Controller,
+    Bluetooth,
 }
 
 #[derive(Error, Debug)]
