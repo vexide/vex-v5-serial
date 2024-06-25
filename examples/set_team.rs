@@ -46,7 +46,6 @@ async fn main() -> Result<(), ConnectionError> {
     let res = connection
         .receive_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
         .await?
-        .payload
         .try_into_inner()?;
 
     println!("{:?}", res);

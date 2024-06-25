@@ -67,7 +67,7 @@ impl Command for DownloadFile {
                 }),
             )
             .await?;
-        let transfer_response = transfer_response.payload.try_into_inner()?;
+        let transfer_response = transfer_response.try_into_inner()?;
 
         let max_chunk_size = if transfer_response.window_size > 0
             && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
@@ -162,7 +162,7 @@ impl Command for UploadFile {
             )
             .await?;
         debug!("transfer init responded");
-        let transfer_response = transfer_response.payload.try_into_inner()?;
+        let transfer_response = transfer_response.try_into_inner()?;
 
         if let Some(linked_file) = &self.linked_file {
             connection
@@ -176,7 +176,6 @@ impl Command for UploadFile {
                     }),
                 )
                 .await?
-                .payload
                 .try_into_inner()?;
         }
 
@@ -223,7 +222,6 @@ impl Command for UploadFile {
                 connection
                     .packet_handshake::<WriteFileReplyPacket>(Duration::from_millis(500), 5, packet)
                     .await?
-                    .payload
                     .try_into_inner()?;
             }
 
@@ -240,7 +238,6 @@ impl Command for UploadFile {
                 ExitFileTransferPacket::new(self.after_upload),
             )
             .await?
-            .payload
             .try_into_inner()?;
 
         info!("Successfully uploaded file: {}", self.filename);

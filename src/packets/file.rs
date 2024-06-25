@@ -2,10 +2,7 @@
 
 use std::vec;
 
-use super::{
-    cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket},
-    HostBoundPacket,
-};
+use super::{cdc::CdcReplyPacket, cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket}};
 use crate::{
     array::Array,
     choice::{Choice, PrefferedChoice},
@@ -205,7 +202,7 @@ impl Encode for WriteFilePayload {
 /// Read from the brain
 pub type ReadFilePacket = Cdc2CommandPacket<0x56, 0x14, ReadFilePayload>;
 /// Returns the file content. This packet doesn't have an ack if the data is available.
-pub type ReadFileReplyPacket = HostBoundPacket<ReadFileReplyPayload, 0x56>;
+pub type ReadFileReplyPacket = CdcReplyPacket<0x56, ReadFileReplyPayload>;
 
 #[derive(Debug, Clone)]
 pub struct ReadFilePayload {

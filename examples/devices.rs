@@ -29,7 +29,6 @@ async fn main() -> Result<(), ConnectionError> {
             GetDeviceStatusPacket::new(()),
         )
         .await?
-        .payload
         .try_into_inner()?;
 
     for device in status.devices.into_inner() {

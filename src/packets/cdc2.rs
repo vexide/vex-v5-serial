@@ -1,6 +1,6 @@
-use crate::connection::ConnectionError;
+use crate::{connection::ConnectionError, crc::VEX_CRC16, encode::{Encode, EncodeError}, varint::VarU16};
 
-use super::{DeviceBoundCdc2Packet, HostBoundPacket};
+use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 use crate::decode::{Decode, DecodeError};
 
 #[repr(u8)]
@@ -94,18 +94,74 @@ impl Decode for Cdc2Ack {
     }
 }
 
-pub type Cdc2CommandPacket<const ID: u8, const EXT_ID: u8, P> =
-    DeviceBoundCdc2Packet<ID, EXT_ID, P>;
+pub struct Cdc2CommandPacket<const ID: u8, const EXT_ID: u8, P: Encode> {
+    header: [u8; 4],
+    payload: P,
+    crc: crc::Crc<u16>,
+}
 
-pub type Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P> =
-    HostBoundPacket<Cdc2CommandReplyPayload<EXT_ID, P>, ID>;
+impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> Cdc2CommandPacket<ID, EXTENDED_ID, P> {
+    /// Creates a new device-bound packet with a given generic payload type.
+    pub fn new(payload: P) -> Self {
+        Self {
+            header: DEVICE_BOUND_HEADER,
+            payload,
+            crc: VEX_CRC16,
+        }
+    }
+}
 
-pub struct Cdc2CommandReplyPayload<const ID: u8, P: Decode> {
+impl<const ID: u8, const EXT_ID: u8, P: Encode> Encode for Cdc2CommandPacket<ID, EXT_ID, P> {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = Vec::new();
+        
+        encoded.extend_from_slice(&self.header);
+
+        // Push ID
+        encoded.push(ID);
+
+        // Push the payload size
+        //
+        // This is actually the CDC2 payload size plus one byte for the
+        // size of the extended ID (since that's considered part of the
+        // payload.)
+        let payload_bytes = self.payload.encode()?;
+        let payload_size = VarU16::new(payload_bytes.len() as u16 + 1);
+        encoded.extend(payload_size.encode()?);
+        encoded.push(EXT_ID);
+
+        // Push the encoded payload
+        encoded.extend(payload_bytes);
+
+        // The CRC32 checksum is of the whole encoded packet, meaning we need
+        // to also include the header bytes.
+        let checksum = self.crc.checksum(&encoded);
+
+        encoded.extend(checksum.to_be_bytes());
+
+        Ok(encoded)
+    }
+}
+
+impl<const ID: u8, const EXT_ID: u8, P: Encode + Clone> Clone for Cdc2CommandPacket<ID, EXT_ID, P> {
+    fn clone(&self) -> Self {
+        Self {
+            header: DEVICE_BOUND_HEADER,
+            payload: self.payload.clone(),
+            crc: self.crc.clone(),
+        }
+    }
+} 
+
+pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: Decode> {
+    pub header: [u8; 2],
     pub ack: Cdc2Ack,
+    pub payload_size: VarU16,
     pub data: P,
     pub crc: u16,
 }
-impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
+
+impl<const ID: u8, const EXT_ID: u8, P: Decode> Cdc2ReplyPacket<ID, EXT_ID, P> {
     pub fn try_into_inner(self) -> Result<P, ConnectionError> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.data)
@@ -114,24 +170,49 @@ impl<const ID: u8, P: Decode> Cdc2CommandReplyPayload<ID, P> {
         }
     }
 }
-impl<const ID: u8, P: Decode> Decode for Cdc2CommandReplyPayload<ID, P> {
+
+impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, EXT_ID, P> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
+        let header = Decode::decode(&mut data)?;
+        if header != HOST_BOUND_HEADER {
+            return Err(DecodeError::InvalidHeader);
+        }
+
         let id = u8::decode(&mut data)?;
         if id != ID {
-            return Err(DecodeError::UnexpectedValue {
-                value: id,
-                expected: &[ID],
-            });
+            return Err(DecodeError::InvalidHeader);
         }
+
+        let payload_size = VarU16::decode(&mut data)?;
+
+        let ext_id = u8::decode(&mut data)?;
+        if ext_id != EXT_ID {
+            return Err(DecodeError::InvalidHeader);
+        }
+
         let ack = Cdc2Ack::decode(&mut data)?;
         let data_ = P::decode(&mut data)?;
         let crc = u16::decode(&mut data)?;
 
         Ok(Self {
+            header,
             ack,
+            payload_size,
             data: data_,
             crc,
         })
     }
 }
+
+impl<const ID: u8, const EXT_ID: u8, P: Decode + Clone> Clone for Cdc2ReplyPacket<ID, EXT_ID, P> {
+    fn clone(&self) -> Self {
+        Self {
+            header: self.header.clone(),
+            ack: self.ack.clone(),
+            payload_size: self.payload_size.clone(),
+            data: self.data.clone(),
+            crc: self.crc.clone(),
+        }
+    }
+} 
