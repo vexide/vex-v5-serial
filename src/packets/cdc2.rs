@@ -117,20 +117,14 @@ impl<const ID: u8, const EXT_ID: u8, P: Encode> Encode for Cdc2CommandPacket<ID,
         
         encoded.extend_from_slice(&self.header);
 
-        // Push ID
+        // Push IDs
         encoded.push(ID);
-
-        // Push the payload size
-        //
-        // This is actually the CDC2 payload size plus one byte for the
-        // size of the extended ID (since that's considered part of the
-        // payload.)
-        let payload_bytes = self.payload.encode()?;
-        let payload_size = VarU16::new(payload_bytes.len() as u16 + 1);
-        encoded.extend(payload_size.encode()?);
         encoded.push(EXT_ID);
 
-        // Push the encoded payload
+        // Push the payload size and encoded bytes
+        let payload_bytes = self.payload.encode()?;
+        let payload_size = VarU16::new(payload_bytes.len() as u16);
+        encoded.extend(payload_size.encode()?);
         encoded.extend(payload_bytes);
 
         // The CRC32 checksum is of the whole encoded packet, meaning we need
