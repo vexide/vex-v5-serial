@@ -157,14 +157,14 @@ pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: Decode> {
     pub header: [u8; 2],
     pub ack: Cdc2Ack,
     pub payload_size: VarU16,
-    pub data: P,
+    pub payload: P,
     pub crc: u16,
 }
 
 impl<const ID: u8, const EXT_ID: u8, P: Decode> Cdc2ReplyPacket<ID, EXT_ID, P> {
     pub fn try_into_inner(self) -> Result<P, ConnectionError> {
         if let Cdc2Ack::Ack = self.ack {
-            Ok(self.data)
+            Ok(self.payload)
         } else {
             Err(ConnectionError::Nack(self.ack))
         }
@@ -192,14 +192,14 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, E
         }
 
         let ack = Cdc2Ack::decode(&mut data)?;
-        let data_ = P::decode(&mut data)?;
+        let payload = P::decode(&mut data)?;
         let crc = u16::decode(&mut data)?;
 
         Ok(Self {
             header,
             ack,
             payload_size,
-            data: data_,
+            payload: payload,
             crc,
         })
     }
@@ -211,7 +211,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode + Clone> Clone for Cdc2ReplyPacke
             header: self.header.clone(),
             ack: self.ack.clone(),
             payload_size: self.payload_size.clone(),
-            data: self.data.clone(),
+            payload: self.payload.clone(),
             crc: self.crc.clone(),
         }
     }
