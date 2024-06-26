@@ -24,6 +24,10 @@ async fn main() -> Result<(), ConnectionError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
     let cold_bytes = include_bytes!("./basic.bin").to_vec();
 
+    let callback_generator = |step| Box::new(move |progress| {
+        log::info!("{}: {:.2}%", step, progress);
+    });
+
     // Upload program file
     connection
         .execute_command(UploadProgram {
@@ -35,9 +39,9 @@ async fn main() -> Result<(), ConnectionError> {
             data: ProgramData::Cold(cold_bytes),
             compress_program: true,
             after_upload: FileExitAtion::RunProgram,
-            callback_generator: Some(Box::new(|step| Box::new(move |progress| {
-                log::info!("{}: {:.2}%", step, progress);
-            }))),
+            ini_callback: Some(callback_generator("INI")),
+            cold_callback: Some(callback_generator("Cold")),
+            hot_callback: Some(callback_generator("Hot")),
         })
         .await?;
 

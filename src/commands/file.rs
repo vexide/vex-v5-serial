@@ -284,7 +284,9 @@ pub struct UploadProgram {
     pub data: ProgramData,
     pub after_upload: FileExitAtion,
 
-    pub callback_generator: Option<Box<dyn FnMut(String) -> Box<dyn FnMut(f32) + Send>>>,
+    pub ini_callback: Option<Box<dyn FnMut(f32) + Send>>,
+    pub cold_callback: Option<Box<dyn FnMut(f32) + Send>>,
+    pub hot_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
 impl Command for UploadProgram {
     type Output = ();
@@ -309,7 +311,6 @@ impl Command for UploadProgram {
         };
         let ini = serde_ini::to_vec(&ini).unwrap();
 
-        let cb = self.callback_generator.as_mut().map(|gen| gen("Uploading INI".to_string()));
         let file_transfer = UploadFile {
             filename: FixedLengthString::new(format!("{}.ini", base_file_name))?,
             filetype: FixedLengthString::new("ini".to_string())?,
@@ -319,7 +320,7 @@ impl Command for UploadProgram {
             load_addr: COLD_START,
             linked_file: None,
             after_upload: FileExitAtion::Halt,
-            progress_callback: cb,
+            progress_callback: self.ini_callback.take(),
         };
         connection.execute_command(file_transfer).await.unwrap();
 
@@ -347,7 +348,6 @@ impl Command for UploadProgram {
                 *cold = encoder.finish().unwrap();
             }
 
-            let cb = self.callback_generator.as_mut().map(|gen| gen("Uploading cold".to_string()));
             connection
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
@@ -358,7 +358,7 @@ impl Command for UploadProgram {
                     load_addr: COLD_START,
                     linked_file: None,
                     after_upload,
-                    progress_callback: cb,
+                    progress_callback: self.cold_callback.take(),
                 })
                 .await?;
         }
@@ -376,7 +376,7 @@ impl Command for UploadProgram {
                 encoder.write_all(hot).unwrap();
                 *hot = encoder.finish().unwrap();
             }
-            let cb = self.callback_generator.as_mut().map(|gen| gen("Uploading hot".to_string()));
+            
             connection
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
@@ -387,7 +387,7 @@ impl Command for UploadProgram {
                     load_addr: 0x07800000,
                     linked_file,
                     after_upload: self.after_upload,
-                    progress_callback: cb,
+                    progress_callback: self.hot_callback.take(),
                 })
                 .await?;
         }
