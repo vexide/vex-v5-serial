@@ -35,6 +35,9 @@ async fn main() -> Result<(), ConnectionError> {
             data: ProgramData::Cold(cold_bytes),
             compress_program: true,
             after_upload: FileExitAtion::RunProgram,
+            callback_generator: Some(Box::new(|step| Box::new(move |progress| {
+                log::info!("{}: {:.2}%", step, progress);
+            }))),
         })
         .await?;
 
