@@ -168,8 +168,8 @@ pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x12, ()>;
 pub enum FileExitAtion {
     DoNothing = 0,
     RunProgram = 1,
-    ShowRunScreen = 2,
-    Halt = 3,
+    Halt = 2,
+    ShowRunScreen = 3,
 }
 impl Encode for FileExitAtion {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
