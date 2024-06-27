@@ -3,7 +3,7 @@ use std::time::Duration;
 use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
     connection::{serial, Connection, ConnectionError},
-    packets::file::FileExitAtion,
+    packets::file::FileExitAction,
 };
 
 #[tokio::main]
@@ -38,7 +38,7 @@ async fn main() -> Result<(), ConnectionError> {
             slot: 4,
             data: ProgramData::Cold(cold_bytes),
             compress_program: true,
-            after_upload: FileExitAtion::RunProgram,
+            after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
             cold_callback: Some(callback_generator("Cold")),
             hot_callback: Some(callback_generator("Hot")),

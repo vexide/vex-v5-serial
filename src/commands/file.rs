@@ -8,7 +8,7 @@ use crate::{
     connection::{bluetooth::BluetoothConnection, Connection, ConnectionError, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
-        ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAtion,
+        ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAction,
         FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
         InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
         LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket,
@@ -121,7 +121,7 @@ pub struct UploadFile {
     pub target: Option<FileDownloadTarget>,
     pub load_addr: u32,
     pub linked_file: Option<LinkedFile>,
-    pub after_upload: FileExitAtion,
+    pub after_upload: FileExitAction,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
@@ -282,7 +282,7 @@ pub struct UploadProgram {
     pub slot: u8,
     pub compress_program: bool,
     pub data: ProgramData,
-    pub after_upload: FileExitAtion,
+    pub after_upload: FileExitAction,
 
     pub ini_callback: Option<Box<dyn FnMut(f32) + Send>>,
     pub cold_callback: Option<Box<dyn FnMut(f32) + Send>>,
@@ -319,7 +319,7 @@ impl Command for UploadProgram {
             target: None,
             load_addr: COLD_START,
             linked_file: None,
-            after_upload: FileExitAtion::Halt,
+            after_upload: FileExitAction::Halt,
             progress_callback: self.ini_callback.take(),
         };
         connection.execute_command(file_transfer).await.unwrap();
@@ -333,7 +333,7 @@ impl Command for UploadProgram {
         if let Some(cold) = cold {
             info!("Uploading cold binary");
             let after_upload = if hot.is_some() {
-                FileExitAtion::Halt
+                FileExitAction::Halt
             } else {
                 self.after_upload
             };

@@ -159,19 +159,19 @@ impl Decode for InitFileTransferReplyPayload {
 }
 
 /// Finish uploading or downloading file from the device
-pub type ExitFileTransferPacket = Cdc2CommandPacket<0x56, 0x12, FileExitAtion>;
+pub type ExitFileTransferPacket = Cdc2CommandPacket<0x56, 0x12, FileExitAction>;
 pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x12, ()>;
 
 /// The action to run when a file transfer is completed.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
-pub enum FileExitAtion {
+pub enum FileExitAction {
     DoNothing = 0,
     RunProgram = 1,
     Halt = 2,
     ShowRunScreen = 3,
 }
-impl Encode for FileExitAtion {
+impl Encode for FileExitAction {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(vec![*self as _])
     }
