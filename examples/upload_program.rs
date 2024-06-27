@@ -3,6 +3,7 @@ use std::time::Duration;
 use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
     connection::{serial, Connection, ConnectionError},
+    packets::controller::{SwitchControllerChannelPacket, SwitchControllerChannelReplyPacket},
     packets::file::FileExitAction,
 };
 
@@ -24,9 +25,23 @@ async fn main() -> Result<(), ConnectionError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
     let cold_bytes = include_bytes!("./basic.bin").to_vec();
 
-    let callback_generator = |step| Box::new(move |progress| {
-        log::info!("{}: {:.2}%", step, progress);
-    });
+    let callback_generator = |step| {
+        Box::new(move |progress| {
+            log::info!("{}: {:.2}%", step, progress);
+        })
+    };
+
+    connection
+        .packet_handshake::<SwitchControllerChannelReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            SwitchControllerChannelPacket::new(
+                vex_v5_serial::packets::controller::ControllerChannel::Pit,
+            ),
+        )
+        .await?
+        .try_into_inner()
+        .unwrap();
 
     // Upload program file
     connection

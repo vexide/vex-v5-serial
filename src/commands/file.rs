@@ -113,7 +113,7 @@ pub struct LinkedFile {
     pub vendor: Option<FileVendor>,
 }
 
-pub struct UploadFile {
+pub struct UploadFile<'a> {
     pub filename: FixedLengthString<23>,
     pub filetype: FixedLengthString<3>,
     pub vendor: Option<FileVendor>,
@@ -123,9 +123,9 @@ pub struct UploadFile {
     pub linked_file: Option<LinkedFile>,
     pub after_upload: FileExitAction,
 
-    pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
+    pub progress_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
 }
-impl Command for UploadFile {
+impl Command for UploadFile<'_> {
     type Output = ();
     async fn execute<C: Connection + ?Sized>(
         &mut self,
@@ -273,7 +273,7 @@ pub struct ProgramIniConfig {
     pub program: Program,
 }
 
-pub struct UploadProgram {
+pub struct UploadProgram<'a> {
     pub name: String,
     pub description: String,
     pub icon: String,
@@ -284,11 +284,11 @@ pub struct UploadProgram {
     pub data: ProgramData,
     pub after_upload: FileExitAction,
 
-    pub ini_callback: Option<Box<dyn FnMut(f32) + Send>>,
-    pub cold_callback: Option<Box<dyn FnMut(f32) + Send>>,
-    pub hot_callback: Option<Box<dyn FnMut(f32) + Send>>,
+    pub ini_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
+    pub cold_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
+    pub hot_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
 }
-impl Command for UploadProgram {
+impl Command for UploadProgram<'_> {
     type Output = ();
 
     async fn execute<C: Connection + ?Sized>(

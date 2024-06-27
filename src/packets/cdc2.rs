@@ -193,7 +193,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, E
             header,
             ack,
             payload_size,
-            payload: payload,
+            payload,
             crc,
         })
     }
@@ -202,11 +202,11 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, E
 impl<const ID: u8, const EXT_ID: u8, P: Decode + Clone> Clone for Cdc2ReplyPacket<ID, EXT_ID, P> {
     fn clone(&self) -> Self {
         Self {
-            header: self.header.clone(),
-            ack: self.ack.clone(),
-            payload_size: self.payload_size.clone(),
+            header: self.header,
+            ack: self.ack,
+            payload_size: self.payload_size,
             payload: self.payload.clone(),
-            crc: self.crc.clone(),
+            crc: self.crc,
         }
     }
 } 
