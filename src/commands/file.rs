@@ -322,7 +322,7 @@ impl Command for UploadProgram<'_> {
             after_upload: FileExitAction::Halt,
             progress_callback: self.ini_callback.take(),
         };
-        connection.execute_command(file_transfer).await.unwrap();
+        connection.execute_command(file_transfer).await?;
 
         let (cold, hot) = match &mut self.data {
             ProgramData::Cold(cold) => (Some(cold), None),
