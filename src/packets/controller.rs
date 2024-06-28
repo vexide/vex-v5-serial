@@ -18,7 +18,7 @@ impl Encode for ControllerChannel {
         Ok(vec![*self as u8])
     }
 }
-pub type SwitchControllerChannecontrollerchlPacket = Cdc2CommandPacket<0x56, 0x10, SwitchControllerChannelPayload>;
+pub type SwitchControllerChannelPacket = Cdc2CommandPacket<0x56, 0x10, SwitchControllerChannelPayload>;
 pub type SwitchControllerChannelReplyPacket = Cdc2ReplyPacket<0x56, 0x10, ()>;
 
 #[derive(Debug, Clone)]
