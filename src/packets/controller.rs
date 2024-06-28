@@ -18,16 +18,16 @@ impl Encode for ControllerChannel {
         Ok(vec![*self as u8])
     }
 }
-pub type SwitchControllerChannelPacket = Cdc2CommandPacket<0x56, 0x10, SwitchcControllerChannelPayload>;
+pub type SwitchControllerChannecontrollerchlPacket = Cdc2CommandPacket<0x56, 0x10, SwitchControllerChannelPayload>;
 pub type SwitchControllerChannelReplyPacket = Cdc2ReplyPacket<0x56, 0x10, ()>;
 
 #[derive(Debug, Clone)]
-pub struct SwitchcControllerChannelPayload {
+pub struct SwitchControllerChannelPayload {
     /// PROS-cli sets this to 1.
     pub unknown: u8,
     pub channel: ControllerChannel,
 }
-impl Encode for SwitchcControllerChannelPayload {
+impl Encode for SwitchControllerChannelPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
         encoded.extend(self.unknown.to_le_bytes());

@@ -6,7 +6,7 @@ use vex_v5_serial::{
     packets::{
         controller::{
             ControllerChannel, SwitchControllerChannelPacket, SwitchControllerChannelReplyPacket,
-            SwitchcControllerChannelPayload,
+            SwitchControllerChannelPayload,
         },
         file::FileExitAction,
     },
@@ -40,7 +40,7 @@ async fn main() -> Result<(), ConnectionError> {
         .packet_handshake::<SwitchControllerChannelReplyPacket>(
             Duration::from_millis(500),
             10,
-            SwitchControllerChannelPacket::new(SwitchcControllerChannelPayload {
+            SwitchControllerChannelPacket::new(SwitchControllerChannelPayload {
                 unknown: 1,
                 channel: ControllerChannel::Pit,
             }),
