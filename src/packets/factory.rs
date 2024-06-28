@@ -9,14 +9,14 @@ use crate::{
 
 pub struct FdtStatus {
     pub count: u8,
-    pub entries: Array<Fdt>,
+    pub files: Array<Fdt>,
 }
 impl Decode for FdtStatus {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
         let entries = Array::decode_with_len(&mut data, count as _)?;
-        Ok(Self { count, entries })
+        Ok(Self { count, files: entries })
     }
 }
 

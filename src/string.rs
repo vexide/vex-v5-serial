@@ -5,6 +5,7 @@ use crate::{
     encode::{Encode, EncodeError},
 };
 
+#[derive(Debug, Clone)]
 pub struct DynamicVarLengthString(pub String, pub usize);
 impl DynamicVarLengthString {
     pub fn new(string: String, max_size: usize) -> Result<Self, EncodeError> {
@@ -131,6 +132,7 @@ impl<const LEN: usize> Display for FixedLengthString<LEN> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct UnterminatedFixedLengthString<const LEN: usize>([u8; LEN]);
 impl<const LEN: usize> UnterminatedFixedLengthString<LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {

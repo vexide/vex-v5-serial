@@ -1,50 +1,50 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::{encode::{Encode, EncodeError}, string::{DynamicVarLengthString, VarLengthString}};
+use crate::{
+    decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
+    string::VarLengthString,
+};
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy)]
-pub enum ControllerChannel {
-    // NOTE: There's probably a secret third channel for matches, but that's not known.
-    /// Used when controlling the robot outside of a competition match.
-    Pit = 0x00,
-
-    /// Used when wirelessly uploading or downloading data to/from the V5 Brain.
-    ///
-    /// Higher radio bandwidth for file transfer purposes.
-    Download = 0x01,
-}
-impl Encode for ControllerChannel {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![*self as u8])
-    }
-}
-pub type SwitchControllerChannelPacket = Cdc2CommandPacket<0x56, 0x10, SwitchControllerChannelPayload>;
-pub type SwitchControllerChannelReplyPacket = Cdc2ReplyPacket<0x56, 0x10, ()>;
+pub type UserFifoPacket = Cdc2CommandPacket<0x56, 0x27, UserFifoPayload>;
+pub type UserFifoReplyPacket = Cdc2ReplyPacket<0x56, 0x27, UserFifoReplyPayload>;
 
 #[derive(Debug, Clone)]
-pub struct SwitchControllerChannelPayload {
-    /// PROS-cli sets this to 1.
-    pub unknown: u8,
-    pub channel: ControllerChannel,
+pub struct UserFifoPayload {
+    /// stdio channel is 1, other channels unknown.
+    pub channel: u8,
+
+    /// Number of bytes from stdin that should be read.
+    pub read_length: u8,
+
+    /// Write (stdin) bytes.
+    pub write: VarLengthString<224>,
 }
-impl Encode for SwitchControllerChannelPayload {
+impl Encode for UserFifoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
-        encoded.extend(self.unknown.to_le_bytes());
-        encoded.extend(self.channel.encode()?);
+        encoded.extend((self.channel as u8).to_le_bytes());
+        encoded.extend(self.read_length.to_le_bytes());
+        encoded.extend(self.write.encode()?);
         Ok(encoded)
     }
 }
 
-pub type UserFifoReadPacket = Cdc2CommandPacket<0x56, 0x27, UserFifoReadPayload>;
-pub type UserFifoReadReplyPacket = Cdc2ReplyPacket<0x56, 0x27, UserFifoReadReplyPayload>;
+#[derive(Debug, Clone)]
+pub struct UserFifoReplyPayload {
+    /// stdio channel is 1, other channels unknown.
+    pub channel: u8,
 
-pub struct UserFifoReadPayload {
-    pub channel: ControllerChannel,
-    pub length: u8,
+    /// Bytes read from stdout.
+    pub data: VarLengthString<64>,
 }
-
-pub struct UserFifoReadReplyPayload {
-    pub unknown: u8,
-    pub contents: DynamicVarLengthString,
+impl Decode for UserFifoReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let channel = u8::decode(&mut data)?;
+        let read = VarLengthString::<64>::decode(&mut data)?;
+        Ok(Self {
+            channel,
+            data: read,
+        })
+    }
 }

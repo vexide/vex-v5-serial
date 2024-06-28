@@ -4,11 +4,11 @@ use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
     connection::{serial, Connection, ConnectionError},
     packets::{
-        controller::{
-            ControllerChannel, SwitchControllerChannelPacket, SwitchControllerChannelReplyPacket,
-            SwitchControllerChannelPayload,
-        },
         file::FileExitAction,
+        radio::{
+            RadioChannel, SelectRadioChannelPacket, SelectRadioChannelPayload,
+            SelectRadioChannelReplyPacket,
+        },
     },
 };
 
@@ -37,12 +37,11 @@ async fn main() -> Result<(), ConnectionError> {
     };
 
     connection
-        .packet_handshake::<SwitchControllerChannelReplyPacket>(
+        .packet_handshake::<SelectRadioChannelReplyPacket>(
             Duration::from_millis(500),
             10,
-            SwitchControllerChannelPacket::new(SwitchControllerChannelPayload {
-                unknown: 1,
-                channel: ControllerChannel::Pit,
+            SelectRadioChannelPacket::new(SelectRadioChannelPayload {
+                channel: RadioChannel::Pit,
             }),
         )
         .await?

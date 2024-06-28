@@ -1,3 +1,5 @@
+use crate::encode::{Encode, EncodeError};
+
 use super::{
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
     Decode,
@@ -34,3 +36,37 @@ impl Decode for RadioStatus {
 
 pub type GetRadioStatusPacket = Cdc2CommandPacket<0x56, 0x26, ()>;
 pub type GetRadioStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x26, RadioStatus>;
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum RadioChannel {
+    // NOTE: There's probably a secret third channel for matches, but that's not known.
+    /// Used when controlling the robot outside of a competition match.
+    Pit = 0x00,
+
+    /// Used when wirelessly uploading or downloading data to/from the V5 Brain.
+    ///
+    /// Higher radio bandwidth for file transfer purposes.
+    Download = 0x01,
+}
+impl Encode for RadioChannel {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![*self as u8])
+    }
+}
+pub type SelectRadioChannelPacket = Cdc2CommandPacket<0x56, 0x10, SelectRadioChannelPayload>;
+pub type SelectRadioChannelReplyPacket = Cdc2ReplyPacket<0x56, 0x10, ()>;
+
+#[derive(Debug, Clone)]
+pub struct SelectRadioChannelPayload {
+    pub channel: RadioChannel,
+}
+impl Encode for SelectRadioChannelPayload {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = Vec::new();
+        // pros-cli keeps this byte at 1, which presumably specifies the radio file control group
+        encoded.push(0x01);
+        encoded.extend(self.channel.encode()?);
+        Ok(encoded)
+    }
+}
