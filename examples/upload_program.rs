@@ -3,8 +3,13 @@ use std::time::Duration;
 use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
     connection::{serial, Connection, ConnectionError},
-    packets::controller::{SwitchControllerChannelPacket, SwitchControllerChannelReplyPacket},
-    packets::file::FileExitAction,
+    packets::{
+        controller::{
+            ControllerChannel, SwitchControllerChannelPacket, SwitchControllerChannelReplyPacket,
+            SwitchcControllerChannelPayload,
+        },
+        file::FileExitAction,
+    },
 };
 
 #[tokio::main]
@@ -35,9 +40,10 @@ async fn main() -> Result<(), ConnectionError> {
         .packet_handshake::<SwitchControllerChannelReplyPacket>(
             Duration::from_millis(500),
             10,
-            SwitchControllerChannelPacket::new(
-                vex_v5_serial::packets::controller::ControllerChannel::Pit,
-            ),
+            SwitchControllerChannelPacket::new(SwitchcControllerChannelPayload {
+                unknown: 1,
+                channel: ControllerChannel::Pit,
+            }),
         )
         .await?
         .try_into_inner()
