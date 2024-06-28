@@ -42,8 +42,8 @@ pub enum DashScreen {
     LogData = 47,
 }
 
-pub type SendDashTouchPacket = Cdc2CommandPacket<0x56, 0x2a, SendDashTouchPayload>;
-pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<0x56, 0x2a, ()>;
+pub type SendDashTouchPacket = Cdc2CommandPacket<86, 42, SendDashTouchPayload>;
+pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<86, 42, ()>;
 
 #[derive(Debug, Clone)]
 pub struct SendDashTouchPayload {
@@ -62,8 +62,8 @@ impl Encode for SendDashTouchPayload {
     }
 }
 
-pub type SelectDashPacket = Cdc2CommandPacket<0x56, 0x2b, SelectDashPayload>;
-pub type SelectDashReplyPacket = Cdc2ReplyPacket<0x56, 0x2b, ()>;
+pub type SelectDashPacket = Cdc2CommandPacket<86, 43, SelectDashPayload>;
+pub type SelectDashReplyPacket = Cdc2ReplyPacket<86, 43, ()>;
 
 #[derive(Debug, Clone)]
 pub struct SelectDashPayload {

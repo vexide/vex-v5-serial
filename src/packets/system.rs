@@ -183,14 +183,14 @@ impl Decode for SystemDetails {
     }
 }
 
-pub type GetSystemFlagsPacket = Cdc2CommandPacket<0x56, 0x20, ()>;
-pub type GetSystemFlagsReplyPacket = Cdc2ReplyPacket<0x56, 0x20, SystemFlags>;
+pub type GetSystemFlagsPacket = Cdc2CommandPacket<86, 32, ()>;
+pub type GetSystemFlagsReplyPacket = Cdc2ReplyPacket<86, 32, SystemFlags>;
 
-pub type GetSystemStatusPacket = Cdc2CommandPacket<0x56, 0x22, ()>;
-pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
+pub type GetSystemStatusPacket = Cdc2CommandPacket<86, 34, ()>;
+pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<86, 34, SystemStatus>;
 
-pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
-pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, GetSystemVersionReplyPayload>;
+pub type GetSystemVersionPacket = CdcCommandPacket<164, ()>;
+pub type GetSystemVersionReplyPacket = CdcReplyPacket<164, GetSystemVersionReplyPayload>;
 
 #[derive(Debug)]
 pub struct GetSystemVersionReplyPayload {
@@ -213,8 +213,8 @@ impl Decode for GetSystemVersionReplyPayload {
     }
 }
 
-pub type Query1Packet = CdcCommandPacket<0x21, ()>;
-pub type Query1ReplyPacket = CdcReplyPacket<0x21, Query1ReplyPayload>;
+pub type Query1Packet = CdcCommandPacket<33, ()>;
+pub type Query1ReplyPacket = CdcReplyPacket<33, Query1ReplyPayload>;
 
 pub struct Query1ReplyPayload {
     pub unknown_1: [u8; 4],

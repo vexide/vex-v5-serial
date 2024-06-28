@@ -90,8 +90,8 @@ pub enum FileLoadAction {
 }
 
 /// Start uploading or downloading file from the device
-pub type InitFileTransferPacket = Cdc2CommandPacket<0x56, 0x11, InitFileTransferPayload>;
-pub type InitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x11, InitFileTransferReplyPayload>;
+pub type InitFileTransferPacket = Cdc2CommandPacket<86, 17, InitFileTransferPayload>;
+pub type InitFileTransferReplyPacket = Cdc2ReplyPacket<86, 17, InitFileTransferReplyPayload>;
 
 #[derive(Debug, Clone)]
 pub struct InitFileTransferPayload {
@@ -159,8 +159,8 @@ impl Decode for InitFileTransferReplyPayload {
 }
 
 /// Finish uploading or downloading file from the device
-pub type ExitFileTransferPacket = Cdc2CommandPacket<0x56, 0x12, FileExitAction>;
-pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<0x56, 0x12, ()>;
+pub type ExitFileTransferPacket = Cdc2CommandPacket<86, 18, FileExitAction>;
+pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<86, 18, ()>;
 
 /// The action to run when a file transfer is completed.
 #[repr(u8)]
@@ -177,8 +177,8 @@ impl Encode for FileExitAction {
     }
 }
 /// Write to the brain
-pub type WriteFilePacket = Cdc2CommandPacket<0x56, 0x13, WriteFilePayload>;
-pub type WriteFileReplyPacket = Cdc2ReplyPacket<0x56, 0x13, ()>;
+pub type WriteFilePacket = Cdc2CommandPacket<86, 19, WriteFilePayload>;
+pub type WriteFileReplyPacket = Cdc2ReplyPacket<86, 19, ()>;
 
 #[derive(Debug, Clone)]
 pub struct WriteFilePayload {
@@ -200,9 +200,9 @@ impl Encode for WriteFilePayload {
 }
 
 /// Read from the brain
-pub type ReadFilePacket = Cdc2CommandPacket<0x56, 0x14, ReadFilePayload>;
+pub type ReadFilePacket = Cdc2CommandPacket<86, 20, ReadFilePayload>;
 /// Returns the file content. This packet doesn't have an ack if the data is available.
-pub type ReadFileReplyPacket = CdcReplyPacket<0x56, ReadFileReplyPayload>;
+pub type ReadFileReplyPacket = CdcReplyPacket<86, ReadFileReplyPayload>;
 
 #[derive(Debug, Clone)]
 pub struct ReadFilePayload {
@@ -324,8 +324,8 @@ impl ReadFileReplyPayload {
 /// File linking means allowing one file to be loaded after another file first (its parent).
 ///
 /// This is used in PROS for the hot/cold linking.
-pub type LinkFilePacket = Cdc2CommandPacket<0x56, 0x15, LinkFilePayload>;
-pub type LinkFileReplyPacket = Cdc2ReplyPacket<0x56, 0x15, ()>;
+pub type LinkFilePacket = Cdc2CommandPacket<86, 21, LinkFilePayload>;
+pub type LinkFileReplyPacket = Cdc2ReplyPacket<86, 21, ()>;
 
 #[derive(Debug, Clone)]
 pub struct LinkFilePayload {
@@ -344,8 +344,8 @@ impl Encode for LinkFilePayload {
     }
 }
 
-pub type GetDirectoryFileCountPacket = Cdc2CommandPacket<0x56, 0x16, GetDirectoryFileCountPayload>;
-pub type GetDirectoryFileCountReplyPacket = Cdc2ReplyPacket<0x56, 0x16, u16>;
+pub type GetDirectoryFileCountPacket = Cdc2CommandPacket<86, 22, GetDirectoryFileCountPayload>;
+pub type GetDirectoryFileCountReplyPacket = Cdc2ReplyPacket<86, 22, u16>;
 
 #[derive(Debug, Clone)]
 pub struct GetDirectoryFileCountPayload {
@@ -359,19 +359,19 @@ impl Encode for GetDirectoryFileCountPayload {
     }
 }
 
-pub type GetDirectoryEntryPacket = Cdc2CommandPacket<0x56, 0x17, GetDirectoryEntryPayload>;
+pub type GetDirectoryEntryPacket = Cdc2CommandPacket<86, 23, GetDirectoryEntryPayload>;
 pub type GetDirectoryEntryReplyPacket =
-    Cdc2ReplyPacket<0x56, 0x17, Option<GetDirectoryEntryReplyPayload>>;
+    Cdc2ReplyPacket<86, 23, Option<GetDirectoryEntryReplyPayload>>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct GetDirectoryEntryPayload {
     pub file_index: u8,
     /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    pub unknown: u8,
 }
 impl Encode for GetDirectoryEntryPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.file_index, self.option])
+        Ok(vec![self.file_index, self.unknown])
     }
 }
 
@@ -417,8 +417,8 @@ impl Decode for GetDirectoryEntryReplyPayload {
 }
 
 /// Run a binrary file on the brain or stop the program running on the brain.
-pub type LoadFileActionPacket = Cdc2CommandPacket<0x56, 0x18, LoadFileActionPayload>;
-pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<0x56, 0x18, ()>;
+pub type LoadFileActionPacket = Cdc2CommandPacket<86, 24, LoadFileActionPayload>;
+pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<86, 24, ()>;
 
 #[derive(Debug, Clone)]
 pub struct LoadFileActionPayload {
@@ -435,9 +435,9 @@ impl Encode for LoadFileActionPayload {
         Ok(encoded)
     }
 }
-pub type GetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x19, GetFileMetadataPayload>;
+pub type GetFileMetadataPacket = Cdc2CommandPacket<86, 25, GetFileMetadataPayload>;
 pub type GetFileMetadataReplyPacket =
-    Cdc2ReplyPacket<0x56, 0x19, Option<GetFileMetadataReplyPayload>>;
+    Cdc2ReplyPacket<86, 25, Option<GetFileMetadataReplyPayload>>;
 
 #[derive(Debug, Clone)]
 pub struct GetFileMetadataPayload {
@@ -491,8 +491,8 @@ impl Decode for GetFileMetadataReplyPayload {
     }
 }
 
-pub type SetFileMetadataPacket = Cdc2CommandPacket<0x56, 0x1a, SetFileMetadataPayload>;
-pub type SetFileMetadataReplyPacket = Cdc2ReplyPacket<0x56, 0x1a, ()>;
+pub type SetFileMetadataPacket = Cdc2CommandPacket<86, 26, SetFileMetadataPayload>;
+pub type SetFileMetadataReplyPacket = Cdc2ReplyPacket<86, 26, ()>;
 
 #[derive(Debug, Clone)]
 pub struct SetFileMetadataPayload {
@@ -518,8 +518,8 @@ impl Encode for SetFileMetadataPayload {
     }
 }
 
-pub type EraseFilePacket = Cdc2CommandPacket<0x56, 0x1b, EraseFilePayload>;
-pub type EraseFileReplyPacket = Cdc2ReplyPacket<0x56, 0x1b, ()>;
+pub type EraseFilePacket = Cdc2CommandPacket<86, 27, EraseFilePayload>;
+pub type EraseFileReplyPacket = Cdc2ReplyPacket<86, 27, ()>;
 
 #[derive(Debug, Clone)]
 pub struct EraseFilePayload {
@@ -537,16 +537,16 @@ impl Encode for EraseFilePayload {
     }
 }
 
-pub type FileClearUpPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpPayload>;
-pub type FileClearUpReplyPacket = Cdc2CommandPacket<0x56, 0x1e, FileClearUpResult>;
+pub type FileCleanUpPacket = Cdc2CommandPacket<86, 30, FileCleanUpPayload>;
+pub type FileCleanUpReplyPacket = Cdc2CommandPacket<86, 30, FileCleanUpResult>;
 
 #[derive(Debug, Clone)]
-pub struct FileClearUpPayload {
+pub struct FileCleanUpPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
 }
-impl Encode for FileClearUpPayload {
+impl Encode for FileCleanUpPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         Ok(vec![self.vendor as _, self.option])
     }
@@ -555,7 +555,7 @@ impl Encode for FileClearUpPayload {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
 /// (RESEARCH NEEDED)
-pub enum FileClearUpResult {
+pub enum FileCleanUpResult {
     /// No file deleted
     None = 0,
 
@@ -571,7 +571,7 @@ pub enum FileClearUpResult {
     /// Deleted all files with linked files for the first time after restart.
     LinkedFilesAfterRestart = 4,
 }
-impl Decode for FileClearUpResult {
+impl Decode for FileCleanUpResult {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let this = u8::decode(data)?;
         match this {
@@ -589,8 +589,8 @@ impl Decode for FileClearUpResult {
 }
 
 /// Same as "File Clear Up", but takes longer
-pub type FileFormatPacket = Cdc2CommandPacket<0x56, 0x1f, FileFormatConfirmation>;
-pub type FileFormatReplyPacket = Cdc2CommandPacket<0x56, 0x1f, ()>;
+pub type FileFormatPacket = Cdc2CommandPacket<86, 31, FileFormatConfirmation>;
+pub type FileFormatReplyPacket = Cdc2CommandPacket<86, 31, ()>;
 
 #[derive(Debug, Clone)]
 pub struct FileFormatConfirmation {

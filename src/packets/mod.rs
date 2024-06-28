@@ -11,7 +11,7 @@ pub mod file;
 pub mod kv;
 pub mod log;
 pub mod radio;
-pub mod slot;
+pub mod program;
 pub mod system;
 
 /// Header byte sequence used for all device-bound packets.

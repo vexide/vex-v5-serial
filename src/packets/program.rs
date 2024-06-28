@@ -27,18 +27,18 @@ impl Decode for Slot {
     }
 }
 
-pub type GetProgramSlotInfoPacket = Cdc2CommandPacket<0x56, 0x1c, GetProgramSlotInfoPayload>;
-pub type GetLogCountReplyPacket = Cdc2ReplyPacket<0x56, 0x1c, GetProgramSlotInfoReplyPayload>;
+pub type GetProgramInfoPacket = Cdc2CommandPacket<86, 28, GetProgramInfoPayload>;
+pub type GetProgramInfoReplyPacket = Cdc2ReplyPacket<86, 28, GetProgramInfoReplyPayload>;
 
 #[derive(Debug, Clone)]
-pub struct GetProgramSlotInfoPayload {
+pub struct GetProgramInfoPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     /// The bin file name.
     pub file_name: FixedLengthString<23>,
 }
-impl Encode for GetProgramSlotInfoPayload {
+impl Encode for GetProgramInfoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = vec![self.vendor as _, self.option];
 
@@ -48,7 +48,7 @@ impl Encode for GetProgramSlotInfoPayload {
     }
 }
 
-pub struct GetProgramSlotInfoReplyPayload {
+pub struct GetProgramInfoReplyPayload {
     /// A zero-based slot number.
     pub slot: u8,
 
@@ -56,10 +56,10 @@ pub struct GetProgramSlotInfoReplyPayload {
     pub requested_slot: u8,
 }
 
-pub type GetSlot1To4InfoPacket = Cdc2CommandPacket<0x56, 0x31, ()>;
-pub type GetSlot1To4InfoReplyPacket = Cdc2CommandPacket<0x56, 0x31, SlotInfoPayload>;
-pub type GetSlot5To8InfoPacket = Cdc2CommandPacket<0x56, 0x32, ()>;
-pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<0x56, 0x32, SlotInfoPayload>;
+pub type GetSlot1To4InfoPacket = Cdc2CommandPacket<86, 49, ()>;
+pub type GetSlot1To4InfoReplyPacket = Cdc2CommandPacket<86, 49, SlotInfoPayload>;
+pub type GetSlot5To8InfoPacket = Cdc2CommandPacket<86, 50, ()>;
+pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<86, 50, SlotInfoPayload>;
 
 pub struct SlotInfoPayload {
     /// Bit Mask.

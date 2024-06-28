@@ -62,14 +62,14 @@ impl Decode for FactoryStatus {
     }
 }
 
-pub type GetFdtStatusPacket = Cdc2CommandPacket<0x56, 0x23, ()>;
-pub type GetFdtStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x23, FdtStatus>;
+pub type GetFdtStatusPacket = Cdc2CommandPacket<86, 35, ()>;
+pub type GetFdtStatusReplyPacket = Cdc2ReplyPacket<86, 35, FdtStatus>;
 
-pub type GetFactoryStatusPacket = Cdc2CommandPacket<0x56, 0xF1, ()>;
-pub type GetFactoryStatusReplyPacket = Cdc2ReplyPacket<0x56, 0xF1, FactoryStatus>;
+pub type GetFactoryStatusPacket = Cdc2CommandPacket<86, 241, ()>;
+pub type GetFactoryStatusReplyPacket = Cdc2ReplyPacket<86, 241, FactoryStatus>;
 
-pub type FactoryEnablePacket = Cdc2CommandPacket<0x56, 0xFF, FactoryEnablePayload>;
-pub type FactoryEnableReplyPacket = Cdc2CommandPacket<0x56, 0xFF, ()>;
+pub type FactoryEnablePacket = Cdc2CommandPacket<86, 255, FactoryEnablePayload>;
+pub type FactoryEnableReplyPacket = Cdc2CommandPacket<86, 255, ()>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct FactoryEnablePayload(pub [u8; 4]);
