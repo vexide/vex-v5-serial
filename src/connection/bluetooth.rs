@@ -50,7 +50,7 @@ pub async fn find_devices(
     let manager = Manager::new().await?;
 
     // Use the first adapter we can find.
-    let adapter = if let Some(adapter) = manager.adapters().await?.into_iter().nth(0) {
+    let adapter = if let Some(adapter) = manager.adapters().await?.into_iter().next() {
         adapter
     } else {
         // No bluetooth adapters were found.

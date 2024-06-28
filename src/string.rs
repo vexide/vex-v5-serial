@@ -132,24 +132,28 @@ impl<const LEN: usize> Display for FixedLengthString<LEN> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct UnterminatedFixedLengthString<const LEN: usize>([u8; LEN]);
-impl<const LEN: usize> UnterminatedFixedLengthString<LEN> {
-    pub fn new(string: String) -> Result<Self, EncodeError> {
-        let mut encoded = [0u8; LEN];
+#[cfg(test)]
+mod tests {
+    use crate::{decode::Decode, encode::Encode};
 
-        let string_bytes = string.into_bytes();
-        if string_bytes.len() > encoded.len() {
-            return Err(EncodeError::StringTooLong);
-        }
+    use super::FixedLengthString;
 
-        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
-
-        Ok(Self(encoded))
+    #[test]
+    #[should_panic]
+    fn invalid_fixed_length_string() {
+        let _ = FixedLengthString::<4>::new("hello world".to_string()).unwrap();
     }
-}
-impl Encode for UnterminatedFixedLengthString<23> {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(self.0.to_vec())
+    #[test]
+    fn fixed_length_string() {
+        let string = FixedLengthString::<10>::new("helloworld".to_string()).unwrap();
+        let encoded = string.encode().unwrap();
+        // 10 bytes for the string, 1 byte for the null terminator.
+        assert_eq!(encoded.len(), 10 + 1);
+
+        let bytes = b"helloworld\0".to_vec();
+        assert_eq!(encoded, bytes);
+        let decoded_string = FixedLengthString::<10>::decode(bytes).unwrap();
+
+        assert_eq!(decoded_string.0, "helloworld".to_string());
     }
 }

@@ -54,3 +54,30 @@ impl Decode for VarU16 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{decode::Decode, encode::Encode, varint::VarU16};
+
+    #[test]
+    fn wide() {
+        // A value that will be encoded as a wide variable length u16.
+        const VAL: u16 = 0xF00;
+        const ENCODED: [u8; 2] = [0x8f, 0x00];
+
+        let var = super::VarU16::new(VAL);
+        assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
+        assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
+    }
+
+    #[test]
+    fn thin() {
+        // A value that will be encoded as a thin variable length u16.
+        const VAL: u16 = 0x0F;
+        const ENCODED: [u8; 1] = [0x0F];
+
+        let var = super::VarU16::new(VAL);
+        assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
+        assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
+    }
+}

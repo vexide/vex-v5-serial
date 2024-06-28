@@ -23,19 +23,35 @@ impl<T: Decode> Array<T> {
         }
         Ok(Self { data: vec })
     }
-    pub fn decode_with_max_len(
-        data: impl IntoIterator<Item = u8>,
-        max_len: usize,
-    ) -> Result<Self, DecodeError> {
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Array;
+
+    #[test]
+    fn decode() {
+        let data: Vec<u8> = vec![0x01, 0x02, 0x03, 0x04];
         let mut data = data.into_iter();
-        let mut vec = Vec::with_capacity(max_len);
-        for _ in 0..max_len {
-            if let Ok(item) = T::decode(&mut data) {
-                vec.push(item);
-            } else {
-                break;
-            }
-        }
-        Ok(Self { data: vec })
+        let len = data.len();
+        let array = Array::<u8>::decode_with_len(&mut data, len).unwrap();
+
+        // All the data should be consumed
+        assert_eq!(data.len(), 0);
+
+        assert_eq!(array.into_inner(), vec![0x01, 0x02, 0x03, 0x04]);
+    }
+
+    #[test]
+    fn decode_some() {
+        let data: Vec<u8> = vec![0x01, 0x02, 0x03, 0x04];
+        let mut data = data.into_iter();
+        let array = Array::<u8>::decode_with_len(&mut data, 2).unwrap();
+
+        // Only 2 bytes should be consumed
+        assert_eq!(data.len(), 2);
+
+        assert_eq!(array.into_inner(), vec![0x01, 0x02]);
+        assert_eq!(data.collect::<Vec<_>>(), vec![0x03, 0x04]);
     }
 }

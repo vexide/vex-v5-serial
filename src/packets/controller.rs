@@ -22,7 +22,7 @@ pub struct UserFifoPayload {
 impl Encode for UserFifoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
-        encoded.extend((self.channel as u8).to_le_bytes());
+        encoded.extend(self.channel.to_le_bytes());
         encoded.extend(self.read_length.to_le_bytes());
         encoded.extend(self.write.encode()?);
         Ok(encoded)
