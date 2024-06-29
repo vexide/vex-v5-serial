@@ -245,7 +245,7 @@ impl Command for UploadFile<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ProgramData {
     Monolith(Vec<u8>),
     HotCold { hot: Option<Vec<u8>>, cold: Option<Vec<u8>> },
