@@ -62,6 +62,7 @@ async fn main() -> Result<(), ConnectionError> {
             ini_callback: Some(callback_generator("INI")),
             cold_callback: Some(callback_generator("Cold")),
             hot_callback: Some(callback_generator("Hot")),
+            monolith_callback: Some(callback_generator("Monolith")),
         })
         .await?;
 

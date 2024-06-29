@@ -293,6 +293,7 @@ pub struct UploadProgram<'a> {
     pub ini_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
     pub cold_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
     pub hot_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
+    pub monolith_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
 }
 impl Command for UploadProgram<'_> {
     type Output = ();
@@ -332,9 +333,7 @@ impl Command for UploadProgram<'_> {
 
         let (hot, cold) = match &mut self.data {
             ProgramData::Monolith(cold) => (Some(cold), None),
-            ProgramData::HotCold { hot, cold } => {
-                (hot.as_mut(), cold.as_mut())
-            }, 
+            ProgramData::HotCold { hot, cold } => (hot.as_mut(), cold.as_mut()),
         };
 
         if let Some(cold) = cold {
@@ -365,7 +364,11 @@ impl Command for UploadProgram<'_> {
                     load_addr: COLD_START,
                     linked_file: None,
                     after_upload,
-                    progress_callback: self.cold_callback.take(),
+                    progress_callback: if hot.is_some() {
+                        self.cold_callback.take()
+                    } else {
+                        self.monolith_callback.take()
+                    },
                 })
                 .await?;
         }
@@ -383,7 +386,7 @@ impl Command for UploadProgram<'_> {
                 encoder.write_all(hot).unwrap();
                 *hot = encoder.finish().unwrap();
             }
-            
+
             connection
                 .execute_command(UploadFile {
                     filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
