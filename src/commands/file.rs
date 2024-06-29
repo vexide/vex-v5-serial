@@ -331,10 +331,38 @@ impl Command for UploadProgram<'_> {
         };
         connection.execute_command(file_transfer).await?;
 
-        let (hot, cold) = match &mut self.data {
-            ProgramData::Monolith(cold) => (Some(cold), None),
-            ProgramData::HotCold { hot, cold } => (hot.as_mut(), cold.as_mut()),
+        let (monolith, hot, cold) = match &mut self.data {
+            ProgramData::Monolith(monolith) => (Some(monolith), None, None),
+            ProgramData::HotCold { hot, cold } => (None, hot.as_mut(), cold.as_mut()),
         };
+
+        if let Some(monolith) = monolith {
+            info!("Uploading monolith binary");
+
+            // Compress the monolith program
+            // We don't need to change any other flags, the brain is smart enough to decompress it
+            if self.compress_program {
+                debug!("Compressing monolith binary");
+                let compressed = Vec::new();
+                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                encoder.write_all(monolith).unwrap();
+                *monolith = encoder.finish().unwrap();
+            }
+
+            connection
+                .execute_command(UploadFile {
+                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                    filetype: FixedLengthString::new("bin".to_string())?,
+                    vendor: None,
+                    data: monolith.clone(),
+                    target: None,
+                    load_addr: COLD_START,
+                    linked_file: None,
+                    after_upload: self.after_upload,
+                    progress_callback: self.monolith_callback.take(),
+                })
+                .await?;
+        }
 
         if let Some(cold) = cold {
             info!("Uploading cold binary");
@@ -364,11 +392,7 @@ impl Command for UploadProgram<'_> {
                     load_addr: COLD_START,
                     linked_file: None,
                     after_upload,
-                    progress_callback: if hot.is_some() {
-                        self.cold_callback.take()
-                    } else {
-                        self.monolith_callback.take()
-                    },
+                    progress_callback: self.cold_callback.take()
                 })
                 .await?;
         }
