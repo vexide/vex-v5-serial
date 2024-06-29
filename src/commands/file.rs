@@ -247,9 +247,8 @@ impl Command for UploadFile<'_> {
 
 #[derive(Debug)]
 pub enum ProgramData {
-    Hot(Vec<u8>),
-    Cold(Vec<u8>),
-    Both { hot: Vec<u8>, cold: Vec<u8> },
+    Monolith(Vec<u8>),
+    HotCold { hot: Option<Vec<u8>>, cold: Option<Vec<u8>> },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -324,10 +323,11 @@ impl Command for UploadProgram<'_> {
         };
         connection.execute_command(file_transfer).await?;
 
-        let (cold, hot) = match &mut self.data {
-            ProgramData::Cold(cold) => (Some(cold), None),
-            ProgramData::Hot(hot) => (None, Some(hot)),
-            ProgramData::Both { hot, cold } => (Some(cold), Some(hot)),
+        let (hot, cold) = match &mut self.data {
+            ProgramData::Monolith(cold) => (Some(cold), None),
+            ProgramData::HotCold { hot, cold } => {
+                (hot.as_mut(), cold.as_mut())
+            }, 
         };
 
         if let Some(cold) = cold {

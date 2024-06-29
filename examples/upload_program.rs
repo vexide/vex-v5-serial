@@ -28,7 +28,7 @@ async fn main() -> Result<(), ConnectionError> {
 
     // Open a connection to the device
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
-    let cold_bytes = include_bytes!("./basic.bin").to_vec();
+    let program_data = include_bytes!("./basic.bin").to_vec();
 
     let callback_generator = |step| {
         Box::new(move |progress| {
@@ -56,7 +56,7 @@ async fn main() -> Result<(), ConnectionError> {
             icon: "USER029x.bmp".to_string(),
             program_type: "vexide".to_string(),
             slot: 4,
-            data: ProgramData::Cold(cold_bytes),
+            data: ProgramData::Monolith(program_data),
             compress_program: true,
             after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
