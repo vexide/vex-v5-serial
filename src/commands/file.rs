@@ -331,99 +331,97 @@ impl Command for UploadProgram<'_> {
         };
         connection.execute_command(file_transfer).await?;
 
-        let (monolith, hot, cold) = match &mut self.data {
-            ProgramData::Monolith(monolith) => (Some(monolith), None, None),
-            ProgramData::HotCold { hot, cold } => (None, hot.as_mut(), cold.as_mut()),
-        };
+        match &mut self.data {
+            ProgramData::Monolith(data) => {
+                info!("Uploading monolith binary");
 
-        if let Some(monolith) = monolith {
-            info!("Uploading monolith binary");
-
-            // Compress the monolith program
-            // We don't need to change any other flags, the brain is smart enough to decompress it
-            if self.compress_program {
-                debug!("Compressing monolith binary");
-                let compressed = Vec::new();
-                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
-                encoder.write_all(monolith).unwrap();
-                *monolith = encoder.finish().unwrap();
+                // Compress the monolith program
+                // We don't need to change any other flags, the brain is smart enough to decompress it
+                if self.compress_program {
+                    debug!("Compressing monolith binary");
+                    let compressed = Vec::new();
+                    let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                    encoder.write_all(data).unwrap();
+                    *data = encoder.finish().unwrap();
+                }
+    
+                connection
+                    .execute_command(UploadFile {
+                        filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                        filetype: FixedLengthString::new("bin".to_string())?,
+                        vendor: None,
+                        data: data.clone(),
+                        target: None,
+                        load_addr: COLD_START,
+                        linked_file: None,
+                        after_upload: self.after_upload,
+                        progress_callback: self.monolith_callback.take(),
+                    })
+                    .await?;
+            },
+            ProgramData::HotCold { hot, cold } => {
+                if let Some(cold) = cold {
+                    info!("Uploading cold binary");
+                    let after_upload = if hot.is_some() {
+                        FileExitAction::Halt
+                    } else {
+                        self.after_upload
+                    };
+        
+                    // Compress the cold program
+                    // We don't need to change any other flags, the brain is smart enough to decompress it
+                    if self.compress_program {
+                        debug!("Compressing cold binary");
+                        let compressed = Vec::new();
+                        let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                        encoder.write_all(cold).unwrap();
+                        *cold = encoder.finish().unwrap();
+                    }
+        
+                    connection
+                        .execute_command(UploadFile {
+                            filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                            filetype: FixedLengthString::new("bin".to_string())?,
+                            vendor: None,
+                            data: cold.clone(),
+                            target: None,
+                            load_addr: COLD_START,
+                            linked_file: None,
+                            after_upload,
+                            progress_callback: self.cold_callback.take()
+                        })
+                        .await?;
+                }
+        
+                if let Some(hot) = hot {
+                    info!("Uploading hot binary");
+                    let linked_file = Some(LinkedFile {
+                        filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
+                        vendor: None,
+                    });
+                    if self.compress_program {
+                        debug!("Compressing hot binary");
+                        let compressed = Vec::new();
+                        let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                        encoder.write_all(hot).unwrap();
+                        *hot = encoder.finish().unwrap();
+                    }
+        
+                    connection
+                        .execute_command(UploadFile {
+                            filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
+                            filetype: FixedLengthString::new("bin".to_string())?,
+                            vendor: None,
+                            data: hot.clone(),
+                            target: None,
+                            load_addr: 0x07800000,
+                            linked_file,
+                            after_upload: self.after_upload,
+                            progress_callback: self.hot_callback.take(),
+                        })
+                        .await?;
+                }
             }
-
-            connection
-                .execute_command(UploadFile {
-                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                    filetype: FixedLengthString::new("bin".to_string())?,
-                    vendor: None,
-                    data: monolith.clone(),
-                    target: None,
-                    load_addr: COLD_START,
-                    linked_file: None,
-                    after_upload: self.after_upload,
-                    progress_callback: self.monolith_callback.take(),
-                })
-                .await?;
-        }
-
-        if let Some(cold) = cold {
-            info!("Uploading cold binary");
-            let after_upload = if hot.is_some() {
-                FileExitAction::Halt
-            } else {
-                self.after_upload
-            };
-
-            // Compress the cold program
-            // We don't need to change any other flags, the brain is smart enough to decompress it
-            if self.compress_program {
-                debug!("Compressing cold binary");
-                let compressed = Vec::new();
-                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
-                encoder.write_all(cold).unwrap();
-                *cold = encoder.finish().unwrap();
-            }
-
-            connection
-                .execute_command(UploadFile {
-                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                    filetype: FixedLengthString::new("bin".to_string())?,
-                    vendor: None,
-                    data: cold.clone(),
-                    target: None,
-                    load_addr: COLD_START,
-                    linked_file: None,
-                    after_upload,
-                    progress_callback: self.cold_callback.take()
-                })
-                .await?;
-        }
-
-        if let Some(hot) = hot {
-            info!("Uploading hot binary");
-            let linked_file = Some(LinkedFile {
-                filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
-                vendor: None,
-            });
-            if self.compress_program {
-                debug!("Compressing hot binary");
-                let compressed = Vec::new();
-                let mut encoder = GzBuilder::new().write(compressed, Compression::default());
-                encoder.write_all(hot).unwrap();
-                *hot = encoder.finish().unwrap();
-            }
-
-            connection
-                .execute_command(UploadFile {
-                    filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                    filetype: FixedLengthString::new("bin".to_string())?,
-                    vendor: None,
-                    data: hot.clone(),
-                    target: None,
-                    load_addr: 0x07800000,
-                    linked_file,
-                    after_upload: self.after_upload,
-                    progress_callback: self.hot_callback.take(),
-                })
-                .await?;
         }
 
         Ok(())
