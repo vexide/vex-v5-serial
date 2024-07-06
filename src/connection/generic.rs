@@ -54,12 +54,13 @@ impl Connection for GenericConnection {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum GenericDevice {
     Bluetooth(bluetooth::BluetoothDevice),
     Serial(serial::SerialDevice),
 }
 impl GenericDevice {
-    pub async fn connect(self, timeout: Duration) -> Result<GenericConnection, ConnectionError> {
+    pub async fn connect(&self, timeout: Duration) -> Result<GenericConnection, ConnectionError> {
         match self {
             GenericDevice::Bluetooth(d) => Ok(GenericConnection::Bluetooth(d.connect().await?)),
             GenericDevice::Serial(d) => Ok(GenericConnection::Serial(d.connect(timeout)?)),
