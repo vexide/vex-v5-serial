@@ -16,7 +16,10 @@ impl Decode for FdtStatus {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
         let entries = Array::decode_with_len(&mut data, count as _)?;
-        Ok(Self { count, files: entries })
+        Ok(Self {
+            count,
+            files: entries,
+        })
     }
 }
 

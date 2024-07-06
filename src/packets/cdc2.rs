@@ -1,4 +1,9 @@
-use crate::{connection::ConnectionError, crc::VEX_CRC16, encode::{Encode, EncodeError}, varint::VarU16};
+use crate::{
+    connection::ConnectionError,
+    crc::VEX_CRC16,
+    encode::{Encode, EncodeError},
+    varint::VarU16,
+};
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 use crate::decode::{Decode, DecodeError};
@@ -114,7 +119,7 @@ impl<P: Encode, const ID: u8, const EXTENDED_ID: u8> Cdc2CommandPacket<ID, EXTEN
 impl<const ID: u8, const EXT_ID: u8, P: Encode> Encode for Cdc2CommandPacket<ID, EXT_ID, P> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
-        
+
         encoded.extend_from_slice(&self.header);
 
         // Push IDs
@@ -145,7 +150,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Encode + Clone> Clone for Cdc2CommandPac
             crc: self.crc.clone(),
         }
     }
-} 
+}
 
 pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: Decode> {
     pub header: [u8; 2],
@@ -209,4 +214,4 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode + Clone> Clone for Cdc2ReplyPacke
             crc: self.crc,
         }
     }
-} 
+}

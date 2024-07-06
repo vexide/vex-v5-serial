@@ -1,6 +1,10 @@
 use std::fmt::Debug;
 
-use crate::{decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, varint::VarU16};
+use crate::{
+    decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
+    varint::VarU16,
+};
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 

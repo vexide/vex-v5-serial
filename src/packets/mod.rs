@@ -10,8 +10,8 @@ pub mod factory;
 pub mod file;
 pub mod kv;
 pub mod log;
-pub mod radio;
 pub mod program;
+pub mod radio;
 pub mod system;
 
 /// Header byte sequence used for all device-bound packets.

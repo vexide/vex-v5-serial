@@ -2037,6 +2037,7 @@ dependencies = [
  "chrono",
  "crc",
  "flate2",
+ "futures",
  "image",
  "log",
  "rustyline",

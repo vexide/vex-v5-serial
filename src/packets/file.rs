@@ -2,7 +2,10 @@
 
 use std::vec;
 
-use super::{cdc::CdcReplyPacket, cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket}};
+use super::{
+    cdc::CdcReplyPacket,
+    cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket},
+};
 use crate::{
     array::Array,
     choice::{Choice, PrefferedChoice},
@@ -436,8 +439,7 @@ impl Encode for LoadFileActionPayload {
     }
 }
 pub type GetFileMetadataPacket = Cdc2CommandPacket<86, 25, GetFileMetadataPayload>;
-pub type GetFileMetadataReplyPacket =
-    Cdc2ReplyPacket<86, 25, Option<GetFileMetadataReplyPayload>>;
+pub type GetFileMetadataReplyPacket = Cdc2ReplyPacket<86, 25, Option<GetFileMetadataReplyPayload>>;
 
 #[derive(Debug, Clone)]
 pub struct GetFileMetadataPayload {
