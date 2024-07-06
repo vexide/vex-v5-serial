@@ -14,7 +14,11 @@ use crate::{
     connection::{trim_packets, RawPacket},
     decode::Decode,
     encode::Encode,
-    packets::decode_header,
+    packets::{
+        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
+        decode_header,
+    },
+    string::VarLengthString,
     varint::VarU16,
 };
 
@@ -366,15 +370,52 @@ impl Connection for SerialConnection {
         if let Some(user_port) = &mut self.user_port {
             Ok(user_port.read(buf).await?)
         } else {
-            todo!();
+            let fifo = self
+                .packet_handshake::<UserFifoReplyPacket>(
+                    Duration::from_millis(100),
+                    0,
+                    UserFifoPacket::new(UserFifoPayload {
+                        channel: 1, // stdio channel
+                        read_length: 0x40,
+                        write: None,
+                    }),
+                )
+                .await?
+                .try_into_inner()?;
+
+            let mut data = std::io::Cursor::new(fifo.data.0.as_bytes());
+
+            Ok(std::io::Read::read(&mut data, buf)?)
         }
     }
 
-    async fn write_user(&mut self, buf: &[u8]) -> Result<usize, ConnectionError> {
+    async fn write_user(&mut self, mut buf: &[u8]) -> Result<usize, ConnectionError> {
         if let Some(user_port) = &mut self.user_port {
             Ok(user_port.write(buf).await?)
         } else {
-            todo!();
+            let buf_len = buf.len();
+            while !buf.is_empty() {
+                let (chunk, rest) = buf.split_at(std::cmp::min(224, buf.len()));
+                _ = self
+                    .packet_handshake::<UserFifoReplyPacket>(
+                        Duration::from_millis(100),
+                        0,
+                        UserFifoPacket::new(UserFifoPayload {
+                            channel: 1, // stdio channel
+                            read_length: 0,
+                            write: Some(
+                                VarLengthString::new(String::from_utf8(chunk.to_vec()).unwrap())
+                                    .unwrap(),
+                            ),
+                        }),
+                    )
+                    .await?
+                    .try_into_inner()?;
+                buf = rest;
+            }
+
+            Ok(buf_len)
         }
+
     }
 }

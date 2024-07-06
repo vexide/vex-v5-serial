@@ -17,14 +17,16 @@ pub struct UserFifoPayload {
     pub read_length: u8,
 
     /// Write (stdin) bytes.
-    pub write: VarLengthString<224>,
+    pub write: Option<VarLengthString<224>>,
 }
 impl Encode for UserFifoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
         encoded.extend(self.channel.to_le_bytes());
         encoded.extend(self.read_length.to_le_bytes());
-        encoded.extend(self.write.encode()?);
+        if let Some(write) = &self.write {
+            encoded.extend(write.encode()?);
+        }
         Ok(encoded)
     }
 }

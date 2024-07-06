@@ -45,7 +45,7 @@ impl DynamicVarLengthString {
 }
 
 #[derive(Debug, Clone)]
-pub struct VarLengthString<const MAX_LEN: usize>(String);
+pub struct VarLengthString<const MAX_LEN: usize>(pub String);
 impl<const MAX_LEN: usize> VarLengthString<MAX_LEN> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
         if string.as_bytes().len() > MAX_LEN {
