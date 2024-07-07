@@ -61,7 +61,7 @@ pub enum GenericDevice {
 }
 impl GenericDevice {
     pub async fn connect(&self, timeout: Duration) -> Result<GenericConnection, ConnectionError> {
-        match self {
+        match self.clone() {
             GenericDevice::Bluetooth(d) => Ok(GenericConnection::Bluetooth(d.connect().await?)),
             GenericDevice::Serial(d) => Ok(GenericConnection::Serial(d.connect(timeout)?)),
         }
