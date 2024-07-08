@@ -3,7 +3,7 @@
 use log::{debug, trace, warn};
 use std::time::Duration;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     select,
     time::sleep,
 };
@@ -224,7 +224,7 @@ impl SerialDevice {
 #[derive(Debug)]
 pub struct SerialConnection {
     system_port: SerialStream,
-    user_port: Option<SerialStream>,
+    user_port: Option<BufReader<SerialStream>>,
     incoming_packets: Vec<RawPacket>,
 }
 
@@ -250,7 +250,7 @@ impl SerialConnection {
                     .timeout(timeout)
                     .stop_bits(tokio_serial::StopBits::One),
             ) {
-                Ok(v) => Ok(v),
+                Ok(v) => Ok(BufReader::new(v)),
                 Err(e) => Err(ConnectionError::SerialportError(e)),
             }?)
         } else {
@@ -366,9 +366,9 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, buf: &mut Vec<u8>) -> Result<usize, ConnectionError> {
         if let Some(user_port) = &mut self.user_port {
-            Ok(user_port.read(buf).await?)
+            Ok(user_port.read_until(0xA, buf).await?)
         } else {
             let fifo = self
                 .packet_handshake::<UserFifoReplyPacket>(

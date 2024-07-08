@@ -39,7 +39,7 @@ impl Connection for GenericConnection {
         }
     }
 
-    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, buf: &mut Vec<u8>) -> Result<usize, ConnectionError> {
         match self {
             GenericConnection::Bluetooth(c) => c.read_user(buf).await,
             GenericConnection::Serial(s) => s.read_user(buf).await,

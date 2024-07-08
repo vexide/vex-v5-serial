@@ -74,8 +74,10 @@ pub trait Connection {
     ) -> impl Future<Output = Result<P, ConnectionError>>;
 
     /// Read user program output.
-    fn read_user(&mut self, buf: &mut [u8])
-        -> impl Future<Output = Result<usize, ConnectionError>>;
+    fn read_user(
+        &mut self,
+        buf: &mut Vec<u8>,
+    ) -> impl Future<Output = Result<usize, ConnectionError>>;
 
     /// Write to user program stdio.
     fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, ConnectionError>>;
