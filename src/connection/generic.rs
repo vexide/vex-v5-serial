@@ -1,7 +1,7 @@
 use crate::{
     connection::{
-        bluetooth::{self, BluetoothConnection},
-        serial::{self, SerialConnection},
+        bluetooth,
+        serial,
         Connection, ConnectionError, ConnectionType,
     },
     decode::Decode,
@@ -11,8 +11,8 @@ use futures::try_join;
 use std::time::Duration;
 
 pub enum GenericConnection {
-    Bluetooth(BluetoothConnection),
-    Serial(SerialConnection),
+    Bluetooth(bluetooth::BluetoothConnection),
+    Serial(serial::SerialConnection),
 }
 impl Connection for GenericConnection {
     fn connection_type(&self) -> ConnectionType {
@@ -53,6 +53,47 @@ impl Connection for GenericConnection {
         }
     }
 }
+impl GenericConnection {
+    /// Checks if the connection is paired.
+    /// If the connection is not over bluetooth, this function will return an error.
+    pub async fn is_paired(&self) -> Result<bool, ConnectionError> {
+        match self {
+            GenericConnection::Bluetooth(c) => c.is_paired().await,
+            GenericConnection::Serial(_) => Err(ConnectionError::PairingNotSupported),
+        }
+    }
+
+    /// Requests pairing with the device.
+    /// # Errors
+    /// If the connection is not over bluetooth, this function will return an error.
+    /// This function will also error if there is a communication error while requesting pairing.
+    pub async fn request_pairing(&mut self) -> Result<(), ConnectionError> {
+        match self {
+            GenericConnection::Bluetooth(c) => c.request_pairing().await,
+            GenericConnection::Serial(_) => Err(ConnectionError::PairingNotSupported),
+        }
+    }
+
+    /// Attempts to authenticate the pairing request with the given pin.
+    /// If the connection is not over bluetooth, this function will return an error.
+    pub async fn authenticate_pairing(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
+        match self {
+            GenericConnection::Bluetooth(c) => c.authenticate_pairing(pin).await,
+            GenericConnection::Serial(_) => Err(ConnectionError::PairingNotSupported),
+        }
+    }
+}
+
+impl From<bluetooth::BluetoothConnection> for GenericConnection {
+    fn from(c: bluetooth::BluetoothConnection) -> Self {
+        GenericConnection::Bluetooth(c)
+    }
+}
+impl From<serial::SerialConnection> for GenericConnection {
+    fn from(c: serial::SerialConnection) -> Self {
+        GenericConnection::Serial(c)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum GenericDevice {
@@ -65,6 +106,16 @@ impl GenericDevice {
             GenericDevice::Bluetooth(d) => Ok(GenericConnection::Bluetooth(d.connect().await?)),
             GenericDevice::Serial(d) => Ok(GenericConnection::Serial(d.connect(timeout)?)),
         }
+    }
+}
+impl From<serial::SerialDevice> for GenericDevice {
+    fn from(d: serial::SerialDevice) -> Self {
+        GenericDevice::Serial(d)
+    }
+}
+impl From<bluetooth::BluetoothDevice> for GenericDevice {
+    fn from(d: bluetooth::BluetoothDevice) -> Self {
+        GenericDevice::Bluetooth(d)
     }
 }
 

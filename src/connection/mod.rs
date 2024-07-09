@@ -130,6 +130,17 @@ pub enum ConnectionType {
     Controller,
     Bluetooth,
 }
+impl ConnectionType {
+    pub fn is_wired(&self) -> bool {
+        matches!(self, ConnectionType::Wired)
+    }
+    pub fn is_controller(&self) -> bool {
+        matches!(self, ConnectionType::Controller)
+    }
+    pub fn is_bluetooth(&self) -> bool {
+        matches!(self, ConnectionType::Bluetooth)
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum ConnectionError {
@@ -163,4 +174,6 @@ pub enum ConnectionError {
     IncorrectPin,
     #[error("Pairing is required")]
     PairingRequired,
+    #[error("Pairing is not supported over any connection other than Bluetooth")]
+    PairingNotSupported,
 }
