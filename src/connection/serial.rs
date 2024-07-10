@@ -375,7 +375,7 @@ impl Connection for SerialConnection {
                 let fifo = self
                     .packet_handshake::<UserFifoReplyPacket>(
                         Duration::from_millis(100),
-                        0,
+                        1,
                         UserFifoPacket::new(UserFifoPayload {
                             channel: 1, // stdio channel
                             read_length: 0x40,
