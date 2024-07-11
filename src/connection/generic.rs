@@ -54,6 +54,19 @@ impl Connection for GenericConnection {
     }
 }
 impl GenericConnection {
+    /// Returns whether the connection is over bluetooth.
+    pub fn is_bluetooth(&self) -> bool {
+        self.connection_type().is_bluetooth()
+    }
+    /// Returns whether the connection is over serial.
+    pub fn is_wired(&self) -> bool {
+        self.connection_type().is_wired()
+    }
+    /// Returns whether the connection is a controller.
+    pub fn is_controller(&self) -> bool {
+        self.connection_type().is_controller()
+    }
+
     /// Checks if the connection is paired.
     /// If the connection is not over bluetooth, this function will return an error.
     pub async fn is_paired(&self) -> Result<bool, ConnectionError> {
