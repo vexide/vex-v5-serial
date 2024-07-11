@@ -1,7 +1,15 @@
 [package]
-name = "vex_v5_serial"
+name = "vex-v5-serial"
 version = "0.0.1"
 edition = "2021"
+license = "MIT"
+description = "A library for communicating with VEX V5 Brains"
+repository = "https://github.com/vexide/vex-v5-serial"
+authors = [
+    "vexide",
+    "Gavin Niederman <gavinniederman@gmail.com>",
+    "Tropical"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
