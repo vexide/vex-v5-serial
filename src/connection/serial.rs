@@ -373,7 +373,7 @@ impl Connection for SerialConnection {
             let fifo = self
                 .packet_handshake::<UserFifoReplyPacket>(
                     Duration::from_millis(100),
-                    0,
+                    1,
                     UserFifoPacket::new(UserFifoPayload {
                         channel: 1, // stdio channel
                         write: None,
@@ -403,7 +403,7 @@ impl Connection for SerialConnection {
                 _ = self
                     .packet_handshake::<UserFifoReplyPacket>(
                         Duration::from_millis(100),
-                        0,
+                        1,
                         UserFifoPacket::new(UserFifoPayload {
                             channel: 1, // stdio channel
                             write: Some(
