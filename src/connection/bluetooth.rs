@@ -283,7 +283,7 @@ impl Connection for BluetoothConnection {
         }
     }
 
-    async fn read_user(&mut self, _buf: &mut Vec<u8>) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, _buf: &mut [u8]) -> Result<usize, ConnectionError> {
         todo!();
     }
 

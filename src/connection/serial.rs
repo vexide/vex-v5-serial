@@ -366,9 +366,9 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn read_user(&mut self, buf: &mut Vec<u8>) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, ConnectionError> {
         if let Some(user_port) = &mut self.user_port {
-            Ok(user_port.read_until(0xA, buf).await?)
+            Ok(user_port.read(buf).await?)
         } else {
             let mut data = Vec::new();
             loop {
@@ -389,7 +389,7 @@ impl Connection for SerialConnection {
                 }
             }
             
-            let len = data.len();
+            let len = data.len().min(buf.len());
             buf[..len].copy_from_slice(&data[..len]);
 
             Ok(len)
