@@ -25,6 +25,20 @@ pub trait Decode {
     where
         Self: Sized;
 }
+pub trait SizedDecode {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError>
+    where
+        Self: Sized;
+}
+
+impl<T: Decode> SizedDecode for T {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, _: u16) -> Result<Self, DecodeError>
+        where
+            Self: Sized {
+        Decode::decode(data)
+    }
+}
+
 impl Decode for () {
     fn decode(_data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         Ok(())

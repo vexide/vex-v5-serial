@@ -1,9 +1,9 @@
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, EncodeError},
-    string::VarLengthString,
+    string::{DynamicVarLengthString, VarLengthString},
 };
 
 pub type UserFifoPacket = Cdc2CommandPacket<86, 39, UserFifoPayload>;
@@ -38,13 +38,19 @@ pub struct UserFifoReplyPayload {
     pub channel: u8,
 
     /// Bytes read from stdout.
-    pub data: Option<VarLengthString<224>>,
+    pub data: Option<DynamicVarLengthString>,
 }
-impl Decode for UserFifoReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+impl SizedDecode for UserFifoReplyPayload {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, payload_size: u16) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let channel = u8::decode(&mut data)?;
-        let read = Option::<VarLengthString<224>>::decode(&mut data)?;
+        let data_len = payload_size - 5;
+        
+        let read = if data_len > 0 {
+            Some(DynamicVarLengthString::decode_with_max_size(&mut data, (payload_size - 5) as usize)?)
+        } else {
+            None
+        };
 
         Ok(Self {
             channel,

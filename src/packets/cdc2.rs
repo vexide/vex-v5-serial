@@ -1,8 +1,5 @@
 use crate::{
-    connection::ConnectionError,
-    crc::VEX_CRC16,
-    encode::{Encode, EncodeError},
-    varint::VarU16,
+    connection::ConnectionError, crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -152,7 +149,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Encode + Clone> Clone for Cdc2CommandPac
     }
 }
 
-pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: Decode> {
+pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: SizedDecode> {
     pub header: [u8; 2],
     pub ack: Cdc2Ack,
     pub payload_size: VarU16,
@@ -160,7 +157,7 @@ pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: Decode> {
     pub crc: u16,
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: Decode> Cdc2ReplyPacket<ID, EXT_ID, P> {
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {
     pub fn try_into_inner(self) -> Result<P, ConnectionError> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.payload)
@@ -170,7 +167,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode> Cdc2ReplyPacket<ID, EXT_ID, P> {
     }
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, EXT_ID, P> {
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<ID, EXT_ID, P> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let header = Decode::decode(&mut data)?;
@@ -191,7 +188,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode> Decode for Cdc2ReplyPacket<ID, E
         }
 
         let ack = Cdc2Ack::decode(&mut data)?;
-        let payload = P::decode(&mut data)?;
+        let payload = P::sized_decode(&mut data, payload_size.into_inner())?;
         let crc = u16::decode(&mut data)?;
 
         Ok(Self {
