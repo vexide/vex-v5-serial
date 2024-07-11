@@ -1,5 +1,6 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::file::FileVendor;
+use crate::array::Array;
 use crate::{
     decode::{Decode, DecodeError},
     encode::{Encode, EncodeError},
@@ -68,13 +69,13 @@ pub struct SlotInfoPayload {
     pub flags: u8,
 
     /// Individual Slot Data
-    pub slots: [Slot; 4],
+    pub slots: Array<Slot>,
 }
 impl Decode for SlotInfoPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let flags = u8::decode(&mut data)?;
-        let slots = Decode::decode(&mut data)?;
+        let slots = Array::decode_with_len(&mut data, 4)?;
 
         Ok(Self { flags, slots })
     }

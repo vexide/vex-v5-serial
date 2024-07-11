@@ -21,8 +21,10 @@ impl<L: Decode, R: Decode> Decode for Choice<L, R> {
             (Ok(l), Ok(r)) => Ok(Self::Either(l, r)),
             (Ok(l), Err(_)) => Ok(Self::Left(l)),
             (Err(_), Ok(r)) => Ok(Self::Right(r)),
-            //TODO: Rework this so that both errors can be accounted for
-            (Err(l), Err(_)) => Err(l),
+            (Err(l), Err(r)) => Err(crate::decode::DecodeError::BothChoicesFailed {
+                left: Box::new(l),
+                right: Box::new(r),
+            }),
         }
     }
 }

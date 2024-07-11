@@ -152,6 +152,8 @@ pub enum ConnectionError {
     DecodeError(#[from] DecodeError),
     #[error("Packet timeout")]
     Timeout,
+    #[error("No response received over bluetooth")]
+    NoResponse,
     #[error("NACK received: {0:?}")]
     Nack(Cdc2Ack),
     #[error("Serialport Error")]

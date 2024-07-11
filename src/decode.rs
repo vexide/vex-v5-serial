@@ -13,6 +13,11 @@ pub enum DecodeError {
     InvalidStringContents(#[from] FromUtf8Error),
     #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
     UnexpectedValue { value: u8, expected: &'static [u8] },
+    #[error("Attempted to decode a choice, but neither choice was successful: left: {left}, right: {right}")]
+    BothChoicesFailed {
+        left: Box<DecodeError>,
+        right: Box<DecodeError>,
+    },
 }
 
 pub trait Decode {
@@ -69,9 +74,23 @@ impl<D: Decode> Decode for Option<D> {
         Ok(D::decode(data).map(|decoded| Some(decoded)).unwrap_or(None))
     }
 }
-impl<D: Decode, const N: usize> Decode for [D; N] {
+impl<D: Decode + Default, const N: usize> Decode for [D; N] {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        std::array::try_from_fn(move |_| D::decode(&mut data))
+        let results: [_; N] = std::array::from_fn(move |_| D::decode(&mut data));
+        let mut decoded = Vec::new();
+        for result in results.into_iter() {
+            match result {
+                Ok(d) => decoded.push(d),
+                Err(e) => return Err(e),
+            }
+        }
+        let mut decoded_array = std::array::from_fn(|_| D::default());
+        decoded_array
+            .iter_mut()
+            .zip(decoded)
+            .for_each(|(a, b)| *a = b);
+
+        Ok(decoded_array)
     }
 }

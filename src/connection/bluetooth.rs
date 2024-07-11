@@ -224,8 +224,7 @@ impl BluetoothConnection {
 
         loop {
             let Some(notification) = notifs.next().await else {
-                //TODO: get a better error
-                return Err(ConnectionError::Timeout);
+                return Err(ConnectionError::NoResponse);
             };
 
             if notification.uuid == CHARACTERISTIC_SYSTEM_TX {

@@ -1,4 +1,3 @@
-use tokio::io::AsyncWriteExt;
 
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
