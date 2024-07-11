@@ -378,14 +378,13 @@ impl Connection for SerialConnection {
                         1,
                         UserFifoPacket::new(UserFifoPayload {
                             channel: 1, // stdio channel
-                            read_length: 0x40,
                             write: None,
                         }),
                     )
                     .await?
                     .try_into_inner()?;
-                if !fifo.data.0.is_empty() {
-                    data.extend(fifo.data.0.as_bytes());
+                if let Some(read) = fifo.data {
+                    data.extend(read.0.as_bytes());
                     break;
                 }
             }
@@ -409,7 +408,6 @@ impl Connection for SerialConnection {
                         0,
                         UserFifoPacket::new(UserFifoPayload {
                             channel: 1, // stdio channel
-                            read_length: 0,
                             write: Some(
                                 VarLengthString::new(String::from_utf8(chunk.to_vec()).unwrap())
                                     .unwrap(),
