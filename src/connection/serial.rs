@@ -370,26 +370,29 @@ impl Connection for SerialConnection {
         if let Some(user_port) = &mut self.user_port {
             Ok(user_port.read_until(0xA, buf).await?)
         } else {
-            let fifo = self
-                .packet_handshake::<UserFifoReplyPacket>(
-                    Duration::from_millis(100),
-                    1,
-                    UserFifoPacket::new(UserFifoPayload {
-                        channel: 1, // stdio channel
-                        write: None,
-                    }),
-                )
-                .await?
-                .try_into_inner()?;
+            let mut data = Vec::new();
+            loop {
+                let fifo = self
+                    .packet_handshake::<UserFifoReplyPacket>(
+                        Duration::from_millis(100),
+                        1,
+                        UserFifoPacket::new(UserFifoPayload {
+                            channel: 1, // stdio channel
+                            write: None,
+                        }),
+                    )
+                    .await?
+                    .try_into_inner()?;
+                if let Some(read) = fifo.data {
+                    data.extend(read.0.as_bytes());
+                    break;
+                }
+            }
+            
+            let len = data.len();
+            buf[..len].copy_from_slice(&data[..len]);
 
-            let mut data = std::io::Cursor::new(
-                fifo.data
-                    .unwrap_or(VarLengthString::new("".to_string()).unwrap())
-                    .0
-                    .into_bytes(),
-            );
-
-            Ok(std::io::Read::read(&mut data, buf)?)
+            Ok(len)
         }
     }
 
