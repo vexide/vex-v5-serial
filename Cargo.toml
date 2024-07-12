@@ -15,6 +15,7 @@ authors = [
 
 [dependencies]
 # We depend on this because for some reason it fixes an issue with tokio-serial.
+serialport = "4.2.0"
 tokio-serial = { version = "5.4.4", default-features = false }
 tokio = { version = "1.23.0", features = ["full"] }
 crc = "3.0.0"
