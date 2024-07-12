@@ -16,6 +16,7 @@ use crate::{
 pub mod bluetooth;
 #[cfg(feature = "bluetooth")]
 pub mod generic;
+#[cfg(feature = "serial")]
 pub mod serial;
 
 #[derive(Debug, Clone)]
