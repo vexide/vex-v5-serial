@@ -18,7 +18,7 @@ use crate::{
     packets::{
         cdc2::Cdc2Ack,
         controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
-        decode_header,
+        HOST_BOUND_HEADER,
     },
     string::VarLengthString,
     varint::VarU16,
@@ -220,6 +220,16 @@ impl SerialDevice {
             _ => None,
         }
     }
+}
+
+/// Decodes a [`HostBoundPacket`]'s header sequence.
+fn decode_header(data: impl IntoIterator<Item = u8>) -> Result<[u8; 2], DecodeError> {
+    let mut data = data.into_iter();
+    let header = Decode::decode(&mut data)?;
+    if header != HOST_BOUND_HEADER {
+        return Err(DecodeError::InvalidHeader);
+    }
+    Ok(header)
 }
 
 /// An open serial connection to a V5 device.
