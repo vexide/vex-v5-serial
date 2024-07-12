@@ -247,13 +247,13 @@ impl Command for UploadFile<'_> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProgramData {
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
     Monolith(Vec<u8>),
     HotCold {
-        #[serde(with = "serde_bytes")]
+        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
         hot: Option<Vec<u8>>,
 
-        #[serde(with = "serde_bytes")]
+        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
         cold: Option<Vec<u8>>,
     },
 }

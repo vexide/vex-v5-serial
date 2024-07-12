@@ -26,7 +26,7 @@ bitflags = "2.5.0"
 flate2 = "1.0.30"
 log = "0.4.21"
 uuid = "1.8.0"
-serde_bytes = "0.11.15"
+serde_bytes = { version = "0.11.15", optional = true }
 image = { version = "0.25.1", optional = true }
 btleplug = { version = "0.11.5", optional = true }
 tokio-stream = { version = "0.1.11", optional = true }
@@ -38,6 +38,7 @@ rustyline = "14.0.0"
 
 [features]
 default = ["bluetooth", "screen-command"]
+serde_bytes = ["dep:serde_bytes"]
 bluetooth = ["dep:btleplug", "dep:futures", "dep:tokio-stream"]
 screen-command = ["dep:image"]
 
