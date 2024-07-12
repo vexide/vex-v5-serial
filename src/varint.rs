@@ -19,7 +19,7 @@ impl VarU16 {
         self.0
     }
     /// Check if the variable length u16 will be wide from the first byte.
-    pub(crate) fn check_wide(first: u8) -> bool {
+    pub fn check_wide(first: u8) -> bool {
         first > (u8::MAX >> 1) as _
     }
 }
@@ -80,4 +80,16 @@ mod tests {
         assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
         assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
     }
+}
+use std::time::SystemTime;
+
+/// The epoch of the serial protocols timestamps
+pub const J2000_EPOCH: u32 = 946684800;
+
+pub(crate) fn j2000_timestamp() -> i32 {
+    (SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+        - J2000_EPOCH as u128) as i32
 }
