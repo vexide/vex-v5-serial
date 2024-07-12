@@ -7,10 +7,8 @@ edition = "2021"
 
 [dependencies]
 # We depend on this because for some reason it fixes an issue with tokio-serial.
-serialport = "4.2.0"
-tokio-serial = "5.4.4"
+tokio-serial = { version = "5.4.4", default-features = false }
 tokio = { version = "1.23.0", features = ["full"] }
-tokio-stream = "0.1.11"
 crc = "3.0.0"
 thiserror = "1.0.37"
 chrono = "0.4.38"
@@ -19,16 +17,22 @@ serde_ini = "0.2.0"
 bitflags = "2.5.0"
 flate2 = "1.0.30"
 log = "0.4.21"
-image = "0.25.1"
 uuid = "1.8.0"
-btleplug = "0.11.5"
 serde_bytes = "0.11.15"
-futures = "0.3.30"
+image = { version = "0.25.1", optional = true }
+btleplug = { version = "0.11.5", optional = true }
+tokio-stream = { version = "0.1.11", optional = true }
+futures = { version = "0.3.30", optional = true }
 
 [dev-dependencies]
 simplelog = "0.12.2"
 rustyline = "14.0.0"
 
+[features]
+default = ["bluetooth", "screen-command"]
+bluetooth = ["dep:btleplug", "dep:futures", "dep:tokio-stream"]
+screen-command = ["dep:image"]
+
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
 [patch.crates-io]
-mio-serial = { git="https://github.com/berkowski/mio-serial.git" }
+mio-serial = { git = "https://github.com/berkowski/mio-serial.git" }

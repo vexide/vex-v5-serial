@@ -13,7 +13,9 @@ use crate::{
     packets::cdc2::Cdc2Ack,
 };
 
+#[cfg(feature = "bluetooth")]
 pub mod bluetooth;
+#[cfg(feature = "bluetooth")]
 pub mod generic;
 pub mod serial;
 
