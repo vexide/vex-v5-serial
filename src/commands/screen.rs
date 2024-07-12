@@ -3,7 +3,7 @@ use std::time::Duration;
 use log::info;
 
 use crate::{
-    connection::{Connection, ConnectionError},
+    connection::Connection,
     packets::{
         capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
         dash::{
@@ -25,7 +25,7 @@ impl Command for ScreenCapture {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         // Tell the brain we want to take a screenshot
         connection
             .packet_handshake::<ScreenCaptureReplyPacket>(
@@ -82,7 +82,7 @@ impl Command for MockTouch {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         connection
             .packet_handshake::<SendDashTouchReplyPacket>(
                 Duration::from_millis(100),
@@ -109,7 +109,7 @@ impl Command for MockTap {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         connection
             .execute_command(MockTouch {
                 x: self.x,
@@ -138,7 +138,7 @@ impl Command for OpenDashScreen {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         connection
             .packet_handshake::<SelectDashReplyPacket>(
                 Duration::from_millis(100),

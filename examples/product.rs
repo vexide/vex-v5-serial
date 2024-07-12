@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use log::info;
 use vex_v5_serial::{
-    connection::{serial, Connection, ConnectionError},
+    connection::{serial::{self, SerialError}, Connection},
     packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ConnectionError> {
+async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Debug,
         simplelog::Config::default(),

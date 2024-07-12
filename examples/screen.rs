@@ -3,12 +3,12 @@ use std::time::Duration;
 use tokio::time::sleep;
 use vex_v5_serial::{
     commands::screen::{MockTap, OpenDashScreen, ScreenCapture},
-    connection::{serial, Connection, ConnectionError},
+    connection::{serial::{self, SerialError}, Connection},
     packets::dash::DashScreen,
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ConnectionError> {
+async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
         simplelog::Config::default(),

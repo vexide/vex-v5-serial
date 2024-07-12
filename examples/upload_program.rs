@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
-    connection::{serial, Connection, ConnectionError},
+    connection::{serial::{self, SerialError}, Connection},
     packets::{
         file::FileExitAction,
         radio::{
@@ -13,7 +13,7 @@ use vex_v5_serial::{
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ConnectionError> {
+async fn main() -> Result<(), SerialError> {
     // Initialize the logger
     simplelog::TermLogger::init(
         log::LevelFilter::Info,

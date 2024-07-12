@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use vex_v5_serial::connection::{serial, Connection, ConnectionError};
+use vex_v5_serial::connection::serial::SerialError;
+use vex_v5_serial::connection::{serial, Connection};
 use vex_v5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
@@ -8,7 +9,7 @@ use vex_v5_serial::packets::kv::{
 use vex_v5_serial::string::{FixedLengthString, VarLengthString};
 
 #[tokio::main]
-async fn main() -> Result<(), ConnectionError> {
+async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Debug,
         simplelog::Config::default(),

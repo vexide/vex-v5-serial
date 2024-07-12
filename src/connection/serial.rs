@@ -3,20 +3,20 @@
 use log::{debug, trace, warn};
 use std::time::Duration;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
     select,
     time::sleep,
 };
 use tokio_serial::SerialStream;
+use thiserror::Error;
 
-use super::{Connection, ConnectionError, ConnectionType};
+use super::{Connection, ConnectionType};
 use crate::{
     connection::{trim_packets, RawPacket},
-    decode::Decode,
-    encode::Encode,
+    decode::{Decode, DecodeError},
+    encode::{Encode, EncodeError},
     packets::{
-        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
-        decode_header,
+        cdc2::Cdc2Ack, controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket}, decode_header
     },
     string::VarLengthString,
     varint::VarU16,
@@ -48,7 +48,7 @@ pub enum VexSerialPortType {
 }
 
 /// Finds all available VEX serial ports that can be connected to.
-fn find_ports() -> Result<Vec<VexSerialPort>, ConnectionError> {
+fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
     // Get all available serial ports
     let ports = tokio_serial::available_ports()?;
 
@@ -116,7 +116,7 @@ fn find_ports() -> Result<Vec<VexSerialPort>, ConnectionError> {
 }
 
 /// Finds all connected V5 devices.
-pub fn find_devices() -> Result<Vec<SerialDevice>, ConnectionError> {
+pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
     // Find all vex ports, iterate using peekable.
     let mut ports = find_ports()?.into_iter().peekable();
 
@@ -194,7 +194,7 @@ pub enum SerialDevice {
 }
 
 impl SerialDevice {
-    pub fn connect(&self, timeout: Duration) -> Result<SerialConnection, ConnectionError> {
+    pub fn connect(&self, timeout: Duration) -> Result<SerialConnection, SerialError> {
         SerialConnection::open(self.clone(), timeout)
     }
 
@@ -230,7 +230,7 @@ pub struct SerialConnection {
 
 impl SerialConnection {
     /// Opens a new serial connection to a V5 Brain.
-    pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, ConnectionError> {
+    pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, SerialError> {
         // Open the system port
         let system_port = match tokio_serial::SerialStream::open(
             &tokio_serial::new(device.system_port(), 115200)
@@ -239,7 +239,7 @@ impl SerialConnection {
                 .stop_bits(tokio_serial::StopBits::One),
         ) {
             Ok(v) => Ok(v),
-            Err(e) => Err(ConnectionError::SerialportError(e)),
+            Err(e) => Err(SerialError::SerialportError(e)),
         }?;
 
         // Open the user port (if it exists)
@@ -251,7 +251,7 @@ impl SerialConnection {
                     .stop_bits(tokio_serial::StopBits::One),
             ) {
                 Ok(v) => Ok(BufReader::new(v)),
-                Err(e) => Err(ConnectionError::SerialportError(e)),
+                Err(e) => Err(SerialError::SerialportError(e)),
             }?)
         } else {
             None
@@ -265,7 +265,7 @@ impl SerialConnection {
     }
 
     /// Receives a single packet from the serial port and adds it to the queue of incoming packets.
-    async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {
+    async fn receive_one_packet(&mut self) -> Result<(), SerialError> {
         // Read the header into an array
         let mut header = [0u8; 2];
         self.system_port.read_exact(&mut header).await?;
@@ -319,6 +319,8 @@ impl SerialConnection {
 }
 
 impl Connection for SerialConnection {
+    type Error = SerialError;
+
     fn connection_type(&self) -> ConnectionType {
         if self.user_port.is_some() {
             ConnectionType::Wired
@@ -327,7 +329,7 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
+    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), SerialError> {
         // Encode the packet
         let encoded = packet.encode()?;
 
@@ -336,18 +338,18 @@ impl Connection for SerialConnection {
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
             Ok(_) => (),
-            Err(e) => return Err(ConnectionError::IoError(e)),
+            Err(e) => return Err(SerialError::IoError(e)),
         };
 
         match self.system_port.flush().await {
             Ok(_) => (),
-            Err(e) => return Err(ConnectionError::IoError(e)),
+            Err(e) => return Err(SerialError::IoError(e)),
         };
 
         Ok(())
     }
 
-    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, ConnectionError> {
+    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
@@ -362,11 +364,11 @@ impl Connection for SerialConnection {
                     self.receive_one_packet().await?;
                 }
             } => result,
-            _ = sleep(timeout) => Err(ConnectionError::Timeout)
+            _ = sleep(timeout) => Err(SerialError::Timeout)
         }
     }
 
-    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, SerialError> {
         if let Some(user_port) = &mut self.user_port {
             Ok(user_port.read(buf).await?)
         } else {
@@ -396,7 +398,7 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn write_user(&mut self, mut buf: &[u8]) -> Result<usize, ConnectionError> {
+    async fn write_user(&mut self, mut buf: &[u8]) -> Result<usize, SerialError> {
         if let Some(user_port) = &mut self.user_port {
             Ok(user_port.write(buf).await?)
         } else {
@@ -423,4 +425,20 @@ impl Connection for SerialConnection {
             Ok(buf_len)
         }
     }
+}
+
+#[derive(Error, Debug)]
+pub enum SerialError {
+    #[error("IO Error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Packet encoding error: {0}")]
+    EncodeError(#[from] EncodeError),
+    #[error("Packet decoding error: {0}")]
+    DecodeError(#[from] DecodeError),
+    #[error("Packet timeout")]
+    Timeout,
+    #[error("NACK received: {0:?}")]
+    Nack(#[from] Cdc2Ack),
+    #[error("Serialport Error")]
+    SerialportError(#[from] tokio_serial::Error),
 }
