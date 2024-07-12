@@ -145,6 +145,7 @@ impl ConnectionType {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum ConnectionError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
@@ -163,6 +164,7 @@ pub enum ConnectionError {
     #[error("The user port can not be written to over wireless")]
     NoWriteOnWireless,
     #[error("Bluetooth Error")]
+    #[cfg(feature = "bluetooth")]
     BluetoothError(#[from] btleplug::Error),
     #[error("The device is not a supported vex device")]
     InvalidDevice,
