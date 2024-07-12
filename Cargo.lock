@@ -2008,7 +2008,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "852e951cb7832cb45cb1169900d19760cfa39b82bc0ea9c0e5a14ae88411c98b"
 
 [[package]]
-name = "vex_v5_serial"
+name = "vex-v5-serial"
 version = "0.0.1"
 dependencies = [
  "bitflags 2.5.0",
