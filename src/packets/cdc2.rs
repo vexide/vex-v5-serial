@@ -1,66 +1,86 @@
+use thiserror::Error;
+
 use crate::{
-    connection::ConnectionError, crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
+    crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 use crate::decode::{Decode, DecodeError};
 
-#[repr(u8)]
-#[derive(Debug, Clone, Copy)]
 /// CDC2 Packet Acknowledgement Codes
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, Error)]
 pub enum Cdc2Ack {
     /// Acknowledges that a packet has been received successfully.
+    #[error("Packet was recieved successfully. Wait, how'd this happen??")]
     Ack = 0x76,
 
     /// A general negative-acknowledgement (NACK) that is sometimes received.
+    #[error("V5 device sent back a general negative-acknowledgement.")]
     Nack = 0xFF,
 
     /// Returned by the brain when a CDC2 packet's CRC Checksum does not validate.
+    #[error("Packet CRC checksum did not validate. (NACK 0xCE)")]
     NackPacketCrc = 0xCE,
 
     /// Returned by the brain when a packet's payload is of unexpected length (too short or too long).
+    #[error("Packet payload length was either too short or too long. (NACK 0xD0)")]
     NackPacketLength = 0xD0,
 
     /// Returned by the brain when we attempt to transfer too much data.
+    #[error("Attempted to transfer too much data. (NACK 0xD1)")]
     NackTransferSize = 0xD1,
 
     /// Returned by the brain when a program's CRC checksum fails.
+    #[error("Program CRC checksum did not validate. (NACK 0xD2)")]
     NackProgramCrc = 0xD2,
 
     /// Returned by the brain when there is an error with the program file.
+    #[error("Invalid program file. (NACK 0xD3)")]
     NackProgramFile = 0xD3,
 
     /// Returned by the brain when we fail to initialize a file transfer before beginning file operations.
+    #[error("Attempted to perform a file transfer operation before one was initialized. (NACK 0xD4)")]
     NackUninitializedTransfer = 0xD4,
 
     /// Returned by the brain when we initialize a file transfer incorrectly.
+    #[error("File transfer was initialized incorrectly. (NACK 0xD5)")]
     NackInvalidInitialization = 0xD5,
 
     /// Returned by the brain when we fail to pad a transfer to a four byte boundary.
+    #[error("File transfer was initialized incorrectly. (NACK 0xD6)")]
     NackAlignment = 0xD6,
 
     /// Returned by the brain when the addr on a file transfer does not match
+    #[error("File transfer address did not match. (NACK 0xD7)")]
     NackAddress = 0xD7,
 
     /// Returned by the brain when the download length on a file transfer does not match
+    #[error("File transfer download length did not match. (NACK 0xD8)")]
     NackIncomplete = 0xD8,
 
     /// Returned by the brain when a file transfer attempts to access a directory that does not exist
+    #[error("Attempted to transfer file to a directory that does not exist. (NACK 0xD9)")]
     NackNoDirectory = 0xD9,
 
     /// Returned when the limit for user files has been reached
+    #[error("Limit for user files has been reached. (NACK 0xDA)")]
     NackMaxUserFiles = 0xDA,
 
     /// Returned when a file already exists and we did not specify overwrite when initializing the transfer
+    #[error("File already exists. (NACK 0xDB)")]
     NackFileAlreadyExists = 0xDB,
 
     /// Returned when the filesystem is full.
+    #[error("Filesystem storage is full. (NACK 0xDC)")]
     NackFileStorageFull = 0xDC,
 
     /// Packet timed out.
+    #[error("Packet timed out.")]
     Timeout = 0x00,
 
     /// Internal Write Error.
+    #[error("Internal write error occurred.")]
     WriteError = 0x01,
 }
 impl Decode for Cdc2Ack {
@@ -158,11 +178,11 @@ pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: SizedDecode> {
 }
 
 impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {
-    pub fn try_into_inner(self) -> Result<P, ConnectionError> {
+    pub fn try_into_inner(self) -> Result<P, Cdc2Ack> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.payload)
         } else {
-            Err(ConnectionError::Nack(self.ack))
+            Err(self.ack)
         }
     }
 }

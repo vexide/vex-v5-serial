@@ -5,16 +5,18 @@ use btleplug::api::{
 };
 use btleplug::platform::{Manager, Peripheral};
 use log::{debug, info, trace, warn};
+use thiserror::Error;
 use tokio::select;
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::connection::trim_packets;
-use crate::decode::Decode;
-use crate::encode::Encode;
+use crate::decode::{Decode, DecodeError};
+use crate::encode::{Encode, EncodeError};
+use crate::packets::cdc2::Cdc2Ack;
 
-use super::{Connection, ConnectionError, ConnectionType, RawPacket};
+use super::{Connection, ConnectionType, RawPacket};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -36,7 +38,7 @@ pub const UNPAIRED_MAGIC: u32 = 0xdeadface;
 pub struct BluetoothDevice(pub Peripheral);
 
 impl BluetoothDevice {
-    pub async fn connect(&self) -> Result<BluetoothConnection, ConnectionError> {
+    pub async fn connect(&self) -> Result<BluetoothConnection, BluetoothError> {
         BluetoothConnection::open(self.clone()).await
     }
 }
@@ -45,7 +47,7 @@ impl BluetoothDevice {
 pub async fn find_devices(
     scan_time: Duration,
     max_device_count: Option<usize>,
-) -> Result<Vec<BluetoothDevice>, ConnectionError> {
+) -> Result<Vec<BluetoothDevice>, BluetoothError> {
     // Create a new bluetooth device manager.
     let manager = Manager::new().await?;
 
@@ -54,7 +56,7 @@ pub async fn find_devices(
         adapter
     } else {
         // No bluetooth adapters were found.
-        return Err(ConnectionError::NoBluetoothAdapter);
+        return Err(BluetoothError::NoBluetoothAdapter);
     };
 
     // Our bluetooth adapter will give us an event stream that can tell us when
@@ -128,7 +130,7 @@ pub struct BluetoothConnection {
 impl BluetoothConnection {
     pub const MAX_PACKET_SIZE: usize = 244;
 
-    pub async fn open(device: BluetoothDevice) -> Result<Self, ConnectionError> {
+    pub async fn open(device: BluetoothDevice) -> Result<Self, BluetoothError> {
         let peripheral = device.0;
 
         if !peripheral.is_connected().await? {
@@ -168,11 +170,11 @@ impl BluetoothConnection {
 
         let connection = Self {
             peripheral,
-            system_tx: system_tx.ok_or(ConnectionError::MissingCharacteristic)?,
-            system_rx: system_rx.ok_or(ConnectionError::MissingCharacteristic)?,
-            user_tx: user_tx.ok_or(ConnectionError::MissingCharacteristic)?,
-            user_rx: user_rx.ok_or(ConnectionError::MissingCharacteristic)?,
-            pairing: pairing.ok_or(ConnectionError::MissingCharacteristic)?,
+            system_tx: system_tx.ok_or(BluetoothError::MissingCharacteristic)?,
+            system_rx: system_rx.ok_or(BluetoothError::MissingCharacteristic)?,
+            user_tx: user_tx.ok_or(BluetoothError::MissingCharacteristic)?,
+            user_rx: user_rx.ok_or(BluetoothError::MissingCharacteristic)?,
+            pairing: pairing.ok_or(BluetoothError::MissingCharacteristic)?,
 
             incoming_packets: Vec::new(),
         };
@@ -186,13 +188,13 @@ impl BluetoothConnection {
         Ok(connection)
     }
 
-    pub async fn is_paired(&self) -> Result<bool, ConnectionError> {
+    pub async fn is_paired(&self) -> Result<bool, BluetoothError> {
         let auth_bytes = self.peripheral.read(&self.pairing).await?;
 
         Ok(u32::from_be_bytes(auth_bytes[0..4].try_into().unwrap()) != UNPAIRED_MAGIC)
     }
 
-    pub async fn request_pairing(&mut self) -> Result<(), ConnectionError> {
+    pub async fn request_pairing(&mut self) -> Result<(), BluetoothError> {
         self.peripheral
             .write(
                 &self.pairing,
@@ -204,7 +206,7 @@ impl BluetoothConnection {
         Ok(())
     }
 
-    pub async fn authenticate_pairing(&mut self, pin: [u8; 4]) -> Result<(), ConnectionError> {
+    pub async fn authenticate_pairing(&mut self, pin: [u8; 4]) -> Result<(), BluetoothError> {
         self.peripheral
             .write(&self.pairing, &pin, WriteType::WithoutResponse)
             .await?;
@@ -212,19 +214,19 @@ impl BluetoothConnection {
         let read = self.peripheral.read(&self.pairing).await?;
 
         if read != pin {
-            return Err(ConnectionError::IncorrectPin);
+            return Err(BluetoothError::IncorrectPin);
         }
 
         Ok(())
     }
 
-    async fn receive_one_packet(&mut self) -> Result<(), ConnectionError> {
+    async fn receive_one_packet(&mut self) -> Result<(), BluetoothError> {
         //TODO: get notifications and store it rather than creating it every time this method is called
         let mut notifs = self.peripheral.notifications().await?;
 
         loop {
             let Some(notification) = notifs.next().await else {
-                return Err(ConnectionError::NoResponse);
+                return Err(BluetoothError::NoResponse);
             };
 
             if notification.uuid == CHARACTERISTIC_SYSTEM_TX {
@@ -241,13 +243,15 @@ impl BluetoothConnection {
 }
 
 impl Connection for BluetoothConnection {
+    type Error = BluetoothError;
+
     fn connection_type(&self) -> ConnectionType {
         ConnectionType::Bluetooth
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), ConnectionError> {
+    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), BluetoothError> {
         if !self.is_paired().await? {
-            return Err(ConnectionError::PairingRequired);
+            return Err(BluetoothError::PairingRequired);
         }
 
         // Encode the packet
@@ -263,7 +267,7 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, ConnectionError> {
+    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
@@ -278,15 +282,41 @@ impl Connection for BluetoothConnection {
                     self.receive_one_packet().await?;
                 }
             } => result,
-            _ = sleep(timeout) => Err(ConnectionError::Timeout)
+            _ = sleep(timeout) => Err(BluetoothError::Timeout)
         }
     }
 
-    async fn read_user(&mut self, _buf: &mut [u8]) -> Result<usize, ConnectionError> {
+    async fn read_user(&mut self, _buf: &mut [u8]) -> Result<usize, BluetoothError> {
         todo!();
     }
 
-    async fn write_user(&mut self, _buf: &[u8]) -> Result<usize, ConnectionError> {
+    async fn write_user(&mut self, _buf: &[u8]) -> Result<usize, BluetoothError> {
         todo!();
     }
+}
+
+#[derive(Error, Debug)]
+pub enum BluetoothError {
+    #[error("IO Error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Packet encoding error: {0}")]
+    EncodeError(#[from] EncodeError),
+    #[error("Packet decoding error: {0}")]
+    DecodeError(#[from] DecodeError),
+    #[error("Packet timeout")]
+    Timeout,
+    #[error("NACK received: {0:?}")]
+    Nack(#[from] Cdc2Ack),
+    #[error("Bluetooth Error")]
+    Btleplug(#[from] btleplug::Error),
+    #[error("No response received over bluetooth")]
+    NoResponse,
+    #[error("No Bluetooth Adapter Found")]
+    NoBluetoothAdapter,
+    #[error("Expected a Bluetooth characteristic that didn't exist")]
+    MissingCharacteristic,
+    #[error("Authentication PIN code was incorrect")]
+    IncorrectPin,
+    #[error("Pairing is required")]
+    PairingRequired,
 }

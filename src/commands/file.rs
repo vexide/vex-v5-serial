@@ -5,7 +5,7 @@ use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{bluetooth::BluetoothConnection, Connection, ConnectionError, ConnectionType},
+    connection::{bluetooth::BluetoothConnection, Connection, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAction,
@@ -40,7 +40,7 @@ impl Command for DownloadFile {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
 
         let transfer_response = connection
@@ -90,7 +90,7 @@ impl Command for DownloadFile {
                     }),
                 )
                 .await?;
-            let read = read.payload.unwrap().map_err(ConnectionError::Nack)?;
+            let read = read.payload.unwrap()?;
             let chunk_data = read.1.into_inner();
             offset += chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
@@ -130,7 +130,7 @@ impl Command for UploadFile<'_> {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         info!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
@@ -301,7 +301,7 @@ impl Command for UploadProgram<'_> {
     async fn execute<C: Connection + ?Sized>(
         &mut self,
         connection: &mut C,
-    ) -> Result<Self::Output, ConnectionError> {
+    ) -> Result<Self::Output, C::Error> {
         let base_file_name = format!("slot{}", self.slot);
 
         let ini = ProgramIniConfig {

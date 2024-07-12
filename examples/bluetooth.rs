@@ -2,12 +2,12 @@ use std::time::Duration;
 
 use rustyline::DefaultEditor;
 use vex_v5_serial::{
-    connection::{bluetooth, Connection, ConnectionError},
+    connection::{bluetooth::{self, BluetoothError}, Connection},
     packets::dash::{DashScreen, SelectDashPacket, SelectDashPayload},
 };
 
 #[tokio::main]
-async fn main() -> Result<(), ConnectionError> {
+async fn main() -> Result<(), BluetoothError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
         simplelog::Config::default(),
