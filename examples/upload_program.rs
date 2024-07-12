@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     commands::file::{ProgramData, UploadProgram},
-    connection::{serial::{self, SerialError}, Connection},
+    connection::{
+        serial::{self, SerialError},
+        Connection,
+    },
     packets::{
         file::FileExitAction,
         radio::{

@@ -1,15 +1,12 @@
 use crate::{
-    connection::{
-        bluetooth,
-        serial,
-        Connection, ConnectionType,
-    },
+    connection::{bluetooth, serial, Connection, ConnectionType},
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError}, packets::cdc2::Cdc2Ack,
+    encode::{Encode, EncodeError},
+    packets::cdc2::Cdc2Ack,
 };
 use futures::{try_join, TryFutureExt};
-use thiserror::Error;
 use std::time::Duration;
+use thiserror::Error;
 
 use super::{bluetooth::BluetoothError, serial::SerialError};
 

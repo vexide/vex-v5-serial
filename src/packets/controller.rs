@@ -1,4 +1,3 @@
-
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
     decode::{Decode, DecodeError, SizedDecode},
@@ -41,13 +40,19 @@ pub struct UserFifoReplyPayload {
     pub data: Option<DynamicVarLengthString>,
 }
 impl SizedDecode for UserFifoReplyPayload {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, payload_size: u16) -> Result<Self, DecodeError> {
+    fn sized_decode(
+        data: impl IntoIterator<Item = u8>,
+        payload_size: u16,
+    ) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let channel = u8::decode(&mut data)?;
         let data_len = payload_size - 5;
-        
+
         let read = if data_len > 0 {
-            Some(DynamicVarLengthString::decode_with_max_size(&mut data, (payload_size - 5) as usize)?)
+            Some(DynamicVarLengthString::decode_with_max_size(
+                &mut data,
+                (payload_size - 5) as usize,
+            )?)
         } else {
             None
         };

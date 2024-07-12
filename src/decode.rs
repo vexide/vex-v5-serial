@@ -33,8 +33,9 @@ pub trait SizedDecode {
 
 impl<T: Decode> SizedDecode for T {
     fn sized_decode(data: impl IntoIterator<Item = u8>, _: u16) -> Result<Self, DecodeError>
-        where
-            Self: Sized {
+    where
+        Self: Sized,
+    {
         Decode::decode(data)
     }
 }

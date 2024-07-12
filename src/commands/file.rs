@@ -4,9 +4,11 @@ use flate2::{Compression, GzBuilder};
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "bluetooth")]
+use crate::connection::bluetooth::BluetoothConnection;
 use crate::{
-    crc::VEX_CRC32,
     connection::{Connection, ConnectionType},
+    crc::VEX_CRC32,
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAction,
         FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
@@ -18,8 +20,6 @@ use crate::{
     timestamp::j2000_timestamp,
     version::Version,
 };
-#[cfg(feature = "bluetooth")]
-use crate::connection::bluetooth::BluetoothConnection;
 
 use super::Command;
 
@@ -359,7 +359,7 @@ impl Command for UploadProgram<'_> {
                     encoder.write_all(data).unwrap();
                     *data = encoder.finish().unwrap();
                 }
-    
+
                 connection
                     .execute_command(UploadFile {
                         filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
@@ -373,7 +373,7 @@ impl Command for UploadProgram<'_> {
                         progress_callback: self.monolith_callback.take(),
                     })
                     .await?;
-            },
+            }
             ProgramData::HotCold { hot, cold } => {
                 if let Some(cold) = cold {
                     info!("Uploading cold binary");
@@ -382,17 +382,18 @@ impl Command for UploadProgram<'_> {
                     } else {
                         self.after_upload
                     };
-        
+
                     // Compress the cold program
                     // We don't need to change any other flags, the brain is smart enough to decompress it
                     if self.compress_program {
                         debug!("Compressing cold binary");
                         let compressed = Vec::new();
-                        let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                        let mut encoder =
+                            GzBuilder::new().write(compressed, Compression::default());
                         encoder.write_all(cold).unwrap();
                         *cold = encoder.finish().unwrap();
                     }
-        
+
                     connection
                         .execute_command(UploadFile {
                             filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
@@ -403,11 +404,11 @@ impl Command for UploadProgram<'_> {
                             load_addr: COLD_START,
                             linked_file: None,
                             after_upload,
-                            progress_callback: self.cold_callback.take()
+                            progress_callback: self.cold_callback.take(),
                         })
                         .await?;
                 }
-        
+
                 if let Some(hot) = hot {
                     info!("Uploading hot binary");
                     let linked_file = Some(LinkedFile {
@@ -417,11 +418,12 @@ impl Command for UploadProgram<'_> {
                     if self.compress_program {
                         debug!("Compressing hot binary");
                         let compressed = Vec::new();
-                        let mut encoder = GzBuilder::new().write(compressed, Compression::default());
+                        let mut encoder =
+                            GzBuilder::new().write(compressed, Compression::default());
                         encoder.write_all(hot).unwrap();
                         *hot = encoder.finish().unwrap();
                     }
-        
+
                     connection
                         .execute_command(UploadFile {
                             filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,

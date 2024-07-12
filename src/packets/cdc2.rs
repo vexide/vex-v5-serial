@@ -1,7 +1,10 @@
 use thiserror::Error;
 
 use crate::{
-    crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
+    crc::VEX_CRC16,
+    decode::SizedDecode,
+    encode::{Encode, EncodeError},
+    varint::VarU16,
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -40,7 +43,9 @@ pub enum Cdc2Ack {
     NackProgramFile = 0xD3,
 
     /// Returned by the brain when we fail to initialize a file transfer before beginning file operations.
-    #[error("Attempted to perform a file transfer operation before one was initialized. (NACK 0xD4)")]
+    #[error(
+        "Attempted to perform a file transfer operation before one was initialized. (NACK 0xD4)"
+    )]
     NackUninitializedTransfer = 0xD4,
 
     /// Returned by the brain when we initialize a file transfer incorrectly.

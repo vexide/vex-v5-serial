@@ -2,13 +2,13 @@
 
 use log::{debug, trace, warn};
 use std::time::Duration;
+use thiserror::Error;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     select,
     time::sleep,
 };
 use tokio_serial::SerialStream;
-use thiserror::Error;
 
 use super::{Connection, ConnectionType};
 use crate::{
@@ -16,7 +16,9 @@ use crate::{
     decode::{Decode, DecodeError},
     encode::{Encode, EncodeError},
     packets::{
-        cdc2::Cdc2Ack, controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket}, decode_header
+        cdc2::Cdc2Ack,
+        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
+        decode_header,
     },
     string::VarLengthString,
     varint::VarU16,
@@ -390,7 +392,7 @@ impl Connection for SerialConnection {
                     break;
                 }
             }
-            
+
             let len = data.len().min(buf.len());
             buf[..len].copy_from_slice(&data[..len]);
 
