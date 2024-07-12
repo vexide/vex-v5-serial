@@ -5,8 +5,8 @@ use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{bluetooth::BluetoothConnection, Connection, ConnectionType},
     crc::VEX_CRC32,
+    connection::{Connection, ConnectionType},
     packets::file::{
         ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAction,
         FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
@@ -18,6 +18,8 @@ use crate::{
     timestamp::j2000_timestamp,
     version::Version,
 };
+#[cfg(feature = "bluetooth")]
+use crate::connection::bluetooth::BluetoothConnection;
 
 use super::Command;
 
@@ -108,6 +110,27 @@ impl Command for DownloadFile {
     }
 }
 
+#[cfg(feature = "bluetooth")]
+fn max_chunk_size(con_type: ConnectionType, window_size: u16) -> u16 {
+    if con_type.is_bluetooth() {
+        let max_chunk_size =
+            (BluetoothConnection::MAX_PACKET_SIZE as u16).min(window_size / 2) - 14;
+        max_chunk_size - (max_chunk_size % 4)
+    } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+        window_size
+    } else {
+        USER_PROGRAM_CHUNK_SIZE
+    }
+}
+#[cfg(not(feature = "bluetooth"))]
+fn max_chunk_size(_con_type: ConnectionType, window_size: u16) -> u16 {
+    if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+        window_size
+    } else {
+        USER_PROGRAM_CHUNK_SIZE
+    }
+}
+
 pub struct LinkedFile {
     pub filename: FixedLengthString<23>,
     pub vendor: Option<FileVendor>,
@@ -182,15 +205,7 @@ impl Command for UploadFile<'_> {
         let window_size = transfer_response.window_size;
 
         // The maximum packet size is 244 bytes for bluetooth
-        let max_chunk_size = if connection.connection_type() == ConnectionType::Bluetooth {
-            let max_chunk_size =
-                (BluetoothConnection::MAX_PACKET_SIZE as u16).min(window_size / 2) - 14;
-            max_chunk_size - (max_chunk_size % 4)
-        } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
-            window_size
-        } else {
-            USER_PROGRAM_CHUNK_SIZE
-        };
+        let max_chunk_size = max_chunk_size(connection.connection_type(), window_size);
 
         debug!("max_chunk_size: {}", max_chunk_size);
 

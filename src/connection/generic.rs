@@ -28,10 +28,11 @@ impl Connection for GenericConnection {
     }
 
     async fn send_packet(&mut self, packet: impl Encode) -> Result<(), GenericError> {
-        Ok(match self {
+        match self {
             GenericConnection::Bluetooth(c) => c.send_packet(packet).await?,
             GenericConnection::Serial(s) => s.send_packet(packet).await?,
-        })
+        };
+        Ok(())
     }
 
     async fn receive_packet<P: Decode>(
@@ -139,8 +140,8 @@ impl From<bluetooth::BluetoothDevice> for GenericDevice {
 
 pub async fn find_devices() -> Result<Vec<GenericDevice>, GenericError> {
     let res = try_join! {
-        bluetooth_devices().map_err(|e| GenericError::BluetoothError(e)),
-        serial_devices().map_err(|e| GenericError::SerialError(e)),
+        bluetooth_devices().map_err(GenericError::BluetoothError),
+        serial_devices().map_err(GenericError::SerialError),
     }
     .map(|(bluetooth, serial)| bluetooth.into_iter().chain(serial.into_iter()).collect())?;
     Ok(res)
