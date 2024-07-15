@@ -2,7 +2,7 @@
 
 use std::{future::Future, time::Instant};
 
-use log::{debug, error, warn};
+use log::{error, trace, warn};
 use std::time::Duration;
 
 use crate::{
@@ -50,12 +50,12 @@ impl RawPacket {
 }
 /// Removes old and used packets from the incoming packets buffer.
 pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
-    debug!("Trimming packets. Length before: {}", packets.len());
+    trace!("Trimming packets. Length before: {}", packets.len());
 
     // Remove packets that are obsolete
     packets.retain(|packet| !packet.is_obsolete(Duration::from_secs(2)));
 
-    debug!("Trimmed packets. Length after: {}", packets.len());
+    trace!("Trimmed packets. Length after: {}", packets.len());
 }
 
 /// Represents an open connection to a V5 peripheral.
