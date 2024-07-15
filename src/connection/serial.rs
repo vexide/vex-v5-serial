@@ -90,16 +90,18 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
                             _ => continue,
                         };
 
-                        // If the name contains User, it is a User port
-                        if name.contains("User") {
+                        // If the name contains User or COM3, it is a User port
+                        if name.contains("User") || name.contains("COM3") {
                             VexSerialPortType::User
-                        } else if name.contains("Communications") {
-                            // If the name contains Communications, is is a System port.
+                        } else if name.contains("Communications") || name.contains("COM4") {
+                            // If the name contains Communications or COM4, is is a System port.
                             VexSerialPortType::System
                         } else if match vex_ports.last() {
                             Some(p) => p.port_type == VexSerialPortType::System,
                             _ => false,
                         } {
+                            //TODO: I dont think that this is correct, on my windows pc User comes first.
+                            //TODO: This needs to be tested.
                             // PROS source code also hints that User will always be listed after System
                             VexSerialPortType::User
                         } else {

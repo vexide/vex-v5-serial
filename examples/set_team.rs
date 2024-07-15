@@ -11,7 +11,7 @@ use vex_v5_serial::string::{FixedLengthString, VarLengthString};
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
-        log::LevelFilter::Debug,
+        log::LevelFilter::Trace,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,
