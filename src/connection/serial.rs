@@ -171,7 +171,7 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
     }
 
     let vex_ports = types_by_product(&filtered_ports)
-        .or(types_by_name_order(&filtered_ports))
+        .or_else(|| types_by_name_order(&filtered_ports))
         .ok_or(SerialError::CouldntInferTypes)?;
 
     Ok(vex_ports)
