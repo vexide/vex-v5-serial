@@ -19,7 +19,7 @@ use vex_v5_serial::{
 async fn main() -> Result<(), SerialError> {
     // Initialize the logger
     simplelog::TermLogger::init(
-        log::LevelFilter::Info,
+        log::LevelFilter::Debug,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,

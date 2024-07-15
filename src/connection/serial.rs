@@ -1,6 +1,7 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
+use serialport::{SerialPortInfo, SerialPortType};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::{
@@ -49,21 +50,116 @@ pub enum VexSerialPortType {
     Controller,
 }
 
+/// Assigns port types by port product name.
+/// This does not appear to work on windows due to its shitty serial device drivers from 2006.
+fn types_by_product(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
+    debug!("Attempting to infer serial port types by product name");
+    let mut vex_ports = Vec::new();
+
+    for port in ports {
+        // Get the info about the usb connection
+        // This is always going to succeed becuse of earlier code.
+        let SerialPortType::UsbPort(info) = port.clone().port_type else {
+            return None;
+        };
+
+        match info.pid {
+            V5_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
+                port_info: port.clone(),
+                port_type: VexSerialPortType::Controller,
+            }),
+            V5_BRAIN_USB_PID => {
+                // Check the product name for identifying information
+                // This will not work on windows
+                if let Some(name) = info.product {
+                    if name.contains("User") {
+                        vex_ports.push(VexSerialPort {
+                            port_info: port.clone(),
+                            port_type: VexSerialPortType::User,
+                        });
+                    } else if name.contains("Communications") {
+                        vex_ports.push(VexSerialPort {
+                            port_info: port.clone(),
+                            port_type: VexSerialPortType::System,
+                        })
+                    }
+                }
+            }
+            // Unknown product
+            _ => {}
+        }
+    }
+    // If we could not infer the type of all connections, fail
+    if vex_ports.len() != ports.len() {
+        return None;
+    }
+
+    Some(vex_ports)
+}
+
+/// Infers port type by numerically sorting port product names.
+/// This is the fallback option for windows.
+/// The lower number port name is usually the user port according to pros-cli comments:
+/// [https://github.com/purduesigbots/pros-cli/blob/develop/pros/serial/devices/vex/v5_device.py#L75]
+fn types_by_name_order(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
+    debug!("Attempting to infer serial port types by order. (Windows fallback)");
+    if ports.len() != 2 {
+        return None;
+    }
+
+    let mut vex_ports = Vec::new();
+
+    let mut sorted_ports = ports
+        .iter()
+        .cloned()
+        .filter_map(|i| {
+            if let SerialPortType::UsbPort(usb_info) = i.clone().port_type {
+                if let Some(_) = usb_info.product {
+                    Some((i, usb_info))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    // Sort by product name
+    sorted_ports.sort_by_key(|(_, i)| i.product.clone().unwrap());
+
+    // Higher Port
+    vex_ports.push(VexSerialPort {
+        port_info: sorted_ports.pop().unwrap().0,
+        port_type: VexSerialPortType::System,
+    });
+    // Lower port
+    vex_ports.push(VexSerialPort {
+        port_info: sorted_ports.pop().unwrap().0,
+        port_type: VexSerialPortType::User,
+    });
+
+    // If we could not infer the type of all connections, fail
+    if vex_ports.len() != ports.len() {
+        return None;
+    }
+
+    Some(vex_ports)
+}
+
 /// Finds all available VEX serial ports that can be connected to.
 fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
     // Get all available serial ports
     let ports = tokio_serial::available_ports()?;
 
     // Create a vector that will contain all vex ports
-    let mut vex_ports: Vec<VexSerialPort> = Vec::new();
+    let mut filtered_ports = Vec::new();
 
     // Iterate over all available ports
     for port in ports {
         // Get the serial port's info as long as it is a usb port.
         // If it is not a USB port, ignore it.
-        let port_info = match port.clone().port_type {
-            tokio_serial::SerialPortType::UsbPort(info) => info,
-            _ => continue, // Skip the port if it is not USB.
+        let SerialPortType::UsbPort(port_info) = port.clone().port_type else {
+            continue;
         };
 
         // If the Vendor ID does not match the VEX Vendor ID, then skip it
@@ -71,50 +167,12 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
             continue;
         }
 
-        match port_info.pid {
-            V5_CONTROLLER_USB_PID => {
-                // V5 controller
-                vex_ports.push(VexSerialPort {
-                    port_info: port,
-                    port_type: VexSerialPortType::Controller,
-                });
-            }
-            V5_BRAIN_USB_PID => {
-                // V5 Brain System or User Port
-                vex_ports.push(VexSerialPort {
-                    port_info: port,
-                    port_type: {
-                        // Get the product name
-                        let name = match port_info.product {
-                            Some(s) => s,
-                            _ => continue,
-                        };
-
-                        // If the name contains User or COM3, it is a User port
-                        if name.contains("User") || name.contains("COM3") {
-                            VexSerialPortType::User
-                        } else if name.contains("Communications") || name.contains("COM4") {
-                            // If the name contains Communications or COM4, is is a System port.
-                            VexSerialPortType::System
-                        } else if match vex_ports.last() {
-                            Some(p) => p.port_type == VexSerialPortType::System,
-                            _ => false,
-                        } {
-                            //TODO: I dont think that this is correct, on my windows pc User comes first.
-                            //TODO: This needs to be tested.
-                            // PROS source code also hints that User will always be listed after System
-                            VexSerialPortType::User
-                        } else {
-                            // If the previous one was user or the vector is empty,
-                            // The PROS source code says that this one is most likely System.
-                            VexSerialPortType::System
-                        }
-                    },
-                });
-            }
-            _ => {}
-        }
+        filtered_ports.push(port);
     }
+
+    let vex_ports = types_by_product(&filtered_ports)
+        .or(types_by_name_order(&filtered_ports))
+        .ok_or(SerialError::CouldntInferTypes)?;
 
     Ok(vex_ports)
 }
@@ -455,4 +513,6 @@ pub enum SerialError {
     Nack(#[from] Cdc2Ack),
     #[error("Serialport Error")]
     SerialportError(#[from] tokio_serial::Error),
+    #[error("Could not infer serial port types")]
+    CouldntInferTypes,
 }
