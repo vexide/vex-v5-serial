@@ -72,6 +72,8 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                 // Check the product name for identifying information
                 // This will not work on windows
                 if let Some(location) = info.interface {
+                    #[cfg(target_os = "macos")]
+                    let location = location - 1;
                     match location {
                         0 => {
                             info!("Found a 'system' serial port over a Brain connection.");
