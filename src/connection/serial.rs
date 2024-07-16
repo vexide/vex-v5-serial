@@ -1,6 +1,6 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace, warn};
 use serialport::{SerialPortInfo, SerialPortType};
 use std::time::Duration;
 use thiserror::Error;
@@ -50,10 +50,10 @@ pub enum VexSerialPortType {
     Controller,
 }
 
-/// Assigns port types by port product name.
+/// Assigns port types by port location.
 /// This does not appear to work on windows due to its shitty serial device drivers from 2006.
-fn types_by_product(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
-    debug!("Attempting to infer serial port types by product name");
+fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
+    debug!("Attempting to infer serial port types by port location.");
     let mut vex_ports = Vec::new();
 
     for port in ports {
@@ -71,17 +71,22 @@ fn types_by_product(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             V5_BRAIN_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
-                if let Some(name) = info.product {
-                    if name.contains("User") {
-                        vex_ports.push(VexSerialPort {
-                            port_info: port.clone(),
-                            port_type: VexSerialPortType::User,
-                        });
-                    } else if name.contains("Communications") {
-                        vex_ports.push(VexSerialPort {
+                if let Some(location) = info.interface {
+                    match location {
+                        0 => {
+                            info!("Found a 'system' serial port over a Brain connection.");
+                            vex_ports.push(VexSerialPort {
                             port_info: port.clone(),
                             port_type: VexSerialPortType::System,
-                        })
+                        })},
+                        1 => warn!("Found a controller serial port over a Brain connection! Things are most likely broken."),
+                        2 => {
+                            info!("Found a 'user' serial port over a Brain connection.");
+                            vex_ports.push(VexSerialPort {
+                            port_info: port.clone(),
+                            port_type: VexSerialPortType::User,
+                        })},
+                        _ => warn!("Unknown location for V5 device: {}", location),
                     }
                 }
             }
@@ -109,32 +114,19 @@ fn types_by_name_order(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
 
     let mut vex_ports = Vec::new();
 
-    let mut sorted_ports = ports
-        .iter()
-        .cloned()
-        .filter_map(|i| {
-            if let SerialPortType::UsbPort(usb_info) = i.clone().port_type {
-                if usb_info.product.is_some() {
-                    Some((i, usb_info))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
+    let mut sorted_ports = ports.to_vec();
     // Sort by product name
-    sorted_ports.sort_by_key(|(_, i)| i.product.clone().unwrap());
+    sorted_ports.sort_by_key(|info| info.port_name.clone());
+    sorted_ports.reverse();
 
     // Higher Port
     vex_ports.push(VexSerialPort {
-        port_info: sorted_ports.pop().unwrap().0,
+        port_info: sorted_ports.pop().unwrap(),
         port_type: VexSerialPortType::System,
     });
     // Lower port
     vex_ports.push(VexSerialPort {
-        port_info: sorted_ports.pop().unwrap().0,
+        port_info: sorted_ports.pop().unwrap(),
         port_type: VexSerialPortType::User,
     });
 
@@ -170,7 +162,7 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
         filtered_ports.push(port);
     }
 
-    let vex_ports = types_by_product(&filtered_ports)
+    let vex_ports = types_by_location(&filtered_ports)
         .or_else(|| types_by_name_order(&filtered_ports))
         .ok_or(SerialError::CouldntInferTypes)?;
 
