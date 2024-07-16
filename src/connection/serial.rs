@@ -114,7 +114,7 @@ fn types_by_name_order(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
         .cloned()
         .filter_map(|i| {
             if let SerialPortType::UsbPort(usb_info) = i.clone().port_type {
-                if let Some(_) = usb_info.product {
+                if usb_info.product.is_some() {
                     Some((i, usb_info))
                 } else {
                     None
