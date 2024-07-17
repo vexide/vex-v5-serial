@@ -105,11 +105,15 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
 }
 
 #[cfg(target_os = "macos")]
+/// Assign port types based on the last character of the port name.
+/// This is the fallback option for macOS.
+/// This is a band-aid solution and will become obsolete once serialport correctly gets the interface number.
 fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
     debug!("Attempting to infer serial port types by name. (Darwin fallback)");
     let mut vex_ports = Vec::new();
 
     for port in ports {
+        // We only care about cu. ports
         if port.port_name.contains("tty.") {
             continue;
         }
