@@ -104,6 +104,46 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
     Some(vex_ports)
 }
 
+#[cfg(target_os = "macos")]
+fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
+    debug!("Attempting to infer serial port types by name. (Darwin fallback)");
+    let mut vex_ports = Vec::new();
+
+    for port in ports {
+        let split = port.port_name.split("usbmodem");
+        if let Some(interface) = split.last() {
+            match &interface[0..interface.len() - 1] {
+                "1" => {
+                    info!("Found a 'system' serial port over a Brain connection.");
+                    vex_ports.push(VexSerialPort {
+                        port_info: port.clone(),
+                        port_type: VexSerialPortType::System,
+                    });
+                }
+                "2" => {
+                    info!("Found a controller serial port.");
+                    vex_ports.push(VexSerialPort {
+                        port_info: port.clone(),
+                        port_type: VexSerialPortType::Controller,
+                    });
+                }
+                "3" => {
+                    info!("Found a 'user' serial port over a Brain connection.");
+                    vex_ports.push(VexSerialPort {
+                        port_info: port.clone(),
+                        port_type: VexSerialPortType::User,
+                    });
+                }
+                _ => {
+                    warn!("Unknown location for V5 device: {}", interface);
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Infers port type by numerically sorting port product names.
 /// This is the fallback option for windows.
 /// The lower number port name is usually the user port according to pros-cli comments:
@@ -164,8 +204,13 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
         filtered_ports.push(port);
     }
 
+    #[cfg(not(target_os = "macos"))]
     let vex_ports = types_by_location(&filtered_ports)
         .or_else(|| types_by_name_order(&filtered_ports))
+        .ok_or(SerialError::CouldntInferTypes)?;
+    #[cfg(target_os = "macos")]
+    let vex_ports = types_by_location(&filtered_ports)
+        .or_else(|| types_by_name_darwin(&filtered_ports))
         .ok_or(SerialError::CouldntInferTypes)?;
 
     Ok(vex_ports)
