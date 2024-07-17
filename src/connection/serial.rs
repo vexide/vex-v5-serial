@@ -110,24 +110,30 @@ fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> 
     let mut vex_ports = Vec::new();
 
     for port in ports {
+        if !port.port_name.contains("tty.usbmodem") {
+            continue;
+        }
         let split = port.port_name.split("cu.usbmodem");
         if let Some(interface) = split.last() {
-            match &interface[interface.len() - 2..interface.len() - 1] {
-                "1" => {
+            let Some(interface) = interface.chars().last() else {
+                continue;
+            };
+            match interface {
+                '1' => {
                     info!("Found a 'system' serial port over a Brain connection.");
                     vex_ports.push(VexSerialPort {
                         port_info: port.clone(),
                         port_type: VexSerialPortType::System,
                     });
                 }
-                "2" => {
+                '2' => {
                     info!("Found a controller serial port.");
                     vex_ports.push(VexSerialPort {
                         port_info: port.clone(),
                         port_type: VexSerialPortType::Controller,
                     });
                 }
-                "3" => {
+                '3' => {
                     info!("Found a 'user' serial port over a Brain connection.");
                     vex_ports.push(VexSerialPort {
                         port_info: port.clone(),
