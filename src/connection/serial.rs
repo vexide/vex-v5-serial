@@ -141,7 +141,12 @@ fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> 
         }
     }
 
-    None
+    // If we could not infer the type of all connections, fail
+    if vex_ports.len() != ports.len() {
+        return None;
+    }
+
+    Some(vex_ports)
 }
 
 /// Infers port type by numerically sorting port product names.
