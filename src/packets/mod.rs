@@ -13,6 +13,7 @@ pub mod log;
 pub mod program;
 pub mod radio;
 pub mod system;
+pub mod match_mode;
 
 /// Header byte sequence used for all device-bound packets.
 pub const DEVICE_BOUND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
