@@ -63,9 +63,8 @@ async fn main() -> Result<(), SerialError> {
             compress_program: true,
             after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
-            cold_callback: Some(callback_generator("Cold")),
-            hot_callback: Some(callback_generator("Hot")),
-            monolith_callback: Some(callback_generator("Monolith")),
+            lib_callback: Some(callback_generator("Lib")),
+            bin_callback: Some(callback_generator("Bin")),
         })
         .await?;
 

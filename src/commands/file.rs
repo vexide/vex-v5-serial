@@ -24,6 +24,7 @@ use crate::{
 use super::Command;
 
 pub const COLD_START: u32 = 0x3800000;
+pub const HOT_START: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
@@ -40,7 +41,7 @@ impl Command for DownloadFile {
     type Output = Vec<u8>;
 
     async fn execute<C: Connection + ?Sized>(
-        &mut self,
+        mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
@@ -57,7 +58,7 @@ impl Command for DownloadFile {
                     write_file_size: self.size,
                     load_address: self.load_addr,
                     write_file_crc: 0,
-                    file_extension: self.filetype.clone(),
+                    file_extension: self.filetype,
                     timestamp: j2000_timestamp(),
                     version: Version {
                         major: 1,
@@ -65,7 +66,7 @@ impl Command for DownloadFile {
                         build: 0,
                         beta: 0,
                     },
-                    file_name: self.filename.clone(),
+                    file_name: self.filename,
                 }),
             )
             .await?;
@@ -151,7 +152,7 @@ pub struct UploadFile<'a> {
 impl Command for UploadFile<'_> {
     type Output = ();
     async fn execute<C: Connection + ?Sized>(
-        &mut self,
+        mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         info!("Uploading file: {}", self.filename);
@@ -172,7 +173,7 @@ impl Command for UploadFile<'_> {
                     write_file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
-                    file_extension: self.filetype.clone(),
+                    file_extension: self.filetype,
                     timestamp: j2000_timestamp(),
                     version: Version {
                         major: 1,
@@ -187,7 +188,7 @@ impl Command for UploadFile<'_> {
         debug!("transfer init responded");
         let transfer_response = transfer_response.try_into_inner()?;
 
-        if let Some(linked_file) = &self.linked_file {
+        if let Some(linked_file) = self.linked_file {
             connection
                 .packet_handshake::<LinkFileReplyPacket>(
                     Duration::from_millis(500),
@@ -195,7 +196,7 @@ impl Command for UploadFile<'_> {
                     LinkFilePacket::new(LinkFilePayload {
                         vendor: linked_file.vendor.unwrap_or(FileVendor::User),
                         option: 0,
-                        required_file: linked_file.filename.clone(),
+                        required_file: linked_file.filename,
                     }),
                 )
                 .await?
@@ -305,142 +306,140 @@ pub struct UploadProgram<'a> {
     pub data: ProgramData,
     pub after_upload: FileExitAction,
 
+    /// Called when progress has been made on the ini file.
+    ///
+    /// 100.0 should be considered a finished upload.
     pub ini_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
-    pub cold_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
-    pub hot_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
-    pub monolith_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
+    /// Called when progress has been made on the monolith/hot binary
+    ///
+    /// 100.0 should be considered a finished upload.
+    pub bin_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
+    /// Called when progress has been made on the cold library binary
+    ///
+    /// 100.0 should be considered a finished upload.
+    pub lib_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
 }
 impl Command for UploadProgram<'_> {
     type Output = ();
 
     async fn execute<C: Connection + ?Sized>(
-        &mut self,
+        mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
-        let base_file_name = format!("slot{}", self.slot);
+        let base_file_name = format!("slot_{}", self.slot);
+
+        info!("Uploading program ini file");
 
         let ini = ProgramIniConfig {
             program: Program {
-                description: self.description.clone(),
-                icon: self.icon.clone(),
+                description: self.description,
+                icon: self.icon,
                 iconalt: String::new(),
                 slot: self.slot,
-                name: self.name.clone(),
+                name: self.name,
             },
             project: Project {
-                ide: self.program_type.clone(),
+                ide: self.program_type,
             },
         };
-        let ini = serde_ini::to_vec(&ini).unwrap();
 
-        let file_transfer = UploadFile {
-            filename: FixedLengthString::new(format!("{}.ini", base_file_name))?,
-            filetype: FixedLengthString::new("ini".to_string())?,
-            vendor: None,
-            data: ini,
-            target: None,
-            load_addr: COLD_START,
-            linked_file: None,
-            after_upload: FileExitAction::Halt,
-            progress_callback: self.ini_callback.take(),
+        connection
+            .execute_command(UploadFile {
+                filename: FixedLengthString::new(format!("{}.ini", base_file_name))?,
+                filetype: FixedLengthString::new("ini".to_string())?,
+                vendor: None,
+                data: serde_ini::to_vec(&ini).unwrap(),
+                target: None,
+                load_addr: COLD_START,
+                linked_file: None,
+                after_upload: FileExitAction::DoNothing,
+                progress_callback: self.ini_callback.take(),
+            })
+            .await?;
+
+        let program_bin_name = format!("{base_file_name}.bin");
+        let program_lib_name = format!("{base_file_name}_lib.bin");
+
+        let is_monolith = matches!(self.data, ProgramData::Monolith(_));
+        let (program_data, library_data) = match self.data {
+            ProgramData::HotCold { hot, cold } => (hot, cold),
+            ProgramData::Monolith(data) => (Some(data), None),
         };
-        connection.execute_command(file_transfer).await?;
 
-        match &mut self.data {
-            ProgramData::Monolith(data) => {
-                info!("Uploading monolith binary");
+        if let Some(mut library_data) = library_data {
+            info!("Uploading cold library binary");
 
-                // Compress the monolith program
-                // We don't need to change any other flags, the brain is smart enough to decompress it
-                if self.compress_program {
-                    debug!("Compressing monolith binary");
-                    let compressed = Vec::new();
-                    let mut encoder = GzBuilder::new().write(compressed, Compression::default());
-                    encoder.write_all(data).unwrap();
-                    *data = encoder.finish().unwrap();
-                }
-
-                connection
-                    .execute_command(UploadFile {
-                        filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                        filetype: FixedLengthString::new("bin".to_string())?,
-                        vendor: None,
-                        data: data.clone(),
-                        target: None,
-                        load_addr: COLD_START,
-                        linked_file: None,
-                        after_upload: self.after_upload,
-                        progress_callback: self.monolith_callback.take(),
-                    })
-                    .await?;
+            // Compress the file to improve upload times
+            // We don't need to change any other flags, the brain is smart enough to decompress it
+            if self.compress_program {
+                debug!("Compressing cold library binary");
+                compress(&mut library_data);
+                debug!("Compression complete");
             }
-            ProgramData::HotCold { hot, cold } => {
-                if let Some(cold) = cold {
-                    info!("Uploading cold binary");
-                    let after_upload = if hot.is_some() {
-                        FileExitAction::Halt
-                    } else {
+
+            connection
+                .execute_command(UploadFile {
+                    filename: FixedLengthString::new(program_lib_name.clone())?,
+                    filetype: FixedLengthString::new("bin".to_string())?,
+                    vendor: None,
+                    data: library_data,
+                    target: None,
+                    load_addr: 0x07800000,
+                    linked_file: None,
+                    after_upload: if is_monolith {
                         self.after_upload
-                    };
+                    } else {
+                        // we are still uploading, so the post-upload action should not yet be performed
+                        FileExitAction::DoNothing
+                    },
+                    progress_callback: self.lib_callback.take(),
+                })
+                .await?;
+        }
 
-                    // Compress the cold program
-                    // We don't need to change any other flags, the brain is smart enough to decompress it
-                    if self.compress_program {
-                        debug!("Compressing cold binary");
-                        let compressed = Vec::new();
-                        let mut encoder =
-                            GzBuilder::new().write(compressed, Compression::default());
-                        encoder.write_all(cold).unwrap();
-                        *cold = encoder.finish().unwrap();
-                    }
+        if let Some(mut program_data) = program_data {
+            info!("Uploading program binary");
 
-                    connection
-                        .execute_command(UploadFile {
-                            filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                            filetype: FixedLengthString::new("bin".to_string())?,
-                            vendor: None,
-                            data: cold.clone(),
-                            target: None,
-                            load_addr: COLD_START,
-                            linked_file: None,
-                            after_upload,
-                            progress_callback: self.cold_callback.take(),
-                        })
-                        .await?;
-                }
-
-                if let Some(hot) = hot {
-                    info!("Uploading hot binary");
-                    let linked_file = Some(LinkedFile {
-                        filename: FixedLengthString::new(format!("{}_lib.bin", base_file_name))?,
-                        vendor: None,
-                    });
-                    if self.compress_program {
-                        debug!("Compressing hot binary");
-                        let compressed = Vec::new();
-                        let mut encoder =
-                            GzBuilder::new().write(compressed, Compression::default());
-                        encoder.write_all(hot).unwrap();
-                        *hot = encoder.finish().unwrap();
-                    }
-
-                    connection
-                        .execute_command(UploadFile {
-                            filename: FixedLengthString::new(format!("{}.bin", base_file_name))?,
-                            filetype: FixedLengthString::new("bin".to_string())?,
-                            vendor: None,
-                            data: hot.clone(),
-                            target: None,
-                            load_addr: 0x07800000,
-                            linked_file,
-                            after_upload: self.after_upload,
-                            progress_callback: self.hot_callback.take(),
-                        })
-                        .await?;
-                }
+            if self.compress_program {
+                debug!("Compressing program binary");
+                compress(&mut program_data);
+                debug!("Compression complete");
             }
+
+            // Only ask the brain to link to a library if the program expects it.
+            // Monolith programs don't have libraries.
+            let linked_file = if is_monolith {
+                None
+            } else {
+                info!("Program will be linked to cold library: {program_lib_name:?}");
+                Some(LinkedFile {
+                    filename: FixedLengthString::new(program_lib_name)?,
+                    vendor: None,
+                })
+            };
+
+            connection
+                .execute_command(UploadFile {
+                    filename: FixedLengthString::new(program_bin_name)?,
+                    filetype: FixedLengthString::new("bin".to_string())?,
+                    vendor: None,
+                    data: program_data,
+                    target: None,
+                    load_addr: COLD_START,
+                    linked_file,
+                    after_upload: self.after_upload,
+                    progress_callback: self.bin_callback.take(),
+                })
+                .await?;
         }
 
         Ok(())
     }
+}
+
+/// Apply gzip compression to the given data
+fn compress(data: &mut Vec<u8>) {
+    let mut encoder = GzBuilder::new().write(Vec::new(), Compression::default());
+    encoder.write_all(data).unwrap();
+    *data = encoder.finish().unwrap();
 }

@@ -10,7 +10,7 @@ pub trait Command {
     type Output;
 
     fn execute<C: Connection + ?Sized>(
-        &mut self,
+        self,
         connection: &mut C,
     ) -> impl Future<Output = Result<Self::Output, C::Error>>;
 }
