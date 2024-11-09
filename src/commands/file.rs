@@ -24,7 +24,7 @@ use crate::{
 use super::Command;
 
 pub const COLD_START: u32 = 0x3800000;
-pub const HOT_START: u32 = 0x3800000;
+pub const HOT_START: u32 = 0x7800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
@@ -384,7 +384,7 @@ impl Command for UploadProgram<'_> {
                     vendor: None,
                     data: library_data,
                     target: None,
-                    load_addr: 0x07800000,
+                    load_addr: HOT_START,
                     linked_file: None,
                     after_upload: if is_monolith {
                         self.after_upload
