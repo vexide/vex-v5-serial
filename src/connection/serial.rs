@@ -58,10 +58,19 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
 
     for port in ports {
         // Get the info about the usb connection
-        // This is always going to succeed becuse of earlier code.
+        // This is always going to succeed because of earlier code.
         let SerialPortType::UsbPort(info) = port.clone().port_type else {
-            return None;
+            continue;
         };
+
+        if cfg!(target_os = "macos") && port.port_name.starts_with("/dev/tty.") {
+            // https://pbxbook.com/other/mac-tty.html
+            debug!(
+                "Ignoring port named {:?} because it is a call-in device",
+                port.port_name
+            );
+            continue;
+        }
 
         match info.pid {
             V5_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
@@ -71,9 +80,11 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             V5_BRAIN_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
-                if let Some(location) = info.interface {
-                    #[cfg(target_os = "macos")]
-                    let location = location - 1;
+                if let Some(mut location) = info.interface {
+                    if cfg!(target_os = "macos") {
+                        location -= 1; // macOS is 1-indexed
+                    }
+
                     match location {
                         0 => {
                             info!("Found a 'system' serial port over a Brain connection.");
@@ -96,25 +107,26 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             _ => {}
         }
     }
-    // If we could not infer the type of all connections, fail
-    if vex_ports.len() != ports.len() {
-        return None;
-    }
 
     Some(vex_ports)
 }
 
-#[cfg(target_os = "macos")]
 /// Assign port types based on the last character of the port name.
 /// This is the fallback option for macOS.
 /// This is a band-aid solution and will become obsolete once serialport correctly gets the interface number.
 fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
+    assert!(cfg!(target_os = "macos"));
+
     debug!("Attempting to infer serial port types by name. (Darwin fallback)");
     let mut vex_ports = Vec::new();
 
     for port in ports {
-        // We only care about cu. ports
-        if port.port_name.contains("tty.") {
+        if cfg!(target_os = "macos") && port.port_name.starts_with("/dev/tty.") {
+            // https://pbxbook.com/other/mac-tty.html
+            debug!(
+                "Ignoring port named {:?} because it is a call-in device",
+                port.port_name
+            );
             continue;
         }
 
@@ -212,13 +224,14 @@ fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
         filtered_ports.push(port);
     }
 
-    #[cfg(not(target_os = "macos"))]
     let vex_ports = types_by_location(&filtered_ports)
-        .or_else(|| types_by_name_order(&filtered_ports))
-        .ok_or(SerialError::CouldntInferTypes)?;
-    #[cfg(target_os = "macos")]
-    let vex_ports = types_by_location(&filtered_ports)
-        .or_else(|| types_by_name_darwin(&filtered_ports))
+        .or_else(|| {
+            if cfg!(target_os = "macos") {
+                types_by_name_darwin(&filtered_ports)
+            } else {
+                types_by_name_order(&filtered_ports)
+            }
+        })
         .ok_or(SerialError::CouldntInferTypes)?;
 
     Ok(vex_ports)
