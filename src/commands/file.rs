@@ -23,8 +23,8 @@ use crate::{
 
 use super::Command;
 
-pub const COLD_START: u32 = 0x3800000;
-pub const HOT_START: u32 = 0x7800000;
+pub const PROGRAM_START_ADDRESS: u32 = 0x3800000;
+pub const DEFAULT_LIB_ADDRESS: u32 = 0x7800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
@@ -262,16 +262,45 @@ impl Command for UploadFile<'_> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum ProgramData {
+pub struct ProgramFile {
+    /// The data that will be loaded into memory when executed.
     #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
-    Monolith(Vec<u8>),
-    HotCold {
-        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
-        hot: Option<Vec<u8>>,
+    pub data: Vec<u8>,
+    /// The address at which this file will be loaded into memory when executed.
+    pub load_addr: u32,
+}
 
-        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
-        cold: Option<Vec<u8>>,
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ProgramData {
+    Monolith(ProgramFile),
+    Linked {
+        program: Option<ProgramFile>,
+        library: Option<ProgramFile>,
     },
+}
+
+impl ProgramData {
+    /// Creates a monolith program that does not link to a library.
+    pub fn new_monolith(data: Vec<u8>) -> Self {
+        ProgramData::Monolith(ProgramFile {
+            data,
+            load_addr: PROGRAM_START_ADDRESS,
+        })
+    }
+
+    /// Creates a program that links to a library which is loaded into [`DEFAULT_LIB_ADDRESS`] upon start.
+    pub fn new_linked(program: Vec<u8>, library: Vec<u8>) -> Self {
+        ProgramData::Linked {
+            program: Some(ProgramFile {
+                data: program,
+                load_addr: PROGRAM_START_ADDRESS,
+            }),
+            library: Some(ProgramFile {
+                data: library,
+                load_addr: DEFAULT_LIB_ADDRESS,
+            }),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -314,7 +343,7 @@ pub struct UploadProgram<'a> {
     ///
     /// 100.0 should be considered a finished upload.
     pub bin_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
-    /// Called when progress has been made on the cold library binary
+    /// Called when progress has been made on the library binary
     ///
     /// 100.0 should be considered a finished upload.
     pub lib_callback: Option<Box<dyn FnMut(f32) + Send + 'a>>,
@@ -350,7 +379,7 @@ impl Command for UploadProgram<'_> {
                 vendor: None,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: None,
-                load_addr: COLD_START,
+                load_addr: PROGRAM_START_ADDRESS,
                 linked_file: None,
                 after_upload: FileExitAction::DoNothing,
                 progress_callback: self.ini_callback.take(),
@@ -362,18 +391,18 @@ impl Command for UploadProgram<'_> {
 
         let is_monolith = matches!(self.data, ProgramData::Monolith(_));
         let (program_data, library_data) = match self.data {
-            ProgramData::HotCold { hot, cold } => (hot, cold),
+            ProgramData::Linked { program, library } => (program, library),
             ProgramData::Monolith(data) => (Some(data), None),
         };
 
         if let Some(mut library_data) = library_data {
-            info!("Uploading cold library binary");
+            info!("Uploading library binary");
 
             // Compress the file to improve upload times
             // We don't need to change any other flags, the brain is smart enough to decompress it
             if self.compress_program {
-                debug!("Compressing cold library binary");
-                compress(&mut library_data);
+                debug!("Compressing library binary");
+                compress(&mut library_data.data);
                 debug!("Compression complete");
             }
 
@@ -382,9 +411,9 @@ impl Command for UploadProgram<'_> {
                     filename: FixedLengthString::new(program_lib_name.clone())?,
                     filetype: FixedLengthString::new("bin".to_string())?,
                     vendor: None,
-                    data: library_data,
+                    data: library_data.data,
                     target: None,
-                    load_addr: HOT_START,
+                    load_addr: library_data.load_addr,
                     linked_file: None,
                     after_upload: if is_monolith {
                         self.after_upload
@@ -402,7 +431,7 @@ impl Command for UploadProgram<'_> {
 
             if self.compress_program {
                 debug!("Compressing program binary");
-                compress(&mut program_data);
+                compress(&mut program_data.data);
                 debug!("Compression complete");
             }
 
@@ -411,7 +440,7 @@ impl Command for UploadProgram<'_> {
             let linked_file = if is_monolith {
                 None
             } else {
-                info!("Program will be linked to cold library: {program_lib_name:?}");
+                info!("Program will be linked to library: {program_lib_name:?}");
                 Some(LinkedFile {
                     filename: FixedLengthString::new(program_lib_name)?,
                     vendor: None,
@@ -423,9 +452,9 @@ impl Command for UploadProgram<'_> {
                     filename: FixedLengthString::new(program_bin_name)?,
                     filetype: FixedLengthString::new("bin".to_string())?,
                     vendor: None,
-                    data: program_data,
+                    data: program_data.data,
                     target: None,
-                    load_addr: COLD_START,
+                    load_addr: program_data.load_addr,
                     linked_file,
                     after_upload: self.after_upload,
                     progress_callback: self.bin_callback.take(),
@@ -438,7 +467,7 @@ impl Command for UploadProgram<'_> {
 }
 
 /// Apply gzip compression to the given data
-fn compress(data: &mut Vec<u8>) {
+pub fn compress(data: &mut Vec<u8>) {
     let mut encoder = GzBuilder::new().write(Vec::new(), Compression::default());
     encoder.write_all(data).unwrap();
     *data = encoder.finish().unwrap();

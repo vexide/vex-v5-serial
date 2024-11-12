@@ -59,7 +59,7 @@ async fn main() -> Result<(), SerialError> {
             icon: "USER029x.bmp".to_string(),
             program_type: "vexide".to_string(),
             slot: 4,
-            data: ProgramData::Monolith(program_data),
+            data: ProgramData::new_monolith(program_data),
             compress_program: true,
             after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
