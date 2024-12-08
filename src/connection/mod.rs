@@ -84,7 +84,7 @@ pub trait Connection {
     /// Executes a [`Command`].
     async fn execute_command<C: Command>(
         &mut self,
-        mut command: C,
+        command: C,
     ) -> Result<C::Output, Self::Error> {
         command.execute(self).await
     }
