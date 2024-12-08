@@ -89,7 +89,7 @@ impl Decode for FileVendor {
 #[derive(Debug, Clone, Copy)]
 pub enum FileLoadAction {
     Run = 0,
-    Stop = 1,
+    Stop = 128,
 }
 
 /// Start uploading or downloading file from the device
