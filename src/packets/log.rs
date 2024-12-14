@@ -1,7 +1,6 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
-    array::Array,
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, EncodeError},
 };
 
@@ -78,14 +77,14 @@ pub struct ReadLogPageReplyPayload {
     pub offset: u32,
     /// Number of elements in the following array.
     pub count: u32,
-    pub entries: Array<Log>,
+    pub entries: Vec<Log>,
 }
 impl Decode for ReadLogPageReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let offset = u32::decode(&mut data)?;
         let count = u32::decode(&mut data)?;
-        let entries = Array::decode_with_len(&mut data, count as _)?;
+        let entries = Vec::sized_decode(&mut data, count as _)?;
         Ok(Self {
             offset,
             count,

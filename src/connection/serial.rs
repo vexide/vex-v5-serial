@@ -21,7 +21,7 @@ use crate::{
         controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
         HOST_BOUND_HEADER,
     },
-    string::VarLengthString,
+    string::FixedString,
     varint::VarU16,
 };
 
@@ -518,7 +518,7 @@ impl Connection for SerialConnection {
                     .await?
                     .try_into_inner()?;
                 if let Some(read) = fifo.data {
-                    data.extend(read.0.as_bytes());
+                    data.extend(read.as_bytes());
                     break;
                 }
             }
@@ -544,7 +544,7 @@ impl Connection for SerialConnection {
                         UserFifoPacket::new(UserFifoPayload {
                             channel: 1, // stdio channel
                             write: Some(
-                                VarLengthString::new(String::from_utf8(chunk.to_vec()).unwrap())
+                                FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
                                     .unwrap(),
                             ),
                         }),

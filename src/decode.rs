@@ -109,3 +109,17 @@ impl<D: Decode + Default, const N: usize> Decode for [D; N] {
         Ok(decoded_array)
     }
 }
+
+impl<T: Decode> SizedDecode for Vec<T> {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, len: u16) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        let mut data = data.into_iter();
+        let mut vec = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            vec.push(T::decode(&mut data)?);
+        }
+        Ok(vec)
+    }
+}

@@ -2,7 +2,7 @@ use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::{
     decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, EncodeError},
-    string::{DynamicVarLengthString, VarLengthString},
+    string::FixedString,
 };
 
 pub type UserFifoPacket = Cdc2CommandPacket<86, 39, UserFifoPayload>;
@@ -14,7 +14,7 @@ pub struct UserFifoPayload {
     pub channel: u8,
 
     /// Write (stdin) bytes.
-    pub write: Option<VarLengthString<224>>,
+    pub write: Option<FixedString<224>>,
 }
 impl Encode for UserFifoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -37,7 +37,7 @@ pub struct UserFifoReplyPayload {
     pub channel: u8,
 
     /// Bytes read from stdout.
-    pub data: Option<DynamicVarLengthString>,
+    pub data: Option<String>,
 }
 impl SizedDecode for UserFifoReplyPayload {
     fn sized_decode(
@@ -49,10 +49,7 @@ impl SizedDecode for UserFifoReplyPayload {
         let data_len = payload_size - 5;
 
         let read = if data_len > 0 {
-            Some(DynamicVarLengthString::decode_with_max_size(
-                &mut data,
-                (payload_size - 5) as usize,
-            )?)
+            Some(String::sized_decode(&mut data, data_len)?)
         } else {
             None
         };

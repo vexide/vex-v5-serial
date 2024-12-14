@@ -12,7 +12,7 @@ use crate::{
         },
         file::{FileDownloadTarget, FileVendor},
     },
-    string::FixedLengthString,
+    string::FixedString,
 };
 
 use super::{file::DownloadFile, Command};
@@ -38,8 +38,8 @@ impl Command for ScreenCapture {
         // Grab the image data
         let cap = connection
             .execute_command(DownloadFile {
-                filename: FixedLengthString::new("screen".to_string()).unwrap(),
-                filetype: FixedLengthString::new("".to_string()).unwrap(),
+                filename: FixedString::new("screen".to_string()).unwrap(),
+                filetype: FixedString::new("".to_string()).unwrap(),
                 vendor: FileVendor::Sys,
                 target: Some(FileDownloadTarget::Cbuf),
                 load_addr: 0,

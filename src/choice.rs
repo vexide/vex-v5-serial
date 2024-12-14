@@ -42,6 +42,7 @@ impl<L: Decode, R: Decode> Choice<L, R> {
         }
     }
     /// Returns the right choice if it was decoded successfully, otherwise returns the left choice.
+    #[allow(unused)]
     pub fn prefer_right(self) -> PrefferedChoice<L, R> {
         match self {
             Self::Right(r) => PrefferedChoice::Right(r),

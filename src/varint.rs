@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::decode::{Decode, DecodeError};
 use crate::encode::{Encode, EncodeError};
 
@@ -7,17 +9,27 @@ use crate::encode::{Encode, EncodeError};
 pub struct VarU16(u16);
 impl VarU16 {
     /// Creates a new variable length u16.
+    ///
     /// # Panics
+    ///
     /// Panics if the value is too large to be encoded as a variable length u16.
-    pub fn new(val: u16) -> Self {
-        if val > (u16::MAX >> 1) {
-            panic!("Value too large for variable length u16");
-        }
-        Self(val)
+    pub fn new(value: u16) -> Self {
+        Self::try_new(value).expect("Value too large for variable-length u16")
     }
+
+    /// Creates a new variable length u16.
+    pub const fn try_new(value: u16) -> Result<Self, VarU16SizeError> {
+        if value > (u16::MAX >> 1) {
+            Err(VarU16SizeError(value))
+        } else {
+            Ok(Self(value))
+        }
+    }
+
     pub fn into_inner(self) -> u16 {
         self.0
     }
+
     /// Check if the variable length u16 will be wide from the first byte.
     pub fn check_wide(first: u8) -> bool {
         first > (u8::MAX >> 1) as _
@@ -52,6 +64,21 @@ impl Decode for VarU16 {
         } else {
             Ok(Self(first as u16))
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct VarU16SizeError(u16);
+
+impl fmt::Display for VarU16SizeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "value {} cannot fit in a variable-length u16", self.0)
+    }
+}
+
+impl core::error::Error for VarU16SizeError {
+    fn description(&self) -> &str {
+        "value too large for variable-length u16"
     }
 }
 

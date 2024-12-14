@@ -16,7 +16,7 @@ use crate::{
         LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket,
         WriteFilePayload, WriteFileReplyPacket,
     },
-    string::FixedLengthString,
+    string::FixedString,
     timestamp::j2000_timestamp,
     version::Version,
 };
@@ -28,8 +28,8 @@ pub const HOT_START: u32 = 0x7800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
-    pub filename: FixedLengthString<23>,
-    pub filetype: FixedLengthString<3>,
+    pub filename: FixedString<23>,
+    pub filetype: FixedString<3>,
     pub size: u32,
     pub vendor: FileVendor,
     pub target: Option<FileDownloadTarget>,
@@ -94,7 +94,7 @@ impl Command for DownloadFile {
                 )
                 .await?;
             let read = read.payload.unwrap()?;
-            let chunk_data = read.1.into_inner();
+            let chunk_data = read.1;
             offset += chunk_data.len() as u32;
             let last = transfer_response.file_size <= offset;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
@@ -133,13 +133,13 @@ fn max_chunk_size(_con_type: ConnectionType, window_size: u16) -> u16 {
 }
 
 pub struct LinkedFile {
-    pub filename: FixedLengthString<23>,
+    pub filename: FixedString<23>,
     pub vendor: Option<FileVendor>,
 }
 
 pub struct UploadFile<'a> {
-    pub filename: FixedLengthString<23>,
-    pub filetype: FixedLengthString<3>,
+    pub filename: FixedString<23>,
+    pub filetype: FixedString<3>,
     pub vendor: Option<FileVendor>,
     pub data: Vec<u8>,
     pub target: Option<FileDownloadTarget>,
@@ -256,7 +256,7 @@ impl Command for UploadFile<'_> {
             .await?
             .try_into_inner()?;
 
-        info!("Successfully uploaded file: {}", self.filename);
+        info!("Successfully uploaded file: {}", self.filename.into_inner());
         Ok(())
     }
 }
@@ -345,8 +345,8 @@ impl Command for UploadProgram<'_> {
 
         connection
             .execute_command(UploadFile {
-                filename: FixedLengthString::new(format!("{}.ini", base_file_name))?,
-                filetype: FixedLengthString::new("ini".to_string())?,
+                filename: FixedString::new(format!("{}.ini", base_file_name))?,
+                filetype: FixedString::new("ini".to_string())?,
                 vendor: None,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: None,
@@ -379,8 +379,8 @@ impl Command for UploadProgram<'_> {
 
             connection
                 .execute_command(UploadFile {
-                    filename: FixedLengthString::new(program_lib_name.clone())?,
-                    filetype: FixedLengthString::new("bin".to_string())?,
+                    filename: FixedString::new(program_lib_name.clone())?,
+                    filetype: FixedString::new("bin".to_string())?,
                     vendor: None,
                     data: library_data,
                     target: None,
@@ -413,15 +413,15 @@ impl Command for UploadProgram<'_> {
             } else {
                 info!("Program will be linked to cold library: {program_lib_name:?}");
                 Some(LinkedFile {
-                    filename: FixedLengthString::new(program_lib_name)?,
+                    filename: FixedString::new(program_lib_name)?,
                     vendor: None,
                 })
             };
 
             connection
                 .execute_command(UploadFile {
-                    filename: FixedLengthString::new(program_bin_name)?,
-                    filetype: FixedLengthString::new("bin".to_string())?,
+                    filename: FixedString::new(program_bin_name)?,
+                    filetype: FixedString::new("bin".to_string())?,
                     vendor: None,
                     data: program_data,
                     target: None,

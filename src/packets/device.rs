@@ -1,8 +1,5 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::{
-    array::Array,
-    decode::{Decode, DecodeError},
-};
+use crate::decode::{Decode, DecodeError, SizedDecode};
 
 // This is copied from vex-sdk
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -123,13 +120,13 @@ pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<86, 33, GetDeviceStatusRep
 pub struct GetDeviceStatusReplyPayload {
     /// Number of elements in the following array.
     pub count: u8,
-    pub devices: Array<DeviceStatus>,
+    pub devices: Vec<DeviceStatus>,
 }
 impl Decode for GetDeviceStatusReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let count = u8::decode(&mut data)?;
-        let devices = Array::decode_with_len(&mut data, count as _)?;
+        let devices = Vec::sized_decode(&mut data, count as _)?;
         Ok(Self { count, devices })
     }
 }

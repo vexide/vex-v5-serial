@@ -46,39 +46,45 @@ async fn main() -> Result<(), SerialError> {
     }
 
     info!("Setting match mode to auto");
-    connection.packet_handshake::<SetMatchModeReplyPacket>(
-        Duration::from_millis(500),
-        10,
-        SetMatchModePacket::new(SetMatchModePayload {
-            match_mode: MatchMode::Auto,
-            match_time: 0,
-        }),
-    ).await?;
+    connection
+        .packet_handshake::<SetMatchModeReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            SetMatchModePacket::new(SetMatchModePayload {
+                match_mode: MatchMode::Auto,
+                match_time: 0,
+            }),
+        )
+        .await?;
 
     sleep(Duration::from_secs(2)).await;
 
     info!("Setting match mode to driver");
-    connection.packet_handshake::<SetMatchModeReplyPacket>(
-        Duration::from_millis(500),
-        10,
-        SetMatchModePacket::new(SetMatchModePayload {
-            match_mode: MatchMode::Driver,
-            match_time: 2,
-        }),
-    ).await?;
+    connection
+        .packet_handshake::<SetMatchModeReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            SetMatchModePacket::new(SetMatchModePayload {
+                match_mode: MatchMode::Driver,
+                match_time: 2,
+            }),
+        )
+        .await?;
 
     // 1 minute 45 seconds
     sleep(Duration::from_secs(2)).await;
 
     info!("Setting match mode to disabled");
-    connection.packet_handshake::<SetMatchModeReplyPacket>(
-        Duration::from_millis(500),
-        10,
-        SetMatchModePacket::new(SetMatchModePayload {
-            match_mode: MatchMode::Disabled,
-            match_time: 4,
-        }),
-    ).await?;
+    connection
+        .packet_handshake::<SetMatchModeReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            SetMatchModePacket::new(SetMatchModePayload {
+                match_mode: MatchMode::Disabled,
+                match_time: 4,
+            }),
+        )
+        .await?;
 
     Ok(())
 }

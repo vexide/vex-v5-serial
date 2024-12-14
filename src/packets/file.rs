@@ -7,11 +7,10 @@ use super::{
     cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket},
 };
 use crate::{
-    array::Array,
     choice::{Choice, PrefferedChoice},
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, EncodeError},
-    string::FixedLengthString,
+    string::FixedString,
     version::Version,
 };
 
@@ -105,10 +104,10 @@ pub struct InitFileTransferPayload {
     pub write_file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
-    pub file_extension: FixedLengthString<3>,
+    pub file_extension: FixedString<3>,
     pub timestamp: i32,
     pub version: Version,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 
 impl Encode for InitFileTransferPayload {
@@ -232,7 +231,7 @@ pub enum ReadFileReplyContents {
     Success {
         /// Memory address to read from.
         address: u32,
-        data: Array<u8>,
+        data: Vec<u8>,
         crc: u16,
     },
 }
@@ -240,7 +239,7 @@ impl Decode for ReadFileReplyContents {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         struct Success {
             address: u32,
-            data: Array<u8>,
+            data: Vec<u8>,
             crc: u16,
         }
         impl Decode for Success {
@@ -254,7 +253,7 @@ impl Decode for ReadFileReplyContents {
                 let num_bytes = data_vec.len() - 2;
                 let mut data = data_vec.into_iter();
 
-                let chunk_data = Array::decode_with_len(&mut data, num_bytes)?;
+                let chunk_data = Vec::sized_decode(&mut data, num_bytes as _)?;
                 let crc = u16::decode(&mut data)?.swap_bytes();
                 Ok(Self {
                     address,
@@ -312,7 +311,7 @@ impl Decode for ReadFileReplyPayload {
     }
 }
 impl ReadFileReplyPayload {
-    pub fn unwrap(self) -> Result<(u32, Array<u8>), Cdc2Ack> {
+    pub fn unwrap(self) -> Result<(u32, Vec<u8>), Cdc2Ack> {
         match self.contents {
             ReadFileReplyContents::Success {
                 address,
@@ -335,7 +334,7 @@ pub struct LinkFilePayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub required_file: FixedLengthString<23>,
+    pub required_file: FixedString<23>,
 }
 impl Encode for LinkFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -385,12 +384,12 @@ pub struct GetDirectoryEntryReplyPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc: u32,
-    pub file_type: FixedLengthString<3>,
+    pub file_type: String,
 
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: String,
 }
 
 impl Decode for GetDirectoryEntryReplyPayload {
@@ -401,10 +400,10 @@ impl Decode for GetDirectoryEntryReplyPayload {
         let size = u32::decode(&mut data)?;
         let load_address = u32::decode(&mut data)?;
         let crc = u32::decode(&mut data)?;
-        let file_type = Decode::decode(&mut data)?;
+        let file_type = FixedString::<3>::decode(&mut data)?.into_inner();
         let timestamp = i32::decode(&mut data)?;
         let version = Version::decode(&mut data)?;
-        let file_name = Decode::decode(&mut data)?;
+        let file_name = FixedString::<23>::decode(&mut data)?.into_inner();
 
         Ok(Self {
             file_index,
@@ -427,7 +426,7 @@ pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<86, 24, ()>;
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
     pub action: FileLoadAction,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 impl Encode for LoadFileActionPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -446,7 +445,7 @@ pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 impl Encode for GetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -465,7 +464,7 @@ pub struct GetFileMetadataReplyPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc32: u32,
-    pub file_type: FixedLengthString<3>,
+    pub file_type: String,
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
     pub version: Version,
@@ -477,7 +476,7 @@ impl Decode for GetFileMetadataReplyPayload {
         let size = u32::decode(&mut data)?;
         let load_address = u32::decode(&mut data)?;
         let crc32 = u32::decode(&mut data)?;
-        let file_type = Decode::decode(&mut data)?;
+        let file_type = FixedString::<3>::decode(&mut data)?.into_inner();
         let timestamp = i32::decode(&mut data)?;
         let version = Version::decode(&mut data)?;
 
@@ -503,10 +502,10 @@ pub struct SetFileMetadataPayload {
     pub option: u8,
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub file_type: FixedLengthString<3>,
+    pub file_type: FixedString<3>,
     pub timestamp: i32,
     pub version: Version,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 impl Encode for SetFileMetadataPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -528,7 +527,7 @@ pub struct EraseFilePayload {
     pub vendor: FileVendor,
     /// 128 = default. (RESEARCH NEEDED)
     pub option: u8,
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 impl Encode for EraseFilePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {

@@ -1,24 +1,24 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use super::file::FileVendor;
-use crate::array::Array;
+use crate::decode::SizedDecode;
+use crate::string::FixedString;
 use crate::{
     decode::{Decode, DecodeError},
     encode::{Encode, EncodeError},
-    string::{DynamicVarLengthString, FixedLengthString},
 };
 
 pub struct Slot {
     /// The number in the file icon: 'USER???x.bmp'.
     pub icon_number: u16,
     pub name_length: u8,
-    pub name: DynamicVarLengthString,
+    pub name: String,
 }
 impl Decode for Slot {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let icon_number = u16::decode(&mut data)?;
         let name_length = u8::decode(&mut data)?;
-        let name = DynamicVarLengthString::decode_with_max_size(&mut data, (name_length - 1) as _)?;
+        let name = String::sized_decode(&mut data, (name_length - 1) as _)?;
 
         Ok(Self {
             icon_number,
@@ -37,7 +37,7 @@ pub struct GetProgramInfoPayload {
     /// 0 = default. (RESEARCH NEEDED)
     pub option: u8,
     /// The bin file name.
-    pub file_name: FixedLengthString<23>,
+    pub file_name: FixedString<23>,
 }
 impl Encode for GetProgramInfoPayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
@@ -69,13 +69,13 @@ pub struct SlotInfoPayload {
     pub flags: u8,
 
     /// Individual Slot Data
-    pub slots: Array<Slot>,
+    pub slots: Vec<Slot>,
 }
 impl Decode for SlotInfoPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let flags = u8::decode(&mut data)?;
-        let slots = Array::decode_with_len(&mut data, 4)?;
+        let slots = Vec::sized_decode(&mut data, 4)?;
 
         Ok(Self { flags, slots })
     }

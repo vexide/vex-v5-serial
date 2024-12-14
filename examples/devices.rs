@@ -34,7 +34,7 @@ async fn main() -> Result<(), SerialError> {
         .await?
         .try_into_inner()?;
 
-    for device in status.devices.into_inner() {
+    for device in status.devices {
         info!("{:?} on port: {}", device.device_type, device.port);
     }
 

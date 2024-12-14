@@ -6,7 +6,7 @@ use vex_v5_serial::packets::kv::{
     ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
     WriteKeyValueReplyPacket,
 };
-use vex_v5_serial::string::{FixedLengthString, VarLengthString};
+use vex_v5_serial::string::FixedString;
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
@@ -27,8 +27,8 @@ async fn main() -> Result<(), SerialError> {
     // Set the team number on the brain
     connection
         .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
-            key: VarLengthString::new("teamnumber".to_string())?,
-            value: VarLengthString::new(
+            key: FixedString::new("teamnumber".to_string())?,
+            value: FixedString::new(
                 "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!"
                     .to_string(),
             )?,
@@ -41,7 +41,7 @@ async fn main() -> Result<(), SerialError> {
     // Get the new team number and print it
     connection
         .send_packet(ReadKeyValuePacket::new(
-            FixedLengthString::new("teamnumber".to_string()).unwrap(),
+            FixedString::new("teamnumber".to_string()).unwrap(),
         ))
         .await?;
     let res = connection
