@@ -1,6 +1,7 @@
 //! Filesystem Access
 
-use std::vec;
+use core::str;
+use std::{os::unix::fs::FileTypeExt, vec};
 
 use super::{
     cdc::CdcReplyPacket,
@@ -85,10 +86,92 @@ impl Decode for FileVendor {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileLoadAction {
     Run = 0,
     Stop = 128,
+}
+
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ExtensionType {
+    /// Regular unencrypted file.
+    #[default]
+    Binary = 0x0,
+
+    /// Unknown use
+    Vm = 0x61,
+
+    /// File's contents is encrypted.
+    EncryptedBinary = 0x73,
+}
+
+impl Decode for ExtensionType {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        Ok(match u8::decode(data)? {
+            0x0 => Self::Binary,
+            0x61 => Self::Vm,
+            0x73 => Self::EncryptedBinary,
+            unknown => {
+                return Err(DecodeError::UnexpectedValue {
+                    value: unknown,
+                    expected: &[0x0],
+                })
+            }
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FileType {
+    extension: FixedString<3>,
+    extension_type: ExtensionType,
+}
+
+impl FileType {
+    pub fn new(extension: FixedString<3>, extension_type: ExtensionType) -> Self {
+        Self {
+            extension,
+            extension_type,
+        }
+    }
+
+    pub fn extension(&self) -> &str {
+        self.extension.as_ref()
+    }
+
+    pub fn extension_type(&self) -> ExtensionType {
+        self.extension_type
+    }
+}
+
+impl Encode for FileType {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut data = [0; 4];
+        data[0..=2].copy_from_slice(self.extension.as_ref().as_bytes());
+        data[3] = self.extension_type as _;
+
+        Ok(data.to_vec())
+    }
+}
+
+impl Decode for FileType {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        let extension_bytes = [0u8; 3];
+
+        Ok(Self {
+            // SAFETY: length is guaranteed to be less than 4.
+            extension: unsafe {
+                FixedString::new_unchecked(str::from_utf8(&extension_bytes)?.to_string())
+            },
+            extension_type: Decode::decode(data)?,
+        })
+    }
 }
 
 /// Start uploading or downloading file from the device
@@ -104,7 +187,7 @@ pub struct InitFileTransferPayload {
     pub write_file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
-    pub file_extension: FixedString<3>,
+    pub file_type: FileType,
     pub timestamp: i32,
     pub version: Version,
     pub file_name: FixedString<23>,
@@ -121,7 +204,8 @@ impl Encode for InitFileTransferPayload {
         encoded.extend(self.write_file_size.to_le_bytes());
         encoded.extend(self.load_address.to_le_bytes());
         encoded.extend(self.write_file_crc.to_le_bytes());
-        encoded.extend(self.file_extension.encode()?);
+        // Don't want null termination for filetypes.
+        encoded.extend(self.file_type.encode()?);
         encoded.extend(self.timestamp.to_le_bytes());
         encoded.extend(self.version.encode()?);
         encoded.extend(self.file_name.encode()?);
@@ -384,7 +468,7 @@ pub struct GetDirectoryEntryReplyPayload {
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc: u32,
-    pub file_type: String,
+    pub file_type: FileType,
 
     /// The unix epoch timestamp minus [`J2000_EPOCH`].
     pub timestamp: i32,
@@ -400,7 +484,7 @@ impl Decode for GetDirectoryEntryReplyPayload {
         let size = u32::decode(&mut data)?;
         let load_address = u32::decode(&mut data)?;
         let crc = u32::decode(&mut data)?;
-        let file_type = FixedString::<3>::decode(&mut data)?.into_inner();
+        let file_type = FileType::decode(&mut data)?;
         let timestamp = i32::decode(&mut data)?;
         let version = Version::decode(&mut data)?;
         let file_name = FixedString::<23>::decode(&mut data)?.into_inner();
@@ -502,7 +586,7 @@ pub struct SetFileMetadataPayload {
     pub option: u8,
     /// The storage entry address of the file.
     pub load_address: u32,
-    pub file_type: FixedString<3>,
+    pub file_type: FileType,
     pub timestamp: i32,
     pub version: Version,
     pub file_name: FixedString<23>,

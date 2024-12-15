@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
 use log::info;
 
@@ -10,7 +10,7 @@ use crate::{
             DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket,
             SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket,
         },
-        file::{FileDownloadTarget, FileVendor},
+        file::{ExtensionType, FileDownloadTarget, FileType, FileVendor},
     },
     string::FixedString,
 };
@@ -38,8 +38,11 @@ impl Command for ScreenCapture {
         // Grab the image data
         let cap = connection
             .execute_command(DownloadFile {
-                filename: FixedString::new("screen".to_string()).unwrap(),
-                filetype: FixedString::new("".to_string()).unwrap(),
+                file_name: FixedString::new("screen".to_string()).unwrap(),
+                file_type: FileType::new(
+                    FixedString::from_str("").unwrap(),
+                    ExtensionType::default(),
+                ),
                 vendor: FileVendor::Sys,
                 target: Some(FileDownloadTarget::Cbuf),
                 load_addr: 0,

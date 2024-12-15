@@ -542,7 +542,7 @@ impl Connection for SerialConnection {
                         Duration::from_millis(100),
                         1,
                         UserFifoPacket::new(UserFifoPayload {
-                            channel: 1, // stdio channel
+                            channel: 2, // stdio channel
                             write: Some(
                                 FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
                                     .unwrap(),

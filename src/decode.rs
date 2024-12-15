@@ -1,4 +1,4 @@
-use std::string::FromUtf8Error;
+use std::str::Utf8Error;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,7 +10,7 @@ pub enum DecodeError {
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
     #[error("String contained invalid UTF-8: {0}")]
-    InvalidStringContents(#[from] FromUtf8Error),
+    InvalidStringContents(#[from] Utf8Error),
     #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
     UnexpectedValue { value: u8, expected: &'static [u8] },
     #[error("Attempted to decode a choice, but neither choice was successful: left: {left}, right: {right}")]

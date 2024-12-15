@@ -46,7 +46,7 @@ impl SizedDecode for UserFifoReplyPayload {
     ) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let channel = u8::decode(&mut data)?;
-        let data_len = payload_size - 5;
+        let data_len = payload_size.saturating_sub(5);
 
         let read = if data_len > 0 {
             Some(String::sized_decode(&mut data, data_len)?)

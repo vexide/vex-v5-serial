@@ -10,11 +10,11 @@ use crate::{
     connection::{Connection, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
-        ExitFileTransferPacket, ExitFileTransferReplyPacket, FileDownloadTarget, FileExitAction,
-        FileInitAction, FileInitOption, FileVendor, InitFileTransferPacket,
-        InitFileTransferPayload, InitFileTransferReplyPacket, LinkFilePacket, LinkFilePayload,
-        LinkFileReplyPacket, ReadFilePacket, ReadFilePayload, ReadFileReplyPacket, WriteFilePacket,
-        WriteFilePayload, WriteFileReplyPacket,
+        ExitFileTransferPacket, ExitFileTransferReplyPacket, ExtensionType, FileDownloadTarget,
+        FileExitAction, FileInitAction, FileInitOption, FileType, FileVendor,
+        InitFileTransferPacket, InitFileTransferPayload, InitFileTransferReplyPacket,
+        LinkFilePacket, LinkFilePayload, LinkFileReplyPacket, ReadFilePacket, ReadFilePayload,
+        ReadFileReplyPacket, WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
     },
     string::FixedString,
     timestamp::j2000_timestamp,
@@ -28,8 +28,8 @@ pub const HOT_START: u32 = 0x7800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
-    pub filename: FixedString<23>,
-    pub filetype: FixedString<3>,
+    pub file_name: FixedString<23>,
+    pub file_type: FileType,
     pub size: u32,
     pub vendor: FileVendor,
     pub target: Option<FileDownloadTarget>,
@@ -58,7 +58,7 @@ impl Command for DownloadFile {
                     write_file_size: self.size,
                     load_address: self.load_addr,
                     write_file_crc: 0,
-                    file_extension: self.filetype,
+                    file_type: self.file_type,
                     timestamp: j2000_timestamp(),
                     version: Version {
                         major: 1,
@@ -66,7 +66,7 @@ impl Command for DownloadFile {
                         build: 0,
                         beta: 0,
                     },
-                    file_name: self.filename,
+                    file_name: self.file_name,
                 }),
             )
             .await?;
@@ -139,7 +139,7 @@ pub struct LinkedFile {
 
 pub struct UploadFile<'a> {
     pub filename: FixedString<23>,
-    pub filetype: FixedString<3>,
+    pub file_type: FileType,
     pub vendor: Option<FileVendor>,
     pub data: Vec<u8>,
     pub target: Option<FileDownloadTarget>,
@@ -173,7 +173,7 @@ impl Command for UploadFile<'_> {
                     write_file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
-                    file_extension: self.filetype,
+                    file_type: self.file_type,
                     timestamp: j2000_timestamp(),
                     version: Version {
                         major: 1,
@@ -346,7 +346,10 @@ impl Command for UploadProgram<'_> {
         connection
             .execute_command(UploadFile {
                 filename: FixedString::new(format!("{}.ini", base_file_name))?,
-                filetype: FixedString::new("ini".to_string())?,
+                file_type: FileType::new(
+                    FixedString::new("ini".to_string())?,
+                    ExtensionType::default(),
+                ),
                 vendor: None,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: None,
@@ -380,7 +383,10 @@ impl Command for UploadProgram<'_> {
             connection
                 .execute_command(UploadFile {
                     filename: FixedString::new(program_lib_name.clone())?,
-                    filetype: FixedString::new("bin".to_string())?,
+                    file_type: FileType::new(
+                        FixedString::new("bin".to_string())?,
+                        ExtensionType::default(),
+                    ),
                     vendor: None,
                     data: library_data,
                     target: None,
@@ -421,7 +427,10 @@ impl Command for UploadProgram<'_> {
             connection
                 .execute_command(UploadFile {
                     filename: FixedString::new(program_bin_name)?,
-                    filetype: FixedString::new("bin".to_string())?,
+                    file_type: FileType::new(
+                        FixedString::new("bin".to_string())?,
+                        ExtensionType::Binary,
+                    ),
                     vendor: None,
                     data: program_data,
                     target: None,

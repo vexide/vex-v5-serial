@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{ffi::CStr, fmt::Display, str::FromStr};
 
 use crate::{
     decode::{Decode, DecodeError, SizedDecode},
@@ -18,10 +18,37 @@ impl<const N: usize> FixedString<N> {
         Ok(Self(string))
     }
 
+    pub unsafe fn new_unchecked(string: String) -> Self {
+        Self(string)
+    }
+
     pub fn into_inner(self) -> String {
         self.0
     }
 }
+
+impl<const N: usize> TryFrom<&str> for FixedString<N> {
+    type Error = EncodeError;
+
+    fn try_from(value: &str) -> Result<FixedString<N>, EncodeError> {
+        Self::new(value.to_string())
+    }
+}
+
+impl<const N: usize> FromStr for FixedString<N> {
+    type Err = EncodeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s.to_string())
+    }
+}
+
+impl<const N: usize> AsRef<str> for FixedString<N> {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
 
 impl<const N: usize> Display for FixedString<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -63,6 +90,7 @@ impl SizedDecode for String {
         let mut utf8 = vec![0u8; max_size];
         for (i, string_byte) in utf8.iter_mut().enumerate() {
             let byte = u8::decode(&mut data)?;
+
             if i == max_size {
                 if byte != 0 {
                     return Err(DecodeError::UnterminatedString);
@@ -76,6 +104,8 @@ impl SizedDecode for String {
             *string_byte = byte;
         }
 
-        Ok(String::from_utf8(utf8.to_vec())?)
+        let cstr = CStr::from_bytes_until_nul(&utf8).map_err(|_| DecodeError::UnterminatedString)?;
+
+        Ok(cstr.to_str()?.to_owned())
     }
 }
