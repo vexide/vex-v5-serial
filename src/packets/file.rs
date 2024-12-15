@@ -1,7 +1,7 @@
 //! Filesystem Access
 
 use core::str;
-use std::{os::unix::fs::FileTypeExt, vec};
+use std::vec;
 
 use super::{
     cdc::CdcReplyPacket,

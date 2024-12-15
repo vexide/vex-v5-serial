@@ -49,7 +49,6 @@ impl<const N: usize> AsRef<str> for FixedString<N> {
     }
 }
 
-
 impl<const N: usize> Display for FixedString<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
@@ -104,7 +103,8 @@ impl SizedDecode for String {
             *string_byte = byte;
         }
 
-        let cstr = CStr::from_bytes_until_nul(&utf8).map_err(|_| DecodeError::UnterminatedString)?;
+        let cstr =
+            CStr::from_bytes_until_nul(&utf8).map_err(|_| DecodeError::UnterminatedString)?;
 
         Ok(cstr.to_str()?.to_owned())
     }
