@@ -4,6 +4,7 @@ use crate::{
     encode::{Encode, EncodeError},
 };
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Log {
     /// (RESEARCH NEEDED)
     pub code: u8,
@@ -18,7 +19,7 @@ pub struct Log {
     pub spare: u8,
 
     /// How long (in milliseconds) after the brain powered on
-    pub time: u16,
+    pub time: u32,
 }
 impl Decode for Log {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
@@ -27,7 +28,7 @@ impl Decode for Log {
         let log_type = u8::decode(&mut data)?;
         let description = u8::decode(&mut data)?;
         let spare = u8::decode(&mut data)?;
-        let time = u16::decode(&mut data)?;
+        let time = u32::decode(&mut data)?;
         Ok(Self {
             code,
             log_type,
@@ -72,20 +73,29 @@ impl Encode for ReadLogPagePayload {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ReadLogPageReplyPayload {
+    /// Size of each log item in bytes.
+    pub log_size: u8,
     /// The offset number used in this packet.
     pub offset: u32,
     /// Number of elements in the following array.
-    pub count: u32,
+    pub count: u16,
     pub entries: Vec<Log>,
 }
-impl Decode for ReadLogPageReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+impl SizedDecode for ReadLogPageReplyPayload {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
         let mut data = data.into_iter();
+
+        let log_size = u8::decode(&mut data)?;
         let offset = u32::decode(&mut data)?;
-        let count = u32::decode(&mut data)?;
-        let entries = Vec::sized_decode(&mut data, count as _)?;
+        let count = u16::decode(&mut data)?;
+        let entries = Vec::sized_decode(&mut data, count)?;
         Ok(Self {
+            log_size,
             offset,
             count,
             entries,
