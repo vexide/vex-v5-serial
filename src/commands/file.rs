@@ -58,8 +58,8 @@ impl Command for DownloadFile {
                     write_file_crc: 0,
                     load_address: self.load_addr,
                     metadata: FileMetadata {
-                        extension: FixedString::from_str("").unwrap(),
-                        extension_type: ExtensionType::Binary,
+                        extension: FixedString::from_str("bin").unwrap(),
+                        extension_type: ExtensionType::EncryptedBinary,
                         timestamp: 0,
                         version: Version {
                             major: 1,
@@ -244,7 +244,7 @@ impl Command for UploadFile<'_> {
 
         connection
             .packet_handshake::<ExitFileTransferReplyPacket>(
-                Duration::from_millis(800),
+                Duration::from_millis(1000),
                 5,
                 ExitFileTransferPacket::new(self.after_upload),
             )

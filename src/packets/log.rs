@@ -83,8 +83,8 @@ pub struct ReadLogPageReplyPayload {
     pub count: u16,
     pub entries: Vec<Log>,
 }
-impl SizedDecode for ReadLogPageReplyPayload {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError>
+impl Decode for ReadLogPageReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
     where
         Self: Sized,
     {

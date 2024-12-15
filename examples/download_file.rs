@@ -46,16 +46,16 @@ async fn main() -> Result<(), SerialError> {
         .try_into_inner()
         .unwrap();
 
-    let file = "slot_1.bin";
+    let file = "slot_3.bin";
 
     // Download program file
     let download = connection
         .execute_command(DownloadFile {
             file_name: FixedString::from_str(file).unwrap(),
-            size: 312340,
+            size: 2000,
             vendor: FileVendor::User,
             target: Some(FileTransferTarget::Qspi),
-            load_addr: 58720256,
+            load_addr: 0x03800000,
             progress_callback: Some(Box::new(move |progress| {
                 log::info!("{}: {:.2}%", file, progress);
             }) as Box<dyn FnMut(f32) + Send>),
