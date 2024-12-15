@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use log::info;
 use vex_v5_serial::{
@@ -6,16 +6,7 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    encode::Encode,
-    packets::{
-        device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
-        file::{
-            ExtensionType, FileInitAction, FileInitOption, FileMetadata, FileTransferTarget,
-            FileVendor, InitFileTransferPacket, InitFileTransferPayload,
-        },
-    },
-    string::FixedString,
-    version::Version,
+    packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
 };
 
 #[tokio::main]

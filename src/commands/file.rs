@@ -23,8 +23,8 @@ use crate::{
 
 use super::Command;
 
-pub const COLD_START: u32 = 0x3800000;
-pub const HOT_START: u32 = 0x7800000;
+pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
+pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;
 const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
@@ -61,7 +61,12 @@ impl Command for DownloadFile {
                         extension: FixedString::from_str("").unwrap(),
                         extension_type: ExtensionType::Binary,
                         timestamp: 0,
-                        version: Version { major: 0, minor: 0, build: 0, beta: 0 }
+                        version: Version {
+                            major: 1,
+                            minor: 0,
+                            build: 0,
+                            beta: 0,
+                        },
                     },
                     file_name: self.file_name,
                 }),
@@ -350,7 +355,7 @@ impl Command for UploadProgram<'_> {
                 vendor: None,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: None,
-                load_addr: COLD_START,
+                load_addr: USER_PROGRAM_LOAD_ADDR,
                 linked_file: None,
                 after_upload: FileExitAction::DoNothing,
                 progress_callback: self.ini_callback.take(),
@@ -394,7 +399,7 @@ impl Command for UploadProgram<'_> {
                     vendor: None,
                     data: library_data,
                     target: None,
-                    load_addr: HOT_START,
+                    load_addr: PROS_HOT_BIN_LOAD_ADDR,
                     linked_file: None,
                     after_upload: if is_monolith {
                         self.after_upload
@@ -445,7 +450,7 @@ impl Command for UploadProgram<'_> {
                     vendor: None,
                     data: program_data,
                     target: None,
-                    load_addr: COLD_START,
+                    load_addr: USER_PROGRAM_LOAD_ADDR,
                     linked_file,
                     after_upload: self.after_upload,
                     progress_callback: self.bin_callback.take(),

@@ -10,10 +10,9 @@ use crate::{
             DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket,
             SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket,
         },
-        file::{ExtensionType, FileMetadata, FileTransferTarget, FileVendor},
+        file::{FileTransferTarget, FileVendor},
     },
     string::FixedString,
-    version::Version,
 };
 
 use super::{file::DownloadFile, Command};
