@@ -10,8 +10,8 @@ use crate::{
     connection::{Connection, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
-        ExitFileTransferPacket, ExitFileTransferReplyPacket, ExtensionType, FileDownloadTarget,
-        FileExitAction, FileInitAction, FileInitOption, FileType, FileVendor,
+        ExitFileTransferPacket, ExitFileTransferReplyPacket, ExtensionType, FileExitAction,
+        FileInitAction, FileInitOption, FileMetadata, FileTransferTarget, FileVendor,
         InitFileTransferPacket, InitFileTransferPayload, InitFileTransferReplyPacket,
         LinkFilePacket, LinkFilePayload, LinkFileReplyPacket, ReadFilePacket, ReadFilePayload,
         ReadFileReplyPacket, WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
@@ -29,10 +29,10 @@ const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
     pub file_name: FixedString<23>,
-    pub file_type: FileType,
+    pub metadata: FileMetadata,
     pub size: u32,
     pub vendor: FileVendor,
-    pub target: Option<FileDownloadTarget>,
+    pub target: Option<FileTransferTarget>,
     pub load_addr: u32,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
@@ -44,7 +44,7 @@ impl Command for DownloadFile {
         mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
-        let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
+        let target = self.target.unwrap_or(FileTransferTarget::Qspi);
 
         let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
@@ -58,14 +58,7 @@ impl Command for DownloadFile {
                     write_file_size: self.size,
                     load_address: self.load_addr,
                     write_file_crc: 0,
-                    file_type: self.file_type,
-                    timestamp: j2000_timestamp(),
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
+                    metadata: self.metadata,
                     file_name: self.file_name,
                 }),
             )
@@ -139,10 +132,10 @@ pub struct LinkedFile {
 
 pub struct UploadFile<'a> {
     pub filename: FixedString<23>,
-    pub file_type: FileType,
+    pub metadata: FileMetadata,
     pub vendor: Option<FileVendor>,
     pub data: Vec<u8>,
-    pub target: Option<FileDownloadTarget>,
+    pub target: Option<FileTransferTarget>,
     pub load_addr: u32,
     pub linked_file: Option<LinkedFile>,
     pub after_upload: FileExitAction,
@@ -157,7 +150,7 @@ impl Command for UploadFile<'_> {
     ) -> Result<Self::Output, C::Error> {
         info!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
-        let target = self.target.unwrap_or(FileDownloadTarget::Qspi);
+        let target = self.target.unwrap_or(FileTransferTarget::Qspi);
 
         let crc = VEX_CRC32.checksum(&self.data);
 
@@ -173,14 +166,7 @@ impl Command for UploadFile<'_> {
                     write_file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
-                    file_type: self.file_type,
-                    timestamp: j2000_timestamp(),
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
+                    metadata: self.metadata,
                     file_name: self.filename.clone(),
                 }),
             )
@@ -346,10 +332,17 @@ impl Command for UploadProgram<'_> {
         connection
             .execute_command(UploadFile {
                 filename: FixedString::new(format!("{}.ini", base_file_name))?,
-                file_type: FileType::new(
-                    FixedString::new("ini".to_string())?,
-                    ExtensionType::default(),
-                ),
+                metadata: FileMetadata {
+                    extension: FixedString::new("ini".to_string())?,
+                    extension_type: ExtensionType::default(),
+                    timestamp: j2000_timestamp(),
+                    version: Version {
+                        major: 1,
+                        minor: 0,
+                        build: 0,
+                        beta: 0,
+                    },
+                },
                 vendor: None,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: None,
@@ -383,10 +376,17 @@ impl Command for UploadProgram<'_> {
             connection
                 .execute_command(UploadFile {
                     filename: FixedString::new(program_lib_name.clone())?,
-                    file_type: FileType::new(
-                        FixedString::new("bin".to_string())?,
-                        ExtensionType::default(),
-                    ),
+                    metadata: FileMetadata {
+                        extension: FixedString::new("bin".to_string())?,
+                        extension_type: ExtensionType::default(),
+                        timestamp: j2000_timestamp(),
+                        version: Version {
+                            major: 1,
+                            minor: 0,
+                            build: 0,
+                            beta: 0,
+                        },
+                    },
                     vendor: None,
                     data: library_data,
                     target: None,
@@ -427,10 +427,17 @@ impl Command for UploadProgram<'_> {
             connection
                 .execute_command(UploadFile {
                     filename: FixedString::new(program_bin_name)?,
-                    file_type: FileType::new(
-                        FixedString::new("bin".to_string())?,
-                        ExtensionType::Binary,
-                    ),
+                    metadata: FileMetadata {
+                        extension: FixedString::new("bin".to_string())?,
+                        extension_type: ExtensionType::default(),
+                        timestamp: j2000_timestamp(),
+                        version: Version {
+                            major: 1,
+                            minor: 0,
+                            build: 0,
+                            beta: 0,
+                        },
+                    },
                     vendor: None,
                     data: program_data,
                     target: None,

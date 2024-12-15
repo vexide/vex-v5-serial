@@ -177,7 +177,7 @@ impl<const ID: u8, const EXT_ID: u8, P: Encode + Clone> Clone for Cdc2CommandPac
 pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: SizedDecode> {
     pub header: [u8; 2],
     pub ack: Cdc2Ack,
-    pub payload_size: VarU16,
+    pub payload_size: u16,
     pub payload: P,
     pub crc: u16,
 }
@@ -205,7 +205,7 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
             return Err(DecodeError::InvalidHeader);
         }
 
-        let payload_size = VarU16::decode(&mut data)?;
+        let payload_size = VarU16::decode(&mut data)?.into_inner();
 
         let ext_id = u8::decode(&mut data)?;
         if ext_id != EXT_ID {
@@ -213,8 +213,10 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
         }
 
         let ack = Cdc2Ack::decode(&mut data)?;
-        let payload = P::sized_decode(&mut data, payload_size.into_inner())?;
-        let crc = u16::decode(&mut data)?;
+
+        let mut payload_data = data.take(usize::from(payload_size) + 2);
+        let payload = P::sized_decode(&mut payload_data, payload_size.into())?;
+        let crc = u16::decode(&mut payload_data)?;
 
         Ok(Self {
             header,

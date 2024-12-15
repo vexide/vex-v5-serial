@@ -66,7 +66,7 @@ pub struct CdcReplyPacket<const ID: u8, P: Decode> {
     pub header: [u8; 2],
 
     /// Packet Payload Size
-    pub payload_size: VarU16,
+    pub payload_size: u16,
 
     /// Packet Payload
     ///
@@ -85,8 +85,8 @@ impl<const ID: u8, P: Decode> Decode for CdcReplyPacket<ID, P> {
         if id != ID {
             return Err(DecodeError::InvalidHeader);
         }
-        let payload_size = VarU16::decode(&mut data)?;
-        let payload = P::decode(data)?;
+        let payload_size = VarU16::decode(&mut data)?.into_inner();
+        let payload = P::decode(data.take(payload_size as usize))?;
 
         Ok(Self {
             header,

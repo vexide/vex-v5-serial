@@ -10,9 +10,11 @@ use crate::{
             DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket,
             SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket,
         },
-        file::{ExtensionType, FileDownloadTarget, FileType, FileVendor},
+        file::{ExtensionType, FileMetadata, FileTransferTarget, FileVendor},
     },
     string::FixedString,
+    timestamp::j2000_timestamp,
+    version::Version,
 };
 
 use super::{file::DownloadFile, Command};
@@ -39,12 +41,19 @@ impl Command for ScreenCapture {
         let cap = connection
             .execute_command(DownloadFile {
                 file_name: FixedString::new("screen".to_string()).unwrap(),
-                file_type: FileType::new(
-                    FixedString::from_str("").unwrap(),
-                    ExtensionType::default(),
-                ),
+                metadata: FileMetadata {
+                    extension: FixedString::new("".to_string())?,
+                    extension_type: ExtensionType::default(),
+                    timestamp: j2000_timestamp(),
+                    version: Version {
+                        major: 1,
+                        minor: 0,
+                        build: 0,
+                        beta: 0,
+                    },
+                },
                 vendor: FileVendor::Sys,
-                target: Some(FileDownloadTarget::Cbuf),
+                target: Some(FileTransferTarget::Cbuf),
                 load_addr: 0,
                 size: 512 * 272 * 4,
                 progress_callback: Some(Box::new(|progress| {

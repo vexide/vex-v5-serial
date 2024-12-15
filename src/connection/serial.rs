@@ -31,6 +31,9 @@ pub const VEX_USB_VID: u16 = 0x2888;
 /// The USB PID of the V5 Brain
 pub const V5_BRAIN_USB_PID: u16 = 0x0501;
 
+/// The USB PID of the EXP Brain
+pub const EXP_BRAIN_USB_PID: u16 = 0x600;
+
 /// The USB PID of the V5 Controller
 pub const V5_CONTROLLER_USB_PID: u16 = 0x0503;
 
@@ -77,7 +80,7 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                 port_info: port.clone(),
                 port_type: VexSerialPortType::Controller,
             }),
-            V5_BRAIN_USB_PID => {
+            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
                 if let Some(mut location) = info.interface {
