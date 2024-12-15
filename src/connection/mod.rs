@@ -107,7 +107,11 @@ pub trait Connection {
             match self.receive_packet::<D>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
                 Err(e) => {
-                    warn!("Handshake failed: {:?}. Retrying...", e);
+                    warn!(
+                        "Handshake failed while waiting for {}: {:?}. Retrying...",
+                        std::any::type_name::<D>(),
+                        e
+                    );
                     last_error = Some(e);
                 }
             }
