@@ -135,7 +135,7 @@ pub struct FileMetadata {
 
 impl Encode for FileMetadata {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut data = vec![0; 12];
+        let mut data = vec![0; 3];
         // extension is not null terminated and is fixed length
         data[..self.extension.as_ref().len()].copy_from_slice(self.extension.as_ref().as_bytes());
         data.push(self.extension_type as _);
