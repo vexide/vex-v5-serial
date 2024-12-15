@@ -57,7 +57,17 @@ impl<const N: usize> Display for FixedString<N> {
 
 impl<const N: usize> Encode for FixedString<N> {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        self.0.encode()
+        let mut encoded = [0u8; N];
+
+        let string_bytes = self.0.clone().into_bytes();
+        if string_bytes.len() > encoded.len() {
+            return Err(EncodeError::StringTooLong);
+        }
+
+        encoded[..string_bytes.len()].copy_from_slice(&string_bytes);
+        let mut encoded = encoded.to_vec();
+        encoded.push(0);
+        Ok(encoded)
     }
 }
 

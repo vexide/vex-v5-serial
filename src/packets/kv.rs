@@ -20,8 +20,8 @@ impl Encode for WriteKeyValuePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
         let mut encoded = Vec::new();
 
-        encoded.extend(self.key.encode()?);
-        encoded.extend(self.value.encode()?);
+        encoded.extend(self.key.as_ref().to_string().encode()?);
+        encoded.extend(self.value.as_ref().to_string().encode()?);
 
         Ok(encoded)
     }

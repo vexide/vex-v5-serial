@@ -1,4 +1,4 @@
-use std::{io::Write, time::Duration};
+use std::{io::Write, str::FromStr, time::Duration};
 
 use flate2::{Compression, GzBuilder};
 use log::{debug, info, trace};
@@ -29,7 +29,6 @@ const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
     pub file_name: FixedString<23>,
-    pub metadata: FileMetadata,
     pub size: u32,
     pub vendor: FileVendor,
     pub target: Option<FileTransferTarget>,
@@ -55,10 +54,15 @@ impl Command for DownloadFile {
                     target,
                     vendor: self.vendor,
                     options: FileInitOption::None,
-                    write_file_size: self.size,
-                    load_address: self.load_addr,
+                    file_size: self.size,
                     write_file_crc: 0,
-                    metadata: self.metadata,
+                    load_address: self.load_addr,
+                    metadata: FileMetadata {
+                        extension: FixedString::from_str("").unwrap(),
+                        extension_type: ExtensionType::Binary,
+                        timestamp: 0,
+                        version: Version { major: 0, minor: 0, build: 0, beta: 0 }
+                    },
                     file_name: self.file_name,
                 }),
             )
@@ -163,7 +167,7 @@ impl Command for UploadFile<'_> {
                     target,
                     vendor,
                     options: FileInitOption::Overwrite,
-                    write_file_size: self.data.len() as u32,
+                    file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
                     metadata: self.metadata,

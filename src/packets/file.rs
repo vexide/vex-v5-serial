@@ -3,15 +3,13 @@
 use core::str;
 use std::vec;
 
-use tokio::io::AsyncWriteExt;
-
 use super::{
     cdc::CdcReplyPacket,
     cdc2::{Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket},
 };
 use crate::{
     choice::{Choice, PrefferedChoice},
-    decode::{self, Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, EncodeError},
     string::FixedString,
     version::Version,
@@ -95,6 +93,7 @@ pub enum FileLoadAction {
 }
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
 pub enum ExtensionType {
     /// Regular unencrypted file.
     #[default]
@@ -136,9 +135,9 @@ pub struct FileMetadata {
 
 impl Encode for FileMetadata {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut data = Vec::new();
+        let mut data = vec![0; 12];
         // extension is not null terminated and is fixed length
-        data.extend_from_slice(self.extension.as_ref().as_bytes());
+        data[..self.extension.as_ref().len()].copy_from_slice(self.extension.as_ref().as_bytes());
         data.push(self.extension_type as _);
         data.extend(self.timestamp.to_le_bytes());
         data.extend(self.version.encode()?);
@@ -178,7 +177,7 @@ pub struct InitFileTransferPayload {
     pub target: FileTransferTarget,
     pub vendor: FileVendor,
     pub options: FileInitOption,
-    pub write_file_size: u32,
+    pub file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
     pub metadata: FileMetadata,
@@ -193,7 +192,7 @@ impl Encode for InitFileTransferPayload {
             self.vendor as _,
             self.options as _,
         ];
-        encoded.extend(self.write_file_size.to_le_bytes());
+        encoded.extend(self.file_size.to_le_bytes());
         encoded.extend(self.load_address.to_le_bytes());
         encoded.extend(self.write_file_crc.to_le_bytes());
         encoded.extend(self.metadata.encode()?);

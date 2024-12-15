@@ -1,4 +1,4 @@
-use std::{str::FromStr, time::Duration};
+use std::time::Duration;
 
 use log::info;
 
@@ -13,7 +13,6 @@ use crate::{
         file::{ExtensionType, FileMetadata, FileTransferTarget, FileVendor},
     },
     string::FixedString,
-    timestamp::j2000_timestamp,
     version::Version,
 };
 
@@ -41,17 +40,6 @@ impl Command for ScreenCapture {
         let cap = connection
             .execute_command(DownloadFile {
                 file_name: FixedString::new("screen".to_string()).unwrap(),
-                metadata: FileMetadata {
-                    extension: FixedString::new("".to_string())?,
-                    extension_type: ExtensionType::default(),
-                    timestamp: j2000_timestamp(),
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
-                },
                 vendor: FileVendor::Sys,
                 target: Some(FileTransferTarget::Cbuf),
                 load_addr: 0,
