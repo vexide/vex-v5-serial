@@ -86,7 +86,7 @@ impl Decode for i32 {
 }
 impl<D: Decode> Decode for Option<D> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        Ok(D::decode(data).map(|decoded| Some(decoded)).unwrap_or(None))
+        Ok(D::decode(data).map(|decoded| Some(decoded))?)
     }
 }
 impl<D: Decode + Default, const N: usize> Decode for [D; N] {

@@ -162,14 +162,16 @@ impl Decode for FileType {
     where
         Self: Sized,
     {
-        let extension_bytes = [0u8; 3];
+        let mut data = data.into_iter();
 
         Ok(Self {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
-                FixedString::new_unchecked(str::from_utf8(&extension_bytes)?.to_string())
+                FixedString::new_unchecked(
+                    str::from_utf8(&<[u8; 3]>::decode(&mut data)?)?.to_string(),
+                )
             },
-            extension_type: Decode::decode(data)?,
+            extension_type: Decode::decode(&mut data)?,
         })
     }
 }
@@ -461,6 +463,7 @@ impl Encode for GetDirectoryEntryPayload {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetDirectoryEntryReplyPayload {
     pub file_index: u8,
     pub size: u32,
@@ -484,7 +487,8 @@ impl Decode for GetDirectoryEntryReplyPayload {
         let size = u32::decode(&mut data)?;
         let load_address = u32::decode(&mut data)?;
         let crc = u32::decode(&mut data)?;
-        let file_type = FileType::decode(&mut data)?;
+        let file_type = FileType::decode(&mut data).unwrap();
+        println!("Decode");
         let timestamp = i32::decode(&mut data)?;
         let version = Version::decode(&mut data)?;
         let file_name = FixedString::<23>::decode(&mut data)?.into_inner();

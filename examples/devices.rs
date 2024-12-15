@@ -1,4 +1,4 @@
-use std::{time::Duration};
+use std::time::Duration;
 
 use log::info;
 use vex_v5_serial::{
@@ -6,9 +6,7 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::{
-        device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
-    },
+    packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
 };
 
 #[tokio::main]

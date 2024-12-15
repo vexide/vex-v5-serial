@@ -1,7 +1,7 @@
 use crate::decode::{Decode, DecodeError};
 use crate::encode::{Encode, EncodeError};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Version {
     pub major: u8,
     pub minor: u8,
