@@ -12,6 +12,7 @@ pub type ReadKeyValueReplyPacket = Cdc2ReplyPacket<86, 46, FixedString<255>>;
 pub type WriteKeyValuePacket = Cdc2CommandPacket<86, 47, WriteKeyValuePayload>;
 pub type WriteKeyValueReplyPacket = Cdc2ReplyPacket<86, 47, ()>;
 
+#[derive(Clone, PartialEq)]
 pub struct WriteKeyValuePayload {
     pub key: FixedString<31>,
     pub value: FixedString<255>,

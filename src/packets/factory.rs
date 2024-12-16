@@ -71,7 +71,7 @@ pub type GetFactoryStatusPacket = Cdc2CommandPacket<86, 241, ()>;
 pub type GetFactoryStatusReplyPacket = Cdc2ReplyPacket<86, 241, FactoryStatus>;
 
 pub type FactoryEnablePacket = Cdc2CommandPacket<86, 255, FactoryEnablePayload>;
-pub type FactoryEnableReplyPacket = Cdc2CommandPacket<86, 255, ()>;
+pub type FactoryEnableReplyPacket = Cdc2ReplyPacket<86, 255, ()>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct FactoryEnablePayload(pub [u8; 4]);
