@@ -90,14 +90,14 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
 
                     match location {
                         0 => {
-                            info!("Found a 'system' serial port over a Brain connection.");
+                            debug!("Found a 'system' serial port over a Brain connection.");
                             vex_ports.push(VexSerialPort {
                             port_info: port.clone(),
                             port_type: VexSerialPortType::System,
                         })},
                         1 => warn!("Found a controller serial port over a Brain connection! Things are most likely broken."),
                         2 => {
-                            info!("Found a 'user' serial port over a Brain connection.");
+                            debug!("Found a 'user' serial port over a Brain connection.");
                             vex_ports.push(VexSerialPort {
                             port_info: port.clone(),
                             port_type: VexSerialPortType::User,
@@ -138,21 +138,21 @@ fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> 
         };
         match interface {
             '1' => {
-                info!("Found a 'system' serial port over a Brain connection.");
+                debug!("Found a 'system' serial port over a Brain connection.");
                 vex_ports.push(VexSerialPort {
                     port_info: port.clone(),
                     port_type: VexSerialPortType::System,
                 });
             }
             '2' => {
-                info!("Found a controller serial port.");
+                debug!("Found a controller serial port.");
                 vex_ports.push(VexSerialPort {
                     port_info: port.clone(),
                     port_type: VexSerialPortType::Controller,
                 });
             }
             '3' => {
-                info!("Found a 'user' serial port over a Brain connection.");
+                debug!("Found a 'user' serial port over a Brain connection.");
                 vex_ports.push(VexSerialPort {
                     port_info: port.clone(),
                     port_type: VexSerialPortType::User,

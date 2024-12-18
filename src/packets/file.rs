@@ -534,7 +534,7 @@ impl Encode for GetFileMetadataPayload {
 
 pub struct GetFileMetadataReplyPayload {
     /// RESEARCH NEEDED: Unknown what this is if there is no link to the file.
-    pub linked_vendor: FileVendor,
+    pub linked_vendor: Option<FileVendor>,
     pub size: u32,
     /// The storage entry address of the file.
     pub load_address: u32,
@@ -544,7 +544,15 @@ pub struct GetFileMetadataReplyPayload {
 impl Decode for GetFileMetadataReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        let linked_vendor = FileVendor::decode(&mut data)?;
+        let linked_vendor = {
+            let vid = u8::decode(&mut data)?;
+            if vid != 0 {
+                Some(FileVendor::decode([vid])?)
+            } else {
+                None
+            }
+        };
+
         let size = u32::decode(&mut data)?;
         let load_address = u32::decode(&mut data)?;
         let crc32 = u32::decode(&mut data)?;

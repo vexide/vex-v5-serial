@@ -58,7 +58,7 @@ impl Command for DownloadFile {
                     write_file_crc: 0,
                     load_address: self.load_addr,
                     metadata: FileMetadata {
-                        extension: FixedString::from_str("bin").unwrap(),
+                        extension: FixedString::from_str("ini").unwrap(),
                         extension_type: ExtensionType::EncryptedBinary,
                         timestamp: 0,
                         version: Version {
@@ -157,7 +157,7 @@ impl Command for UploadFile<'_> {
         mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
-        info!("Uploading file: {}", self.filename);
+        debug!("Uploading file: {}", self.filename);
         let vendor = self.vendor.unwrap_or(FileVendor::User);
         let target = self.target.unwrap_or(FileTransferTarget::Qspi);
 
@@ -251,7 +251,7 @@ impl Command for UploadFile<'_> {
             .await?
             .try_into_inner()?;
 
-        info!("Successfully uploaded file: {}", self.filename.into_inner());
+        debug!("Successfully uploaded file: {}", self.filename.into_inner());
         Ok(())
     }
 }
@@ -323,7 +323,7 @@ impl Command for UploadProgram<'_> {
     ) -> Result<Self::Output, C::Error> {
         let base_file_name = format!("slot_{}", self.slot);
 
-        info!("Uploading program ini file");
+        debug!("Uploading program ini file");
 
         let ini = ProgramIniConfig {
             program: Program {
@@ -372,7 +372,7 @@ impl Command for UploadProgram<'_> {
         };
 
         if let Some(mut library_data) = library_data {
-            info!("Uploading cold library binary");
+            debug!("Uploading cold library binary");
 
             // Compress the file to improve upload times
             // We don't need to change any other flags, the brain is smart enough to decompress it
@@ -413,7 +413,7 @@ impl Command for UploadProgram<'_> {
         }
 
         if let Some(mut program_data) = program_data {
-            info!("Uploading program binary");
+            debug!("Uploading program binary");
 
             if self.compress_program {
                 debug!("Compressing program binary");
@@ -426,7 +426,7 @@ impl Command for UploadProgram<'_> {
             let linked_file = if is_monolith {
                 None
             } else {
-                info!("Program will be linked to cold library: {program_lib_name:?}");
+                debug!("Program will be linked to cold library: {program_lib_name:?}");
                 Some(LinkedFile {
                     filename: FixedString::new(program_lib_name)?,
                     vendor: None,

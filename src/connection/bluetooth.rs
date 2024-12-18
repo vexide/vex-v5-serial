@@ -107,7 +107,7 @@ pub async fn find_devices(
         }
     }
 
-    info!(
+    debug!(
         "Found {} devices in {:?}",
         devices.len(),
         scan_start_time.elapsed()
