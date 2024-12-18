@@ -4,7 +4,7 @@ use btleplug::api::{
     Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
-use log::{debug, info, trace, warn};
+use log::{debug, trace, warn};
 use thiserror::Error;
 use tokio::select;
 use tokio::time::sleep;

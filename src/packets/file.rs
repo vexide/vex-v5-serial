@@ -541,30 +541,42 @@ pub struct GetFileMetadataReplyPayload {
     pub crc32: u32,
     pub metadata: FileMetadata,
 }
-impl Decode for GetFileMetadataReplyPayload {
+impl Decode for Option<GetFileMetadataReplyPayload> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        let linked_vendor = {
-            let vid = u8::decode(&mut data)?;
-            if vid != 0 {
-                Some(FileVendor::decode([vid])?)
-            } else {
-                None
-            }
+        let maybe_vid = u8::decode(&mut data).unwrap();
+
+        let linked_vendor = match maybe_vid {
+            // 0 is returned if there is no linked file.
+            0 => None,
+            // 255 is returned if no file was found.
+            // In this case, the rest of the packet will be empty, so
+            // we return None for the whole packet.
+            255 => return Ok(None),
+            vid => Some(FileVendor::decode([vid])?),
         };
 
         let size = u32::decode(&mut data)?;
+        
+        // This happens when we try to read a system file from the
+        // `/vex_/*` VID. In this case, all of bytes after the vendor
+        // will be returned as 0xff or 0x0, making this packet useless,
+        // so we'll return `None` here.
+        if size == 0xFFFFFFFF {
+            return Ok(None);
+        }
+
         let load_address = u32::decode(&mut data)?;
         let crc32 = u32::decode(&mut data)?;
         let metadata = FileMetadata::decode(&mut data)?;
 
-        Ok(Self {
+        Ok(Some(GetFileMetadataReplyPayload {
             linked_vendor,
             size,
             load_address,
             crc32,
             metadata,
-        })
+        }))
     }
 }
 

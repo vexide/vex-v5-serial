@@ -95,17 +95,24 @@ impl Command for DownloadFile {
                     }),
                 )
                 .await?;
-            let read = read.payload.unwrap()?;
-            let chunk_data = read.1;
+
+            let (_, chunk_data) = read.payload.unwrap()?;
             offset += chunk_data.len() as u32;
-            let last = transfer_response.file_size <= offset;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
-            data.extend(chunk_data);
+
             if let Some(callback) = &mut self.progress_callback {
                 callback(progress);
             }
-            if last {
-                break;
+
+            if transfer_response.file_size <= offset {
+                // Since data is returned in fixed-size chunks read from flash, VEXos will sometimes read
+                // past the end of the file in the last chunk, returning whatever garbled nonsense happens
+                // to be stored next in QSPI. This is a feature™️, and something we need to handle ourselves.
+                let eof = chunk_data.len() - (offset - transfer_response.file_size) as usize;
+                data.extend(&chunk_data[0..eof]);
+                break; // we're done here
+            } else {
+                data.extend(chunk_data);
             }
         }
 
