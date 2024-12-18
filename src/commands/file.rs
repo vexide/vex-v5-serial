@@ -1,7 +1,7 @@
 use std::{io::Write, str::FromStr, time::Duration};
 
 use flate2::{Compression, GzBuilder};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "bluetooth")]

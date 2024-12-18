@@ -1,6 +1,6 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use serialport::{SerialPortInfo, SerialPortType};
 use std::time::Duration;
 use thiserror::Error;
