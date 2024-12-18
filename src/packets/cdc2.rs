@@ -214,9 +214,8 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
 
         let ack = Cdc2Ack::decode(&mut data)?;
 
-        let mut payload_data = data.take(usize::from(payload_size) + 2);
-        let payload = P::sized_decode(&mut payload_data, payload_size.into())?;
-        let crc = u16::decode(&mut payload_data)?;
+        let payload = P::sized_decode(&mut data, payload_size.into())?;
+        let crc = u16::decode(&mut data)?;
 
         Ok(Self {
             header,
