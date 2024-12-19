@@ -1,7 +1,6 @@
 //! Filesystem Access
 
-use core::str;
-use std::vec;
+use std::{vec, str};
 
 use super::{
     cdc::CdcReplyPacket,

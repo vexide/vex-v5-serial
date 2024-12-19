@@ -76,7 +76,7 @@ impl fmt::Display for VarU16SizeError {
     }
 }
 
-impl core::error::Error for VarU16SizeError {
+impl std::error::Error for VarU16SizeError {
     fn description(&self) -> &str {
         "value too large for variable-length u16"
     }
