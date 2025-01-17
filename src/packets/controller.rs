@@ -49,7 +49,21 @@ impl SizedDecode for UserFifoReplyPayload {
         let data_len = payload_size.saturating_sub(5);
 
         let read = if data_len > 0 {
-            Some(String::sized_decode(&mut data, data_len)?)
+            Some({
+                let mut utf8 = vec![];
+
+                for _ in 0..data_len {
+                    let byte = u8::decode(&mut data)?;
+                    
+                    if byte == 0 {
+                        break;
+                    }
+                    
+                    utf8.push(byte);
+                }
+
+                std::str::from_utf8(&utf8)?.to_string()
+            })
         } else {
             None
         };
