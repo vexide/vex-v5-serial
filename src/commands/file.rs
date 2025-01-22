@@ -337,7 +337,7 @@ impl Command for UploadProgram<'_> {
                 description: self.description,
                 icon: self.icon,
                 iconalt: String::new(),
-                slot: self.slot,
+                slot: self.slot - 1,
                 name: self.name,
             },
             project: Project {
