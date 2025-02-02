@@ -4,7 +4,7 @@ use btleplug::api::{
     Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use thiserror::Error;
 use tokio::select;
 use tokio::time::sleep;
@@ -16,7 +16,7 @@ use crate::decode::{Decode, DecodeError};
 use crate::encode::{Encode, EncodeError};
 use crate::packets::cdc2::Cdc2Ack;
 
-use super::{Connection, ConnectionType, RawPacket};
+use super::{CheckHeader, Connection, ConnectionType, RawPacket};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -267,15 +267,24 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
+    async fn receive_packet<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
-                        if let Ok(decoded) = packet.decode_and_use::<P>() {
-                            trim_packets(&mut self.incoming_packets);
-                            return Ok(decoded);
+                        if packet.check_header::<P>() {
+                            match packet.decode_and_use::<P>() {
+                                Ok(decoded) => {
+                                    trim_packets(&mut self.incoming_packets);
+                                    return Ok(decoded);
+                                }
+                                Err(e) => {
+                                    error!("Failed to decode packet with valid header: {}", e);
+                                    packet.used = true;
+                                    return Err(BluetoothError::DecodeError(e));
+                                }
+                            }
                         }
                     }
                     trim_packets(&mut self.incoming_packets);

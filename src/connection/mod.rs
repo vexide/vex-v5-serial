@@ -19,6 +19,10 @@ pub mod generic;
 #[cfg(feature = "serial")]
 pub mod serial;
 
+pub trait CheckHeader {
+    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool;
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct RawPacket {
     bytes: Vec<u8>,
@@ -36,6 +40,10 @@ impl RawPacket {
 
     pub fn is_obsolete(&self, timeout: Duration) -> bool {
         self.timestamp.elapsed() > timeout || self.used
+    }
+
+    pub fn check_header<H: CheckHeader>(&self) -> bool {
+        H::has_valid_header(self.bytes.iter().copied())
     }
 
     /// Decodes the packet into the given type.
@@ -70,7 +78,7 @@ pub trait Connection {
         -> impl Future<Output = Result<(), Self::Error>>;
 
     /// Receives a packet.
-    fn receive_packet<P: Decode>(
+    fn receive_packet<P: Decode + CheckHeader>(
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, Self::Error>>;
@@ -94,7 +102,7 @@ pub trait Connection {
     /// # Note
     ///
     /// This function will fail immediately if the given packet fails to encode.
-    async fn packet_handshake<D: Decode>(
+    async fn packet_handshake<D: Decode + CheckHeader>(
         &mut self,
         timeout: Duration,
         retries: usize,

@@ -1,9 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
-    varint::VarU16,
+    connection, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, varint::VarU16
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -93,6 +91,21 @@ impl<const ID: u8, P: Decode> Decode for CdcReplyPacket<ID, P> {
             payload_size,
             payload,
         })
+    }
+}
+
+impl<const ID: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<ID, P> {
+    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
+        let mut data = data.into_iter();
+        if <[u8; 2] as Decode>::decode(&mut data).map(|header| header != HOST_BOUND_HEADER).unwrap_or(true) {
+            return false
+        } 
+
+        if u8::decode(&mut data).map(|id| id != ID).unwrap_or(true) {
+            return false
+        }
+
+        true
     }
 }
 

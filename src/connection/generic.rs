@@ -8,7 +8,7 @@ use futures::{try_join, TryFutureExt};
 use std::time::Duration;
 use thiserror::Error;
 
-use super::{bluetooth::BluetoothError, serial::SerialError};
+use super::{bluetooth::BluetoothError, serial::SerialError, CheckHeader};
 
 pub enum GenericConnection {
     Bluetooth(bluetooth::BluetoothConnection),
@@ -32,7 +32,7 @@ impl Connection for GenericConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode>(
+    async fn receive_packet<P: Decode + CheckHeader>(
         &mut self,
         timeout: std::time::Duration,
     ) -> Result<P, GenericError> {

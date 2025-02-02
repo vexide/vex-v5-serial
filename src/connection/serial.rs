@@ -11,7 +11,7 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 
-use super::{Connection, ConnectionType};
+use super::{CheckHeader, Connection, ConnectionType};
 use crate::{
     connection::{trim_packets, RawPacket},
     decode::{Decode, DecodeError},
@@ -484,15 +484,24 @@ impl Connection for SerialConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode>(&mut self, timeout: Duration) -> Result<P, SerialError> {
+    async fn receive_packet<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
-                        if let Ok(decoded) = packet.decode_and_use::<P>() {
-                            trim_packets(&mut self.incoming_packets);
-                            return Ok(decoded);
+                        if packet.check_header::<P>() {
+                            match packet.decode_and_use::<P>() {
+                                Ok(decoded) => {
+                                    trim_packets(&mut self.incoming_packets);
+                                    return Ok(decoded);
+                                }
+                                Err(e) => {
+                                    error!("Failed to decode packet with valid header: {}", e);
+                                    return Err(SerialError::DecodeError(e));
+                                    packet.used = true;
+                                }
+                            }
                         }
                     }
                     trim_packets(&mut self.incoming_packets);

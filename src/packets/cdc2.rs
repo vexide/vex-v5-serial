@@ -1,10 +1,7 @@
 use thiserror::Error;
 
 use crate::{
-    crc::VEX_CRC16,
-    decode::SizedDecode,
-    encode::{Encode, EncodeError},
-    varint::VarU16,
+    connection, crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -182,7 +179,7 @@ pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: SizedDecode> {
     pub crc: u16,
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {    
     pub fn try_into_inner(self) -> Result<P, Cdc2Ack> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.payload)
@@ -214,7 +211,7 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
 
         let ack = Cdc2Ack::decode(&mut data)?;
 
-        let payload = P::sized_decode(&mut data, payload_size.into())?;
+        let payload = P::sized_decode(&mut data, payload_size)?;
         let crc = u16::decode(&mut data)?;
 
         Ok(Self {
@@ -224,6 +221,33 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
             payload,
             crc,
         })
+    }
+}
+
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> connection::CheckHeader for Cdc2ReplyPacket<ID, EXT_ID, P> {
+    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
+        let mut data = data.into_iter();
+        let header: Result<[u8; 2], _> = Decode::decode(&mut data);
+        if header.map(|header| header != HOST_BOUND_HEADER).unwrap_or(true) {
+            return false;
+        }
+
+        let id = u8::decode(&mut data);
+        if id.map(|id| id != ID).unwrap_or(true) {
+            return false;
+        }
+
+        let payload_size = u16::decode(&mut data);
+        if payload_size.is_err() {
+            return false;
+        }
+
+        let ext_id = u8::decode(&mut data);
+        if ext_id.map(|ext_id| ext_id != EXT_ID).unwrap_or(true) {
+            return false;
+        }
+
+        true
     }
 }
 
