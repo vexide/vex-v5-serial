@@ -498,10 +498,12 @@ impl Connection for SerialConnection {
                                 }
                                 Err(e) => {
                                     error!("Failed to decode packet with valid header: {}", e);
-                                    return Err(SerialError::DecodeError(e));
                                     packet.used = true;
+                                    return Err(SerialError::DecodeError(e));
                                 }
                             }
+                        } else {
+                            warn!("Skipping packet with invalid header.");
                         }
                     }
                     trim_packets(&mut self.incoming_packets);

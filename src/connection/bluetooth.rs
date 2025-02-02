@@ -285,6 +285,8 @@ impl Connection for BluetoothConnection {
                                     return Err(BluetoothError::DecodeError(e));
                                 }
                             }
+                        } else {
+                            warn!("Skipping packet with invalid header.");
                         }
                     }
                     trim_packets(&mut self.incoming_packets);
