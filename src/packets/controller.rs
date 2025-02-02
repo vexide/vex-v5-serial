@@ -8,7 +8,7 @@ use crate::{
 pub type UserFifoPacket = Cdc2CommandPacket<86, 39, UserFifoPayload>;
 pub type UserFifoReplyPacket = Cdc2ReplyPacket<86, 39, UserFifoReplyPayload>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UserFifoPayload {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,
@@ -31,7 +31,7 @@ impl Encode for UserFifoPayload {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UserFifoReplyPayload {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,

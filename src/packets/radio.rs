@@ -5,6 +5,7 @@ use super::{
     Decode,
 };
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct RadioStatus {
     /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
     pub device: u8,
@@ -38,7 +39,7 @@ pub type GetRadioStatusPacket = Cdc2CommandPacket<86, 38, ()>;
 pub type GetRadioStatusReplyPacket = Cdc2ReplyPacket<86, 38, RadioStatus>;
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum RadioChannel {
     // NOTE: There's probably a secret third channel for matches, but that's not known.
     /// Used when controlling the robot outside of a competition match.
@@ -57,7 +58,7 @@ impl Encode for RadioChannel {
 pub type SelectRadioChannelPacket = Cdc2CommandPacket<86, 16, SelectRadioChannelPayload>;
 pub type SelectRadioChannelReplyPacket = Cdc2ReplyPacket<86, 16, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SelectRadioChannelPayload {
     pub channel: RadioChannel,
 }

@@ -7,6 +7,7 @@ use crate::{
     encode::{Encode, EncodeError},
 };
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Slot {
     /// The number in the file icon: 'USER???x.bmp'.
     pub icon_number: u16,
@@ -31,7 +32,7 @@ impl Decode for Slot {
 pub type GetProgramInfoPacket = Cdc2CommandPacket<86, 28, GetProgramInfoPayload>;
 pub type GetProgramInfoReplyPacket = Cdc2ReplyPacket<86, 28, GetProgramInfoReplyPayload>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetProgramInfoPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -49,6 +50,7 @@ impl Encode for GetProgramInfoPayload {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetProgramInfoReplyPayload {
     /// A zero-based slot number.
     pub slot: u8,

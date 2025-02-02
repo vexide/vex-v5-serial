@@ -42,6 +42,7 @@ impl Decode for Log {
 pub type GetLogCountPacket = Cdc2CommandPacket<86, 36, ()>;
 pub type GetLogCountReplyPacket = Cdc2ReplyPacket<86, 36, GetLogCountReplyPayload>;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetLogCountReplyPayload {
     pub unknown: u8,
     pub count: u32,
@@ -59,7 +60,7 @@ impl Decode for GetLogCountReplyPayload {
 pub type ReadLogPagePacket = Cdc2CommandPacket<86, 37, ReadLogPagePayload>;
 pub type ReadLogPageReplyPacket = Cdc2ReplyPacket<86, 37, ReadLogPageReplyPayload>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ReadLogPagePayload {
     pub offset: u32,
     pub count: u32,

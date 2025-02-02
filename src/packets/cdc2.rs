@@ -12,7 +12,7 @@ use crate::decode::{Decode, DecodeError};
 
 /// CDC2 Packet Acknowledgement Codes
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, Error)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum Cdc2Ack {
     /// Acknowledges that a packet has been received successfully.
     #[error("Packet was recieved successfully. Wait, how'd this happen??")]

@@ -15,21 +15,21 @@ use crate::{
 };
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileInitAction {
     Write = 1,
     Read = 2,
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileInitOption {
     None = 0,
     Overwrite = 1,
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileTransferTarget {
     Ddr = 0,
     Qspi = 1,
@@ -45,7 +45,7 @@ pub enum FileTransferTarget {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileVendor {
     User = 1,
     Sys = 15,
@@ -170,7 +170,7 @@ impl Decode for FileMetadata {
 pub type InitFileTransferPacket = Cdc2CommandPacket<86, 17, InitFileTransferPayload>;
 pub type InitFileTransferReplyPacket = Cdc2ReplyPacket<86, 17, InitFileTransferReplyPayload>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct InitFileTransferPayload {
     pub operation: FileInitAction,
     pub target: FileTransferTarget,
@@ -201,6 +201,7 @@ impl Encode for InitFileTransferPayload {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct InitFileTransferReplyPayload {
     /// The amount of receive data (in bytes) that can be sent in every packet.
     pub window_size: u16,
@@ -237,7 +238,7 @@ pub type ExitFileTransferReplyPacket = Cdc2ReplyPacket<86, 18, ()>;
 
 /// The action to run when a file transfer is completed.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileExitAction {
     DoNothing = 0,
     RunProgram = 1,
@@ -253,7 +254,7 @@ impl Encode for FileExitAction {
 pub type WriteFilePacket = Cdc2CommandPacket<86, 19, WriteFilePayload>;
 pub type WriteFileReplyPacket = Cdc2ReplyPacket<86, 19, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WriteFilePayload {
     /// Memory address to write to.
     pub address: i32,
@@ -277,7 +278,7 @@ pub type ReadFilePacket = Cdc2CommandPacket<86, 20, ReadFilePayload>;
 /// Returns the file content. This packet doesn't have an ack if the data is available.
 pub type ReadFileReplyPacket = CdcReplyPacket<86, ReadFileReplyPayload>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ReadFilePayload {
     /// Memory address to read from.
     pub address: u32,
@@ -294,6 +295,7 @@ impl Encode for ReadFilePayload {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ReadFileReplyContents {
     Failure {
         nack: Cdc2Ack,
@@ -361,6 +363,7 @@ impl Decode for ReadFileReplyContents {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ReadFileReplyPayload {
     pub contents: ReadFileReplyContents,
 }
@@ -400,7 +403,7 @@ impl ReadFileReplyPayload {
 pub type LinkFilePacket = Cdc2CommandPacket<86, 21, LinkFilePayload>;
 pub type LinkFileReplyPacket = Cdc2ReplyPacket<86, 21, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LinkFilePayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -420,7 +423,7 @@ impl Encode for LinkFilePayload {
 pub type GetDirectoryFileCountPacket = Cdc2CommandPacket<86, 22, GetDirectoryFileCountPayload>;
 pub type GetDirectoryFileCountReplyPacket = Cdc2ReplyPacket<86, 22, u16>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetDirectoryFileCountPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -436,7 +439,7 @@ pub type GetDirectoryEntryPacket = Cdc2CommandPacket<86, 23, GetDirectoryEntryPa
 pub type GetDirectoryEntryReplyPacket =
     Cdc2ReplyPacket<86, 23, Option<GetDirectoryEntryReplyPayload>>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetDirectoryEntryPayload {
     pub file_index: u8,
     /// 0 = default. (RESEARCH NEEDED)
@@ -496,7 +499,7 @@ impl Decode for GetDirectoryEntryReplyPayload {
 pub type LoadFileActionPacket = Cdc2CommandPacket<86, 24, LoadFileActionPayload>;
 pub type LoadFileActionReplyPacket = Cdc2ReplyPacket<86, 24, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LoadFileActionPayload {
     pub vendor: FileVendor,
     pub action: FileLoadAction,
@@ -514,7 +517,7 @@ impl Encode for LoadFileActionPayload {
 pub type GetFileMetadataPacket = Cdc2CommandPacket<86, 25, GetFileMetadataPayload>;
 pub type GetFileMetadataReplyPacket = Cdc2ReplyPacket<86, 25, Option<GetFileMetadataReplyPayload>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -531,6 +534,7 @@ impl Encode for GetFileMetadataPayload {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetFileMetadataReplyPayload {
     /// RESEARCH NEEDED: Unknown what this is if there is no link to the file.
     pub linked_vendor: Option<FileVendor>,
@@ -582,7 +586,7 @@ impl Decode for Option<GetFileMetadataReplyPayload> {
 pub type SetFileMetadataPacket = Cdc2CommandPacket<86, 26, SetFileMetadataPayload>;
 pub type SetFileMetadataReplyPacket = Cdc2ReplyPacket<86, 26, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SetFileMetadataPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -605,7 +609,7 @@ impl Encode for SetFileMetadataPayload {
 pub type EraseFilePacket = Cdc2CommandPacket<86, 27, EraseFilePayload>;
 pub type EraseFileReplyPacket = Cdc2ReplyPacket<86, 27, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EraseFilePayload {
     pub vendor: FileVendor,
     /// 128 = default. (RESEARCH NEEDED)
@@ -624,7 +628,7 @@ impl Encode for EraseFilePayload {
 pub type FileCleanUpPacket = Cdc2CommandPacket<86, 30, FileCleanUpPayload>;
 pub type FileCleanUpReplyPacket = Cdc2CommandPacket<86, 30, FileCleanUpResult>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileCleanUpPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
@@ -637,7 +641,7 @@ impl Encode for FileCleanUpPayload {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// (RESEARCH NEEDED)
 pub enum FileCleanUpResult {
     /// No file deleted
@@ -676,7 +680,7 @@ impl Decode for FileCleanUpResult {
 pub type FileFormatPacket = Cdc2CommandPacket<86, 31, FileFormatConfirmation>;
 pub type FileFormatReplyPacket = Cdc2CommandPacket<86, 31, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileFormatConfirmation {
     /// Must be [0x44, 0x43, 0x42, 0x41].
     pub confirmation_code: [u8; 4],

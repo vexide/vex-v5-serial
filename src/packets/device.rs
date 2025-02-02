@@ -81,6 +81,7 @@ impl Decode for DeviceType {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DeviceStatus {
     /// 1-indexed smart port number. Port 22 is the internal ADI expander and Port 23 is the battery.
     pub port: u8,
@@ -117,6 +118,7 @@ impl Decode for DeviceStatus {
 pub type GetDeviceStatusPacket = Cdc2CommandPacket<86, 33, ()>;
 pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<86, 33, GetDeviceStatusReplyPayload>;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetDeviceStatusReplyPayload {
     /// Number of elements in the following array.
     pub count: u8,

@@ -6,6 +6,7 @@ use crate::{
     encode::{Encode, EncodeError},
 };
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FdtStatus {
     pub count: u8,
     pub files: Vec<Fdt>,
@@ -22,6 +23,7 @@ impl Decode for FdtStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Fdt {
     pub index: u8,
     pub fdt_type: u8,
@@ -51,6 +53,7 @@ impl Decode for Fdt {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryStatus {
     pub status: u8,
     pub percent: u8,
@@ -73,7 +76,7 @@ pub type GetFactoryStatusReplyPacket = Cdc2ReplyPacket<86, 241, FactoryStatus>;
 pub type FactoryEnablePacket = Cdc2CommandPacket<86, 255, FactoryEnablePayload>;
 pub type FactoryEnableReplyPacket = Cdc2ReplyPacket<86, 255, ()>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryEnablePayload(pub [u8; 4]);
 impl Encode for FactoryEnablePayload {
     fn encode(&self) -> Result<Vec<u8>, EncodeError> {

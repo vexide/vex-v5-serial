@@ -9,7 +9,7 @@ use crate::{
 use bitflags::bitflags;
 
 #[repr(u16)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ProductType {
     Brain = 0x10,
     Controller = 0x11,
@@ -31,7 +31,7 @@ impl Decode for ProductType {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     pub struct ProductFlags: u8 {
         /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
         const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
@@ -89,6 +89,7 @@ impl Decode for SystemFlags {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemStatus {
     pub unknown: u8,
     pub system_version: Version,
@@ -130,6 +131,7 @@ impl Decode for SystemStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemDetails {
     pub unique_id: u32,
 
@@ -192,7 +194,7 @@ pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<86, 34, SystemStatus>;
 pub type GetSystemVersionPacket = CdcCommandPacket<164, ()>;
 pub type GetSystemVersionReplyPacket = CdcReplyPacket<164, GetSystemVersionReplyPayload>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetSystemVersionReplyPayload {
     pub version: Version,
     pub product_type: ProductType,
@@ -216,6 +218,7 @@ impl Decode for GetSystemVersionReplyPayload {
 pub type Query1Packet = CdcCommandPacket<33, ()>;
 pub type Query1ReplyPacket = CdcReplyPacket<33, Query1ReplyPayload>;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Query1ReplyPayload {
     pub unknown_1: [u8; 4],
     /// bytes 0-3 unknown
@@ -227,4 +230,30 @@ pub struct Query1ReplyPayload {
     pub unknown_2: [u8; 2], // bytes 8 and 9 unknown
     pub bootload_flag_1: u8,
     pub bootload_flag_2: u8,
+}
+
+impl Decode for Query1ReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let unknown_1 = <[u8; 4]>::decode(&mut data)?;
+        let joystick_flag_1 = u8::decode(&mut data)?;
+        let joystick_flag_2 = u8::decode(&mut data)?;
+        let brain_flag_1 = u8::decode(&mut data)?;
+        let brain_flag_2 = u8::decode(&mut data)?;
+        let unknown_2 = <[u8; 2]>::decode(&mut data)?;
+        let bootload_flag_1 = u8::decode(&mut data)?;
+        let bootload_flag_2 = u8::decode(&mut data)?;
+
+        Ok(Self {
+            unknown_1,
+            joystick_flag_1,
+            joystick_flag_2,
+            brain_flag_1,
+            brain_flag_2,
+            unknown_2,
+            bootload_flag_1,
+            bootload_flag_2,
+        })
+    }
 }

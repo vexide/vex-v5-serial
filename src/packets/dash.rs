@@ -2,7 +2,7 @@ use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
 use crate::encode::{Encode, EncodeError};
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum DashScreen {
     Home = 0,
     Battery = 1,
@@ -45,7 +45,7 @@ pub enum DashScreen {
 pub type SendDashTouchPacket = Cdc2CommandPacket<86, 42, SendDashTouchPayload>;
 pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<86, 42, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SendDashTouchPayload {
     pub x: u16,
     pub y: u16,
@@ -65,7 +65,7 @@ impl Encode for SendDashTouchPayload {
 pub type SelectDashPacket = Cdc2CommandPacket<86, 43, SelectDashPayload>;
 pub type SelectDashReplyPacket = Cdc2ReplyPacket<86, 43, ()>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SelectDashPayload {
     pub screen: DashScreen,
     /// (RESEARCH NEEDED)
