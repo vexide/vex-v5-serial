@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// A string with a maximum capacity of `len <= N`.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
 pub struct FixedString<const N: usize>(String);
 
 impl<const N: usize> FixedString<N> {
@@ -18,6 +18,9 @@ impl<const N: usize> FixedString<N> {
         Ok(Self(string))
     }
 
+    /// # Safety
+    /// 
+    /// This function is unsafe because it does not check if the string is longer than the maximum length.
     pub unsafe fn new_unchecked(string: String) -> Self {
         Self(string)
     }

@@ -19,7 +19,7 @@ pub mod generic;
 #[cfg(feature = "serial")]
 pub mod serial;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawPacket {
     bytes: Vec<u8>,
     used: bool,
