@@ -502,8 +502,6 @@ impl Connection for SerialConnection {
                                     return Err(SerialError::DecodeError(e));
                                 }
                             }
-                        } else {
-                            warn!("Skipping packet with invalid header.");
                         }
                     }
                     trim_packets(&mut self.incoming_packets);
