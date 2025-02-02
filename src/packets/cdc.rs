@@ -128,3 +128,15 @@ impl<const ID: u8, P: Decode + Clone> Clone for CdcReplyPacket<ID, P> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::packets::file::ReadFileReplyPacket;
+    use crate::connection::CheckHeader;
+
+    #[test]
+    fn has_valid_header_success() {
+        let data: &[u8] = &[0xaa, 0x55, 0x56, 0x7, 0x14, 0xd4, 0xff, 0xff, 0xff, 0xca, 0x3d];
+        assert!(ReadFileReplyPacket::has_valid_header(data.iter().cloned()));
+    }
+}

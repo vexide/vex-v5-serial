@@ -5,14 +5,13 @@ use vex_v5_serial::{
     connection::{
         serial::{self, SerialError},
         Connection,
-    },
-    packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket},
+    }, packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket}
 };
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
-        log::LevelFilter::Info,
+        log::LevelFilter::Debug,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,

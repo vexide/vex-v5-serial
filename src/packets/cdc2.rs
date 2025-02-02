@@ -3,7 +3,11 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 use crate::{
-    connection, crc::VEX_CRC16, decode::SizedDecode, encode::{Encode, EncodeError}, varint::VarU16
+    connection,
+    crc::VEX_CRC16,
+    decode::SizedDecode,
+    encode::{Encode, EncodeError},
+    varint::VarU16,
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -183,7 +187,7 @@ pub struct Cdc2ReplyPacket<const ID: u8, const EXT_ID: u8, P: SizedDecode> {
     pub crc: u16,
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {    
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Cdc2ReplyPacket<ID, EXT_ID, P> {
     pub fn try_into_inner(self) -> Result<P, Cdc2Ack> {
         if let Cdc2Ack::Ack = self.ack {
             Ok(self.payload)
@@ -228,26 +232,31 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
     }
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> connection::CheckHeader for Cdc2ReplyPacket<ID, EXT_ID, P> {
+impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> connection::CheckHeader
+    for Cdc2ReplyPacket<ID, EXT_ID, P>
+{
     fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
         let mut data = data.into_iter();
-        let header: Result<[u8; 2], _> = Decode::decode(&mut data);
-        if header.map(|header| header != HOST_BOUND_HEADER).unwrap_or(true) {
+        if <[u8; 2] as Decode>::decode(&mut data)
+            .map(|header| header != HOST_BOUND_HEADER)
+            .unwrap_or(true)
+        {
             return false;
         }
 
-        let id = u8::decode(&mut data);
-        if id.map(|id| id != ID).unwrap_or(true) {
+        if u8::decode(&mut data).map(|id| id != ID).unwrap_or(true) {
             return false;
         }
 
-        let payload_size = u16::decode(&mut data);
+        let payload_size = VarU16::decode(&mut data);
         if payload_size.is_err() {
             return false;
         }
 
-        let ext_id = u8::decode(&mut data);
-        if ext_id.map(|ext_id| ext_id != EXT_ID).unwrap_or(true) {
+        if u8::decode(&mut data)
+            .map(|ext_id| ext_id != EXT_ID)
+            .unwrap_or(true)
+        {
             return false;
         }
 
@@ -276,5 +285,22 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode + Debug> Debug for Cdc2ReplyPacke
             .field("payload", &self.payload)
             .field("crc", &self.crc)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::connection::CheckHeader;
+    use crate::packets::device::GetDeviceStatusReplyPacket;
+
+    #[test]
+    fn has_valid_header_success() {
+        let data: &[u8] = &[
+            0xaa, 0x55, 0x56, 0x15, 0x21, 0x76, 0x2, 0x16, 0xc, 0, 0xb, 0, 0x40, 0x1, 0x40, 0x17,
+            0xe, 0, 0x19, 0x1, 0x40, 0x6, 0x40, 0x23, 0x87,
+        ];
+        assert!(GetDeviceStatusReplyPacket::has_valid_header(
+            data.iter().cloned()
+        ));
     }
 }

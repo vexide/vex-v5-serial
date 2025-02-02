@@ -43,7 +43,7 @@ impl RawPacket {
     }
 
     pub fn check_header<H: CheckHeader>(&self) -> bool {
-        H::has_valid_header(self.bytes.iter().copied())
+        H::has_valid_header(self.bytes.clone())
     }
 
     /// Decodes the packet into the given type.
