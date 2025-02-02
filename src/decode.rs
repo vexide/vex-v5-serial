@@ -1,7 +1,7 @@
 use std::str::Utf8Error;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     #[error("Packet too short")]
     PacketTooShort,
@@ -86,7 +86,7 @@ impl Decode for i32 {
 }
 impl<D: Decode> Decode for Option<D> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        Ok(D::decode(data).map(|decoded| Some(decoded))?)
+        D::decode(data).map(|decoded| Some(decoded))
     }
 }
 impl<D: Decode + Default, const N: usize> Decode for [D; N] {

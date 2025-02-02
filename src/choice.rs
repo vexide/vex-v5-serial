@@ -2,6 +2,7 @@ use crate::decode::Decode;
 
 /// A struct that allows for attempting to decode two different types and returning the successful one.
 /// If neither are successful, an error is returned.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Choice<L: Decode, R: Decode> {
     /// The left choice was decoded successfully and the right choice was not.
     Left(L),

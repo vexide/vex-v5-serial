@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use thiserror::Error;
 
 use crate::{
@@ -118,6 +120,7 @@ impl Decode for Cdc2Ack {
     }
 }
 
+#[derive(Clone)]
 pub struct Cdc2CommandPacket<const ID: u8, const EXT_ID: u8, P: Encode> {
     header: [u8; 4],
     payload: P,
@@ -161,13 +164,14 @@ impl<const ID: u8, const EXT_ID: u8, P: Encode> Encode for Cdc2CommandPacket<ID,
     }
 }
 
-impl<const ID: u8, const EXT_ID: u8, P: Encode + Clone> Clone for Cdc2CommandPacket<ID, EXT_ID, P> {
-    fn clone(&self) -> Self {
-        Self {
-            header: DEVICE_BOUND_HEADER,
-            payload: self.payload.clone(),
-            crc: self.crc.clone(),
-        }
+impl<P: Encode + Debug, const ID: u8, const EXTENDED_ID: u8> Debug
+    for Cdc2CommandPacket<ID, EXTENDED_ID, P>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(std::any::type_name::<Self>())
+            .field("header", &self.header)
+            .field("payload", &self.payload)
+            .finish_non_exhaustive()
     }
 }
 
@@ -260,5 +264,17 @@ impl<const ID: u8, const EXT_ID: u8, P: Decode + Clone> Clone for Cdc2ReplyPacke
             payload: self.payload.clone(),
             crc: self.crc,
         }
+    }
+}
+
+impl<const ID: u8, const EXT_ID: u8, P: Decode + Debug> Debug for Cdc2ReplyPacket<ID, EXT_ID, P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(std::any::type_name::<Self>())
+            .field("header", &self.header)
+            .field("ack", &self.ack)
+            .field("payload_size", &self.payload_size)
+            .field("payload", &self.payload)
+            .field("crc", &self.crc)
+            .finish()
     }
 }

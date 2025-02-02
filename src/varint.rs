@@ -5,7 +5,7 @@ use crate::encode::{Encode, EncodeError};
 
 /// Variable-width u16 type.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VarU16(u16);
 impl VarU16 {
     /// Creates a new variable length u16.

@@ -64,6 +64,7 @@ pub type GetSlot1To4InfoReplyPacket = Cdc2CommandPacket<86, 49, SlotInfoPayload>
 pub type GetSlot5To8InfoPacket = Cdc2CommandPacket<86, 50, ()>;
 pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<86, 50, SlotInfoPayload>;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SlotInfoPayload {
     /// Bit Mask.
     ///
