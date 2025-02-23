@@ -98,7 +98,10 @@ pub enum ExtensionType {
     #[default]
     Binary = 0x0,
 
-    /// Unknown use
+    /// A file which depends on a VM.
+    /// 
+    /// This is the file type used for VEXCode Python bin uploads, since they need the
+    /// Python VM to function.
     Vm = 0x61,
 
     /// File's contents is encrypted.
