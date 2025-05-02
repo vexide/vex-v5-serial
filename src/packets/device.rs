@@ -1,5 +1,5 @@
 use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::decode::{Decode, DecodeError, SizedDecode};
+use crate::decode::{Decode, DecodeError, DecodeErrorKind, SizedDecode};
 
 // This is copied from vex-sdk
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -69,13 +69,13 @@ impl Decode for DeviceType {
             129 => DeviceType::GenericSerial,
             255 => DeviceType::UndefinedSensor,
             _ => {
-                return Err(DecodeError::UnexpectedValue {
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                     value,
                     expected: &[
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
                         29, 30, 0x40, 0x46, 0x47, 128, 129, 255,
                     ],
-                })
+                }))
             }
         })
     }

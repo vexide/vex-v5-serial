@@ -62,7 +62,7 @@ impl SizedDecode for UserFifoReplyPayload {
                     utf8.push(byte);
                 }
 
-                std::str::from_utf8(&utf8)?.to_string()
+                std::str::from_utf8(&utf8).map_err(|e| DecodeError::new::<Self>(e.into()))?.to_string()
             })
         } else {
             None

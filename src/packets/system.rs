@@ -3,7 +3,7 @@ use super::{
     cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
 };
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, DecodeErrorKind},
     version::Version,
 };
 use bitflags::bitflags;
@@ -22,10 +22,10 @@ impl Decode for ProductType {
         match val {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                 value: v,
                 expected: &[0x10, 0x11],
-            }),
+            })),
         }
     }
 }

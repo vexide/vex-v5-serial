@@ -165,7 +165,7 @@ pub enum GenericError {
     BluetoothError(#[from] BluetoothError),
     #[error("Packet encoding error: {0}")]
     EncodeError(#[from] EncodeError),
-    #[error("Packet decoding error: {0}")]
+    #[error("Packet decoding error: {0:?}")]
     DecodeError(#[from] DecodeError),
     #[error("NACK received: {0:?}")]
     Nack(#[from] Cdc2Ack),

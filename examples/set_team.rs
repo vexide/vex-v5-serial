@@ -49,7 +49,7 @@ async fn main() -> Result<(), SerialError> {
         .await?
         .try_into_inner()?;
 
-    println!("{:?}", res);
+    println!("{res:?}");
 
     Ok(())
 }

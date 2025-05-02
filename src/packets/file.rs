@@ -1,6 +1,6 @@
 //! Filesystem Access
 
-use std::{vec, str};
+use std::{str, vec};
 
 use super::{
     cdc::CdcReplyPacket,
@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     choice::{Choice, PrefferedChoice},
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError, DecodeErrorKind, SizedDecode},
     encode::{Encode, EncodeError},
     string::FixedString,
     version::Version,
@@ -74,12 +74,12 @@ impl Decode for FileVendor {
             64 => Ok(Self::VexVm),
             240 => Ok(Self::Vex),
             241 => Ok(Self::Undefined),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                 value: v,
                 expected: &[
                     0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
                 ],
-            }),
+            })),
         }
     }
 }
@@ -115,10 +115,10 @@ impl Decode for ExtensionType {
             0x61 => Self::Vm,
             0x73 => Self::EncryptedBinary,
             unknown => {
-                return Err(DecodeError::UnexpectedValue {
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                     value: unknown,
                     expected: &[0x0],
-                })
+                }))
             }
         })
     }
@@ -156,7 +156,9 @@ impl Decode for FileMetadata {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
                 FixedString::new_unchecked(
-                    str::from_utf8(&<[u8; 3]>::decode(&mut data)?)?.to_string(),
+                    str::from_utf8(&<[u8; 3]>::decode(&mut data)?)
+                        .map_err(|e| DecodeError::new::<Self>(e.into()))?
+                        .to_string(),
                 )
             },
             extension_type: Decode::decode(&mut data).unwrap(),
@@ -375,10 +377,10 @@ impl Decode for ReadFileReplyPayload {
         let mut data = data.into_iter();
         let id = u8::decode(&mut data)?;
         if id != 0x14 {
-            return Err(DecodeError::UnexpectedValue {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                 value: id,
                 expected: &[0x14],
-            });
+            }));
         }
         let contents = ReadFileReplyContents::decode(&mut data)?;
         Ok(Self { contents })
@@ -560,7 +562,7 @@ impl Decode for Option<GetFileMetadataReplyPayload> {
         };
 
         let size = u32::decode(&mut data)?;
-        
+
         // This happens when we try to read a system file from the
         // `/vex_/*` VID. In this case, all of bytes after the vendor
         // will be returned as 0xff or 0x0, making this packet useless,
@@ -668,10 +670,10 @@ impl Decode for FileCleanUpResult {
             2 => Ok(Self::LinkedFiles),
             3 => Ok(Self::AllFilesAfterRestart),
             4 => Ok(Self::LinkedFilesAfterRestart),
-            value => Err(DecodeError::UnexpectedValue {
+            value => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                 value,
                 expected: &[0x00, 0x01, 0x02, 0x03, 0x04],
-            }),
+            })),
         }
     }
 }

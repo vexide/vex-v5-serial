@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::{
     connection,
     crc::VEX_CRC16,
-    decode::SizedDecode,
+    decode::{DecodeErrorKind, SizedDecode},
     encode::{Encode, EncodeError},
     varint::VarU16,
 };
@@ -113,13 +113,13 @@ impl Decode for Cdc2Ack {
             0xDC => Ok(Self::NackFileStorageFull),
             0x00 => Ok(Self::Timeout),
             0x01 => Ok(Self::WriteError),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedValue {
                 value: v,
                 expected: &[
                     0x76, 0xFF, 0xCE, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9,
                     0xDA, 0xDB, 0xDC, 0x00, 0x01,
                 ],
-            }),
+            })),
         }
     }
 }
@@ -202,19 +202,19 @@ impl<const ID: u8, const EXT_ID: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<
         let mut data = data.into_iter();
         let header = Decode::decode(&mut data)?;
         if header != HOST_BOUND_HEADER {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
 
         let id = u8::decode(&mut data)?;
         if id != ID {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
 
         let payload_size = VarU16::decode(&mut data)?.into_inner();
 
         let ext_id = u8::decode(&mut data)?;
         if ext_id != EXT_ID {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
 
         let ack = Cdc2Ack::decode(&mut data)?;

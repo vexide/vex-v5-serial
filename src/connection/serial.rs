@@ -14,7 +14,7 @@ use tokio_serial::SerialStream;
 use super::{CheckHeader, Connection, ConnectionType};
 use crate::{
     connection::{trim_packets, RawPacket},
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, DecodeErrorKind},
     encode::{Encode, EncodeError},
     packets::{
         cdc2::Cdc2Ack,
@@ -102,7 +102,7 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                             port_info: port.clone(),
                             port_type: VexSerialPortType::User,
                         })},
-                        _ => warn!("Unknown location for V5 device: {}", location),
+                        _ => warn!("Unknown location for V5 device: {location}"),
                     }
                 }
             }
@@ -159,7 +159,7 @@ fn types_by_name_darwin(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> 
                 });
             }
             _ => {
-                warn!("Unknown location for V5 device: {}", interface);
+                warn!("Unknown location for V5 device: {interface}");
             }
         }
     }
@@ -349,8 +349,11 @@ impl SerialDevice {
 fn decode_header(data: impl IntoIterator<Item = u8>) -> Result<[u8; 2], DecodeError> {
     let mut data = data.into_iter();
     let header = Decode::decode(&mut data)?;
+
+    struct PacketHeader;
+
     if header != HOST_BOUND_HEADER {
-        return Err(DecodeError::InvalidHeader);
+        return Err(DecodeError::new::<PacketHeader>(DecodeErrorKind::InvalidHeader));
     }
     Ok(header)
 }
@@ -408,8 +411,7 @@ impl SerialConnection {
         // Verify that the header is valid
         if let Err(e) = decode_header(header) {
             warn!(
-                "Skipping packet with invalid header: {:x?}. Error: {}",
-                header, e
+                "Skipping packet with invalid header: {header:x?}. Error: {e:?}"
             );
             return Ok(());
         }
@@ -444,7 +446,7 @@ impl SerialConnection {
         // Completely fill the packet
         packet.extend(payload);
 
-        debug!("received packet: {:x?}", packet);
+        debug!("received packet: {packet:x?}");
 
         // Push the packet to the incoming packets buffer
         self.incoming_packets.push(RawPacket::new(packet));
@@ -468,7 +470,7 @@ impl Connection for SerialConnection {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        trace!("Sending packet: {:x?}", encoded);
+        trace!("Sending packet: {encoded:x?}");
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {
@@ -497,7 +499,7 @@ impl Connection for SerialConnection {
                                     return Ok(decoded);
                                 }
                                 Err(e) => {
-                                    error!("Failed to decode packet with valid header: {}", e);
+                                    error!("Failed to decode packet with valid header: {e:?}");
                                     packet.used = true;
                                     return Err(SerialError::DecodeError(e));
                                 }
@@ -577,7 +579,7 @@ pub enum SerialError {
     IoError(#[from] std::io::Error),
     #[error("Packet encoding error: {0}")]
     EncodeError(#[from] EncodeError),
-    #[error("Packet decoding error: {0}")]
+    #[error("Packet decoding error: {0:?}")]
     DecodeError(#[from] DecodeError),
     #[error("Packet timeout")]
     Timeout,

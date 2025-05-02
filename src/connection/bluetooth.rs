@@ -231,7 +231,7 @@ impl BluetoothConnection {
 
             if notification.uuid == CHARACTERISTIC_SYSTEM_TX {
                 let data = notification.value;
-                debug!("Received packet: {:x?}", data);
+                debug!("Received packet: {data:x?}");
                 let packet = RawPacket::new(data);
                 self.incoming_packets.push(packet);
                 break;
@@ -257,7 +257,7 @@ impl Connection for BluetoothConnection {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        trace!("Sending packet: {:x?}", encoded);
+        trace!("Sending packet: {encoded:x?}");
 
         // Write the packet to the system rx characteristic.
         self.peripheral
@@ -280,7 +280,7 @@ impl Connection for BluetoothConnection {
                                     return Ok(decoded);
                                 }
                                 Err(e) => {
-                                    error!("Failed to decode packet with valid header: {}", e);
+                                    error!("Failed to decode packet with valid header: {e:?}");
                                     packet.used = true;
                                     return Err(BluetoothError::DecodeError(e));
                                 }
@@ -310,7 +310,7 @@ pub enum BluetoothError {
     IoError(#[from] std::io::Error),
     #[error("Packet encoding error: {0}")]
     EncodeError(#[from] EncodeError),
-    #[error("Packet decoding error: {0}")]
+    #[error("Packet decoding error: {0:?}")]
     DecodeError(#[from] DecodeError),
     #[error("Packet timeout")]
     Timeout,
