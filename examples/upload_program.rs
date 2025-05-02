@@ -35,7 +35,7 @@ async fn main() -> Result<(), SerialError> {
 
     let callback_generator = |step| {
         Box::new(move |progress| {
-            log::info!("{}: {:.2}%", step, progress);
+            log::info!("{step}: {progress:.2}%");
         })
     };
 

@@ -1,7 +1,7 @@
 use std::{ffi::CStr, fmt::Display, str::FromStr};
 
 use crate::{
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError, DecodeErrorKind, SizedDecode},
     encode::{Encode, EncodeError},
 };
 
@@ -11,7 +11,7 @@ pub struct FixedString<const N: usize>(String);
 
 impl<const N: usize> FixedString<N> {
     pub fn new(string: String) -> Result<Self, EncodeError> {
-        if string.as_bytes().len() > N {
+        if string.len() > N {
             return Err(EncodeError::StringTooLong);
         }
 
@@ -19,7 +19,7 @@ impl<const N: usize> FixedString<N> {
     }
 
     /// # Safety
-    /// 
+    ///
     /// This function is unsafe because it does not check if the string is longer than the maximum length.
     pub unsafe fn new_unchecked(string: String) -> Self {
         Self(string)
@@ -105,7 +105,9 @@ impl SizedDecode for String {
 
             if i == max_size {
                 if byte != 0 {
-                    return Err(DecodeError::UnterminatedString);
+                    return Err(DecodeError::new::<Self>(
+                        DecodeErrorKind::UnterminatedString,
+                    ));
                 }
                 break;
             }
@@ -116,9 +118,12 @@ impl SizedDecode for String {
             *string_byte = byte;
         }
 
-        let cstr =
-            CStr::from_bytes_until_nul(&utf8).map_err(|_| DecodeError::UnterminatedString)?;
+        let cstr = CStr::from_bytes_until_nul(&utf8)
+            .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::UnterminatedString))?;
 
-        Ok(cstr.to_str()?.to_owned())
+        Ok(cstr
+            .to_str()
+            .map_err(|e| DecodeError::new::<Self>(e.into()))?
+            .to_owned())
     }
 }

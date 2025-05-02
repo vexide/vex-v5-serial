@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    connection, decode::{Decode, DecodeError}, encode::{Encode, EncodeError}, varint::VarU16
+    connection, decode::{Decode, DecodeError, DecodeErrorKind}, encode::{Encode, EncodeError}, varint::VarU16
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
@@ -77,11 +77,11 @@ impl<const ID: u8, P: Decode> Decode for CdcReplyPacket<ID, P> {
         let mut data = data.into_iter();
         let header = Decode::decode(&mut data)?;
         if header != HOST_BOUND_HEADER {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
         let id = u8::decode(&mut data)?;
         if id != ID {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
         let payload_size = VarU16::decode(&mut data)?.into_inner();
         let payload = P::decode(data.take(payload_size as usize))?;

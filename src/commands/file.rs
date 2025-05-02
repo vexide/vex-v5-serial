@@ -210,7 +210,7 @@ impl Command for UploadFile<'_> {
         // The maximum packet size is 244 bytes for bluetooth
         let max_chunk_size = max_chunk_size(connection.connection_type(), window_size);
 
-        debug!("max_chunk_size: {}", max_chunk_size);
+        debug!("max_chunk_size: {max_chunk_size}");
 
         let mut offset = 0;
         for chunk in self.data.chunks(max_chunk_size as _) {
@@ -347,7 +347,7 @@ impl Command for UploadProgram<'_> {
 
         connection
             .execute_command(UploadFile {
-                filename: FixedString::new(format!("{}.ini", base_file_name))?,
+                filename: FixedString::new(format!("{base_file_name}.ini"))?,
                 metadata: FileMetadata {
                     extension: FixedString::new("ini".to_string())?,
                     extension_type: ExtensionType::default(),

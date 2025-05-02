@@ -1,4 +1,4 @@
-use crate::decode::Decode;
+use crate::decode::{Decode, DecodeError, DecodeErrorKind};
 
 /// A struct that allows for attempting to decode two different types and returning the successful one.
 /// If neither are successful, an error is returned.
@@ -22,10 +22,10 @@ impl<L: Decode, R: Decode> Decode for Choice<L, R> {
             (Ok(l), Ok(r)) => Ok(Self::Either(l, r)),
             (Ok(l), Err(_)) => Ok(Self::Left(l)),
             (Err(_), Ok(r)) => Ok(Self::Right(r)),
-            (Err(l), Err(r)) => Err(crate::decode::DecodeError::BothChoicesFailed {
+            (Err(l), Err(r)) => Err(DecodeError::new::<Self>(DecodeErrorKind::BothChoicesFailed {
                 left: Box::new(l),
                 right: Box::new(r),
-            }),
+            })),
         }
     }
 }

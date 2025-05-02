@@ -44,7 +44,7 @@ impl Command for ScreenCapture {
                 load_addr: 0,
                 size: 512 * 272 * 4,
                 progress_callback: Some(Box::new(|progress| {
-                    info!("Downloading screen: {:.2}%", progress)
+                    info!("Downloading screen: {progress:.2}%")
                 })),
             })
             .await

@@ -125,8 +125,7 @@ pub trait Connection {
             }
         }
         error!(
-            "Handshake failed after {} retries with error: {:?}",
-            retries, last_error
+            "Handshake failed after {retries} retries with error: {last_error:?}"
         );
         Err(last_error.unwrap())
     }

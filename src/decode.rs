@@ -1,8 +1,24 @@
 use std::str::Utf8Error;
 use thiserror::Error;
 
+#[derive(Debug, Error, PartialEq, Eq)]
+pub struct DecodeError {
+    pub kind: DecodeErrorKind,
+    pub decoded_type: &'static str,
+}
+impl DecodeError {
+    pub fn new<Packet>(kind: DecodeErrorKind) -> Self {
+        Self { kind, decoded_type: std::any::type_name::<Packet>() }
+    }
+}
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DecodeError: {}: {}", self.decoded_type, self.kind)
+    }
+}
+
 #[derive(Error, Debug, PartialEq, Eq)]
-pub enum DecodeError {
+pub enum DecodeErrorKind {
     #[error("Packet too short")]
     PacketTooShort,
     #[error("Invalid response header")]
@@ -13,7 +29,7 @@ pub enum DecodeError {
     InvalidStringContents(#[from] Utf8Error),
     #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
     UnexpectedValue { value: u8, expected: &'static [u8] },
-    #[error("Attempted to decode a choice, but neither choice was successful: left: {left}, right: {right}")]
+    #[error("Attempted to decode a choice, but neither choice was successful: left: {left:?}, right: {right:?}")]
     BothChoicesFailed {
         left: Box<DecodeError>,
         right: Box<DecodeError>,
@@ -48,7 +64,7 @@ impl Decode for () {
 impl Decode for u8 {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
-        data.next().ok_or(DecodeError::PacketTooShort)
+        data.next().ok_or(DecodeError::new::<u8>(DecodeErrorKind::PacketTooShort))
     }
 }
 impl Decode for i8 {
@@ -57,7 +73,7 @@ impl Decode for i8 {
         // This is just a tad silly, but id rather not transmute
         data.next()
             .map(|byte| i8::from_le_bytes([byte]))
-            .ok_or(DecodeError::PacketTooShort)
+            .ok_or(DecodeError::new::<i8>(DecodeErrorKind::PacketTooShort))
     }
 }
 impl Decode for u16 {
