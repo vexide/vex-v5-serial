@@ -31,7 +31,7 @@ pub struct DownloadFile {
     pub file_name: FixedString<23>,
     pub size: u32,
     pub vendor: FileVendor,
-    pub target: Option<FileTransferTarget>,
+    pub target: FileTransferTarget,
     pub load_addr: u32,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
@@ -43,15 +43,13 @@ impl Command for DownloadFile {
         mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
-        let target = self.target.unwrap_or(FileTransferTarget::Qspi);
-
         let transfer_response = connection
             .packet_handshake::<InitFileTransferReplyPacket>(
                 Duration::from_millis(500),
                 5,
                 InitFileTransferPacket::new(InitFileTransferPayload {
                     operation: FileInitAction::Read,
-                    target,
+                    target: self.target,
                     vendor: self.vendor,
                     options: FileInitOption::None,
                     file_size: self.size,
@@ -142,16 +140,16 @@ fn max_chunk_size(_con_type: ConnectionType, window_size: u16) -> u16 {
 }
 
 pub struct LinkedFile {
-    pub filename: FixedString<23>,
-    pub vendor: Option<FileVendor>,
+    pub file_name: FixedString<23>,
+    pub vendor: FileVendor,
 }
 
 pub struct UploadFile<'a> {
-    pub filename: FixedString<23>,
+    pub file_name: FixedString<23>,
     pub metadata: FileMetadata,
-    pub vendor: Option<FileVendor>,
+    pub vendor: FileVendor,
     pub data: Vec<u8>,
-    pub target: Option<FileTransferTarget>,
+    pub target: FileTransferTarget,
     pub load_addr: u32,
     pub linked_file: Option<LinkedFile>,
     pub after_upload: FileExitAction,
@@ -164,10 +162,7 @@ impl Command for UploadFile<'_> {
         mut self,
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
-        debug!("Uploading file: {}", self.filename);
-        let vendor = self.vendor.unwrap_or(FileVendor::User);
-        let target = self.target.unwrap_or(FileTransferTarget::Qspi);
-
+        debug!("Uploading file: {}", self.file_name);
         let crc = VEX_CRC32.checksum(&self.data);
 
         let transfer_response = connection
@@ -176,14 +171,14 @@ impl Command for UploadFile<'_> {
                 5,
                 InitFileTransferPacket::new(InitFileTransferPayload {
                     operation: FileInitAction::Write,
-                    target,
-                    vendor,
+                    target: self.target,
+                    vendor: self.vendor,
                     options: FileInitOption::Overwrite,
                     file_size: self.data.len() as u32,
                     load_address: self.load_addr,
                     write_file_crc: crc,
                     metadata: self.metadata,
-                    file_name: self.filename.clone(),
+                    file_name: self.file_name.clone(),
                 }),
             )
             .await?;
@@ -196,9 +191,9 @@ impl Command for UploadFile<'_> {
                     Duration::from_millis(500),
                     5,
                     LinkFilePacket::new(LinkFilePayload {
-                        vendor: linked_file.vendor.unwrap_or(FileVendor::User),
+                        vendor: linked_file.vendor,
                         option: 0,
-                        required_file: linked_file.filename,
+                        required_file: linked_file.file_name,
                     }),
                 )
                 .await?
@@ -258,7 +253,7 @@ impl Command for UploadFile<'_> {
             .await?
             .try_into_inner()?;
 
-        debug!("Successfully uploaded file: {}", self.filename.into_inner());
+        debug!("Successfully uploaded file: {}", self.file_name.into_inner());
         Ok(())
     }
 }
@@ -347,7 +342,7 @@ impl Command for UploadProgram<'_> {
 
         connection
             .execute_command(UploadFile {
-                filename: FixedString::new(format!("{}.ini", base_file_name))?,
+                file_name: FixedString::new(format!("{}.ini", base_file_name))?,
                 metadata: FileMetadata {
                     extension: FixedString::new("ini".to_string())?,
                     extension_type: ExtensionType::default(),
@@ -359,9 +354,9 @@ impl Command for UploadProgram<'_> {
                         beta: 0,
                     },
                 },
-                vendor: None,
+                vendor: FileVendor::User,
                 data: serde_ini::to_vec(&ini).unwrap(),
-                target: None,
+                target: FileTransferTarget::Qspi,
                 load_addr: USER_PROGRAM_LOAD_ADDR,
                 linked_file: None,
                 after_upload: FileExitAction::DoNothing,
@@ -391,7 +386,7 @@ impl Command for UploadProgram<'_> {
 
             connection
                 .execute_command(UploadFile {
-                    filename: FixedString::new(program_lib_name.clone())?,
+                    file_name: FixedString::new(program_lib_name.clone())?,
                     metadata: FileMetadata {
                         extension: FixedString::new("bin".to_string())?,
                         extension_type: ExtensionType::default(),
@@ -403,9 +398,9 @@ impl Command for UploadProgram<'_> {
                             beta: 0,
                         },
                     },
-                    vendor: None,
+                    vendor: FileVendor::User,
                     data: library_data,
-                    target: None,
+                    target: FileTransferTarget::Qspi,
                     load_addr: PROS_HOT_BIN_LOAD_ADDR,
                     linked_file: None,
                     after_upload: if is_monolith {
@@ -435,14 +430,14 @@ impl Command for UploadProgram<'_> {
             } else {
                 debug!("Program will be linked to cold library: {program_lib_name:?}");
                 Some(LinkedFile {
-                    filename: FixedString::new(program_lib_name)?,
-                    vendor: None,
+                    file_name: FixedString::new(program_lib_name)?,
+                    vendor: FileVendor::User
                 })
             };
 
             connection
                 .execute_command(UploadFile {
-                    filename: FixedString::new(program_bin_name)?,
+                    file_name: FixedString::new(program_bin_name)?,
                     metadata: FileMetadata {
                         extension: FixedString::new("bin".to_string())?,
                         extension_type: ExtensionType::default(),
@@ -454,9 +449,9 @@ impl Command for UploadProgram<'_> {
                             beta: 0,
                         },
                     },
-                    vendor: None,
+                    vendor: FileVendor::User,
                     data: program_data,
-                    target: None,
+                    target: FileTransferTarget::Qspi,
                     load_addr: USER_PROGRAM_LOAD_ADDR,
                     linked_file,
                     after_upload: self.after_upload,

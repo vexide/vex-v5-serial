@@ -40,7 +40,7 @@ impl Command for ScreenCapture {
             .execute_command(DownloadFile {
                 file_name: FixedString::new("screen".to_string()).unwrap(),
                 vendor: FileVendor::Sys,
-                target: Some(FileTransferTarget::Cbuf),
+                target: FileTransferTarget::Cbuf,
                 load_addr: 0,
                 size: 512 * 272 * 4,
                 progress_callback: Some(Box::new(|progress| {
