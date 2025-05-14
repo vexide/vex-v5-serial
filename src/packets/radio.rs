@@ -13,7 +13,7 @@ pub struct RadioStatus {
     pub quality: u16,
     /// Probably RSSI (UNCONFIRMED)
     pub strength: i16,
-    /// 5 = download, 31 = pit
+    /// 5 = download, 31 = pit, -11 = bluetooth
     pub channel: i8,
     /// Latency between controller and brain (UNCONFIRMED)
     pub timeslot: i8,

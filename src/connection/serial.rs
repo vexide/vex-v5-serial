@@ -444,7 +444,7 @@ impl SerialConnection {
         // Completely fill the packet
         packet.extend(payload);
 
-        debug!("received packet: {:x?}", packet);
+        trace!("received packet: {:x?}", packet);
 
         // Push the packet to the incoming packets buffer
         self.incoming_packets.push(RawPacket::new(packet));

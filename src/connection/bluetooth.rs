@@ -231,7 +231,7 @@ impl BluetoothConnection {
 
             if notification.uuid == CHARACTERISTIC_SYSTEM_TX {
                 let data = notification.value;
-                debug!("Received packet: {:x?}", data);
+                trace!("received packet: {:x?}", data);
                 let packet = RawPacket::new(data);
                 self.incoming_packets.push(packet);
                 break;
