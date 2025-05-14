@@ -110,7 +110,7 @@ pub trait Connection {
     ) -> Result<D, Self::Error> {
         let mut last_error = None;
 
-        for _ in 0..retries {
+        for _ in 0..=retries {
             self.send_packet(packet.clone()).await?;
             match self.receive_packet::<D>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
