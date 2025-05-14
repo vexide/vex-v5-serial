@@ -468,7 +468,7 @@ impl Connection for SerialConnection {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        trace!("Sending packet: {:x?}", encoded);
+        trace!("sent packet: {:x?}", encoded);
 
         // Write the packet to the serial port
         match self.system_port.write_all(&encoded).await {

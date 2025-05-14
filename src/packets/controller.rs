@@ -5,8 +5,8 @@ use crate::{
     string::FixedString,
 };
 
-pub type UserFifoPacket = Cdc2CommandPacket<86, 39, UserFifoPayload>;
-pub type UserFifoReplyPacket = Cdc2ReplyPacket<86, 39, UserFifoReplyPayload>;
+pub type UserFifoPacket = Cdc2CommandPacket<0x56, 0x27, UserFifoPayload>;
+pub type UserFifoReplyPacket = Cdc2ReplyPacket<0x56, 0x27, UserFifoReplyPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UserFifoPayload {

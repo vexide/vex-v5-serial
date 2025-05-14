@@ -23,5 +23,5 @@ impl Encode for SetMatchModePayload {
     }
 }
 
-pub type SetMatchModePacket = Cdc2CommandPacket<88, 193, SetMatchModePayload>;
-pub type SetMatchModeReplyPacket = Cdc2ReplyPacket<88, 193, ()>;
+pub type SetMatchModePacket = Cdc2CommandPacket<0x58, 0xC1, SetMatchModePayload>;
+pub type SetMatchModeReplyPacket = Cdc2ReplyPacket<0x58, 0xC1, ()>;

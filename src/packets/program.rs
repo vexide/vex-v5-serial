@@ -29,8 +29,8 @@ impl Decode for Slot {
     }
 }
 
-pub type GetProgramInfoPacket = Cdc2CommandPacket<86, 28, GetProgramInfoPayload>;
-pub type GetProgramInfoReplyPacket = Cdc2ReplyPacket<86, 28, GetProgramInfoReplyPayload>;
+pub type GetProgramInfoPacket = Cdc2CommandPacket<0x56, 0x1C, GetProgramInfoPayload>;
+pub type GetProgramInfoReplyPacket = Cdc2ReplyPacket<0x56, 0x1C, GetProgramInfoReplyPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetProgramInfoPayload {
@@ -59,10 +59,10 @@ pub struct GetProgramInfoReplyPayload {
     pub requested_slot: u8,
 }
 
-pub type GetSlot1To4InfoPacket = Cdc2CommandPacket<86, 49, ()>;
-pub type GetSlot1To4InfoReplyPacket = Cdc2CommandPacket<86, 49, SlotInfoPayload>;
-pub type GetSlot5To8InfoPacket = Cdc2CommandPacket<86, 50, ()>;
-pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<86, 50, SlotInfoPayload>;
+pub type GetSlot1To4InfoPacket = Cdc2CommandPacket<0x56, 0x31, ()>;
+pub type GetSlot1To4InfoReplyPacket = Cdc2CommandPacket<0x56, 0x31, SlotInfoPayload>;
+pub type GetSlot5To8InfoPacket = Cdc2CommandPacket<0x56, 0x32, ()>;
+pub type GetSlot5To8InfoReplyPacket = Cdc2CommandPacket<0x56, 0x32, SlotInfoPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct SlotInfoPayload {

@@ -115,8 +115,8 @@ impl Decode for DeviceStatus {
     }
 }
 
-pub type GetDeviceStatusPacket = Cdc2CommandPacket<86, 33, ()>;
-pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<86, 33, GetDeviceStatusReplyPayload>;
+pub type GetDeviceStatusPacket = Cdc2CommandPacket<0x56, 0x21, ()>;
+pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x21, GetDeviceStatusReplyPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GetDeviceStatusReplyPayload {

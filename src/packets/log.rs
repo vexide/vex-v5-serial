@@ -39,8 +39,8 @@ impl Decode for Log {
     }
 }
 
-pub type GetLogCountPacket = Cdc2CommandPacket<86, 36, ()>;
-pub type GetLogCountReplyPacket = Cdc2ReplyPacket<86, 36, GetLogCountReplyPayload>;
+pub type GetLogCountPacket = Cdc2CommandPacket<0x56, 0x24, ()>;
+pub type GetLogCountReplyPacket = Cdc2ReplyPacket<0x56, 0x24, GetLogCountReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct GetLogCountReplyPayload {
@@ -57,8 +57,8 @@ impl Decode for GetLogCountReplyPayload {
 }
 
 /// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].
-pub type ReadLogPagePacket = Cdc2CommandPacket<86, 37, ReadLogPagePayload>;
-pub type ReadLogPageReplyPacket = Cdc2ReplyPacket<86, 37, ReadLogPageReplyPayload>;
+pub type ReadLogPagePacket = Cdc2CommandPacket<0x56, 0x25, ReadLogPagePayload>;
+pub type ReadLogPageReplyPacket = Cdc2ReplyPacket<0x56, 0x25, ReadLogPageReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ReadLogPagePayload {

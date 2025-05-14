@@ -42,8 +42,8 @@ pub enum DashScreen {
     LogData = 47,
 }
 
-pub type SendDashTouchPacket = Cdc2CommandPacket<86, 42, SendDashTouchPayload>;
-pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<86, 42, ()>;
+pub type SendDashTouchPacket = Cdc2CommandPacket<0x56, 0x2A, SendDashTouchPayload>;
+pub type SendDashTouchReplyPacket = Cdc2ReplyPacket<0x56, 0x2A, ()>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SendDashTouchPayload {
@@ -62,13 +62,17 @@ impl Encode for SendDashTouchPayload {
     }
 }
 
-pub type SelectDashPacket = Cdc2CommandPacket<86, 43, SelectDashPayload>;
-pub type SelectDashReplyPacket = Cdc2ReplyPacket<86, 43, ()>;
+pub type SelectDashPacket = Cdc2CommandPacket<0x56, 0x2B, SelectDashPayload>;
+pub type SelectDashReplyPacket = Cdc2ReplyPacket<0x56, 0x2B, ()>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SelectDashPayload {
     pub screen: DashScreen,
-    /// (RESEARCH NEEDED)
+
+    /// This serves as a generic argument to the dash
+    /// screen to select its "variant". It's named this
+    /// because it's used to select a specific port number
+    /// on a device screen.
     pub port: u8,
 }
 impl Encode for SelectDashPayload {

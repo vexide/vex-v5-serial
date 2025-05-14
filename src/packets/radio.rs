@@ -36,8 +36,8 @@ impl Decode for RadioStatus {
     }
 }
 
-pub type GetRadioStatusPacket = Cdc2CommandPacket<86, 38, ()>;
-pub type GetRadioStatusReplyPacket = Cdc2ReplyPacket<86, 38, RadioStatus>;
+pub type GetRadioStatusPacket = Cdc2CommandPacket<0x56, 0x26, ()>;
+pub type GetRadioStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x26, RadioStatus>;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -56,8 +56,8 @@ impl Encode for RadioChannel {
         Ok(vec![*self as u8])
     }
 }
-pub type SelectRadioChannelPacket = Cdc2CommandPacket<86, 16, SelectRadioChannelPayload>;
-pub type SelectRadioChannelReplyPacket = Cdc2ReplyPacket<86, 16, ()>;
+pub type SelectRadioChannelPacket = Cdc2CommandPacket<0x56, 0x10, SelectRadioChannelPayload>;
+pub type SelectRadioChannelReplyPacket = Cdc2ReplyPacket<0x56, 0x10, ()>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SelectRadioChannelPayload {

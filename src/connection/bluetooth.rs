@@ -257,7 +257,7 @@ impl Connection for BluetoothConnection {
         // Encode the packet
         let encoded = packet.encode()?;
 
-        trace!("Sending packet: {:x?}", encoded);
+        trace!("sent packet: {:x?}", encoded);
 
         // Write the packet to the system rx characteristic.
         self.peripheral

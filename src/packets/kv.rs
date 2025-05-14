@@ -6,11 +6,11 @@ use crate::{
     string::FixedString,
 };
 
-pub type ReadKeyValuePacket = Cdc2CommandPacket<86, 46, FixedString<31>>;
-pub type ReadKeyValueReplyPacket = Cdc2ReplyPacket<86, 46, FixedString<255>>;
+pub type ReadKeyValuePacket = Cdc2CommandPacket<0x56, 0x2E, FixedString<31>>;
+pub type ReadKeyValueReplyPacket = Cdc2ReplyPacket<0x56, 0x2E, FixedString<255>>;
 
-pub type WriteKeyValuePacket = Cdc2CommandPacket<86, 47, WriteKeyValuePayload>;
-pub type WriteKeyValueReplyPacket = Cdc2ReplyPacket<86, 47, ()>;
+pub type WriteKeyValuePacket = Cdc2CommandPacket<0x56, 0x2F, WriteKeyValuePayload>;
+pub type WriteKeyValueReplyPacket = Cdc2ReplyPacket<0x56, 0x2F, ()>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WriteKeyValuePayload {
