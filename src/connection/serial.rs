@@ -18,8 +18,7 @@ use crate::{
     encode::{Encode, EncodeError},
     packets::{
         cdc2::Cdc2Ack,
-        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket},
-        HOST_BOUND_HEADER,
+        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket}, HOST_BOUND_HEADER,
     },
     string::FixedString,
     varint::VarU16,

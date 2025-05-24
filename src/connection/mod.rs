@@ -90,8 +90,8 @@ pub trait Connection {
     fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
 
     /// Executes a [`Command`].
-    async fn execute_command<C: Command>(&mut self, command: C) -> Result<C::Output, Self::Error> {
-        command.execute(self).await
+    fn execute_command<C: Command>(&mut self, command: C) -> impl Future<Output = Result<C::Output, Self::Error>> {
+        command.execute(self)
     }
 
     /// Sends a packet and waits for a response.

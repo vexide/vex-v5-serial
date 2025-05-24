@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Log {
+pub struct LogEntry {
     /// (RESEARCH NEEDED)
     pub code: u8,
 
@@ -21,7 +21,7 @@ pub struct Log {
     /// How long (in milliseconds) after the brain powered on
     pub time: u32,
 }
-impl Decode for Log {
+impl Decode for LogEntry {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let code = u8::decode(&mut data)?;
@@ -82,7 +82,7 @@ pub struct ReadLogPageReplyPayload {
     pub offset: u32,
     /// Number of elements in the following array.
     pub count: u16,
-    pub entries: Vec<Log>,
+    pub entries: Vec<LogEntry>,
 }
 impl Decode for ReadLogPageReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
