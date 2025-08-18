@@ -29,3 +29,8 @@ impl Encode for Vec<u8> {
         Ok(self.clone())
     }
 }
+impl<const N: usize> Encode for [u8; N] {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(self.to_vec())
+    }
+}

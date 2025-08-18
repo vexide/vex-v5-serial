@@ -2,9 +2,9 @@ use std::time::Duration;
 
 use vex_v5_serial::connection::serial::SerialError;
 use vex_v5_serial::connection::{serial, Connection};
-use vex_v5_serial::packets::kv::{
-    ReadKeyValuePacket, ReadKeyValueReplyPacket, WriteKeyValuePacket, WriteKeyValuePayload,
-    WriteKeyValueReplyPacket,
+use vex_v5_serial::packets::system::{
+    KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
+    KeyValueSaveReplyPacket,
 };
 use vex_v5_serial::string::FixedString;
 
@@ -26,26 +26,25 @@ async fn main() -> Result<(), SerialError> {
 
     // Set the team number on the brain
     connection
-        .send_packet(WriteKeyValuePacket::new(WriteKeyValuePayload {
-            key: FixedString::new("teamnumber".to_string())?,
+        .send_packet(KeyValueSavePacket::new(KeyValueSavePayload {
+            key: FixedString::new("teamnumber")?,
             value: FixedString::new(
-                "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!"
-                    .to_string(),
+                "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!",
             )?,
         }))
         .await?;
     connection
-        .receive_packet::<WriteKeyValueReplyPacket>(Duration::from_millis(100))
+        .receive_packet::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
         .await?;
 
     // Get the new team number and print it
     connection
-        .send_packet(ReadKeyValuePacket::new(
-            FixedString::new("teamnumber".to_string()).unwrap(),
+        .send_packet(KeyValueLoadPacket::new(
+            FixedString::new("teamnumber").unwrap(),
         ))
         .await?;
     let res = connection
-        .receive_packet::<ReadKeyValueReplyPacket>(Duration::from_millis(100))
+        .receive_packet::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
         .await?
         .try_into_inner()?;
 
