@@ -1,14 +1,28 @@
 use std::time::Duration;
 
-use tokio::time::sleep;
 use vex_v5_serial::{
-    commands::screen::{MockTap, OpenDashScreen, ScreenCapture},
     connection::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::dash::DashScreen,
+    encode::{Encode, EncodeError},
+    packets::{
+        cdc2::Cdc2CommandPacket, screen::DashSelectReplyPacket,
+    },
 };
+
+pub type DashSelectPacket = Cdc2CommandPacket<0x56, 0x2B, DashSelectPayload>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct DashSelectPayload {
+    screen: u8,
+    port: u8,
+}
+impl Encode for DashSelectPayload {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        Ok(vec![self.screen, self.port])
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
@@ -27,22 +41,14 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     connection
-        .execute_command(ScreenCapture)
+        .packet_handshake::<DashSelectReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            DashSelectPacket::new(DashSelectPayload { screen: 85, port: 83 }),
+        )
         .await?
-        .save("screencap.png")
+        .try_into_inner()
         .unwrap();
-
-    connection
-        .execute_command(OpenDashScreen {
-            dash: DashScreen::Home,
-        })
-        .await?;
-
-    sleep(Duration::from_millis(50)).await;
-
-    connection
-        .execute_command(MockTap { x: 300, y: 100 })
-        .await?;
 
     Ok(())
 }

@@ -18,7 +18,7 @@ use crate::{
     encode::{Encode, EncodeError},
     packets::{
         cdc2::Cdc2Ack,
-        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket}, HOST_BOUND_HEADER,
+        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}, HOST_BOUND_HEADER,
     },
     string::FixedString,
     varint::VarU16,
@@ -518,10 +518,10 @@ impl Connection for SerialConnection {
             let mut data = Vec::new();
             loop {
                 let fifo = self
-                    .packet_handshake::<UserFifoReplyPacket>(
+                    .packet_handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
-                        UserFifoPacket::new(UserFifoPayload {
+                        UserDataPacket::new(UserDataPayload {
                             channel: 1, // stdio channel
                             write: None,
                         }),
@@ -549,10 +549,10 @@ impl Connection for SerialConnection {
             while !buf.is_empty() {
                 let (chunk, rest) = buf.split_at(std::cmp::min(224, buf.len()));
                 _ = self
-                    .packet_handshake::<UserFifoReplyPacket>(
+                    .packet_handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
-                        UserFifoPacket::new(UserFifoPayload {
+                        UserDataPacket::new(UserDataPayload {
                             channel: 2, // stdio channel
                             write: Some(
                                 FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())

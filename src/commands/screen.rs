@@ -5,12 +5,10 @@ use log::info;
 use crate::{
     connection::Connection,
     packets::{
-        capture::{ScreenCapturePacket, ScreenCaptureReplyPacket},
-        dash::{
-            DashScreen, SelectDashPacket, SelectDashPayload, SelectDashReplyPacket,
-            SendDashTouchPacket, SendDashTouchPayload, SendDashTouchReplyPacket,
-        },
         file::{FileTransferTarget, FileVendor},
+        screen::{
+            DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket, DashTouchPacket, DashTouchPayload, DashTouchReplyPacket, ScreenCapturePacket, ScreenCapturePayload, ScreenCaptureReplyPacket
+        },
     },
     string::FixedString,
 };
@@ -31,7 +29,9 @@ impl Command for ScreenCapture {
             .packet_handshake::<ScreenCaptureReplyPacket>(
                 Duration::from_millis(100),
                 5,
-                ScreenCapturePacket::new(()),
+                ScreenCapturePacket::new(ScreenCapturePayload {
+                    layer: None,
+                }),
             )
             .await?;
 
@@ -83,10 +83,10 @@ impl Command for MockTouch {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         connection
-            .packet_handshake::<SendDashTouchReplyPacket>(
+            .packet_handshake::<DashTouchReplyPacket>(
                 Duration::from_millis(100),
                 5,
-                SendDashTouchPacket::new(SendDashTouchPayload {
+                DashTouchPacket::new(DashTouchPayload {
                     x: self.x,
                     y: self.y,
                     pressing: if self.pressed { 1 } else { 0 },
@@ -139,10 +139,10 @@ impl Command for OpenDashScreen {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         connection
-            .packet_handshake::<SelectDashReplyPacket>(
+            .packet_handshake::<DashSelectReplyPacket>(
                 Duration::from_millis(100),
                 5,
-                SelectDashPacket::new(SelectDashPayload {
+                DashSelectPacket::new(DashSelectPayload {
                     screen: self.dash,
                     port: 0,
                 }),

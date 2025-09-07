@@ -1,15 +1,27 @@
 use super::{
-    cdc::{CdcCommandPacket, CdcReplyPacket},
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    cdc::{
+        cmds::{QUERY_1, SYSTEM_VERSION, USER_CDC},
+        CdcCommandPacket, CdcReplyPacket,
+    },
+    cdc2::{
+        ecmds::{
+            FILE_USER_STAT, LOG_READ, LOG_STATUS, SYS_C_INFO_14, SYS_C_INFO_58, SYS_FLAGS,
+            SYS_KV_LOAD, SYS_KV_SAVE, SYS_STATUS, SYS_USER_PROG,
+        },
+        Cdc2CommandPacket, Cdc2ReplyPacket,
+    },
+    file::FileVendor,
 };
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
+    encode::{Encode, EncodeError},
+    string::FixedString,
     version::Version,
 };
 use bitflags::bitflags;
 
-#[repr(u16)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u16)]
 pub enum ProductType {
     Brain = 0x10,
     Controller = 0x11,
@@ -95,7 +107,6 @@ pub struct SystemStatus {
     pub system_version: Version,
     pub cpu0_version: Version,
     pub cpu1_version: Version,
-    /// NOTE: Encoded as little endian
     pub touch_version: Version,
     pub details: Option<SystemDetails>,
 }
@@ -185,22 +196,22 @@ impl Decode for SystemDetails {
     }
 }
 
-pub type GetSystemFlagsPacket = Cdc2CommandPacket<0x56, 0x20, ()>;
-pub type GetSystemFlagsReplyPacket = Cdc2ReplyPacket<0x56, 0x20, SystemFlags>;
+pub type SystemFlagsPacket = Cdc2CommandPacket<USER_CDC, SYS_FLAGS, ()>;
+pub type SystemFlagsReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_FLAGS, SystemFlags>;
 
-pub type GetSystemStatusPacket = Cdc2CommandPacket<0x56, 0x22, ()>;
-pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
+pub type SystemStatusPacket = Cdc2CommandPacket<USER_CDC, SYS_STATUS, ()>;
+pub type SystemStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_STATUS, SystemStatus>;
 
-pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
-pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, GetSystemVersionReplyPayload>;
+pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
+pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct GetSystemVersionReplyPayload {
+pub struct SystemVersionReplyPayload {
     pub version: Version,
     pub product_type: ProductType,
     pub flags: ProductFlags,
 }
-impl Decode for GetSystemVersionReplyPayload {
+impl Decode for SystemVersionReplyPayload {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
         let version = Version::decode(&mut data)?;
@@ -215,8 +226,8 @@ impl Decode for GetSystemVersionReplyPayload {
     }
 }
 
-pub type Query1Packet = CdcCommandPacket<0x21, ()>;
-pub type Query1ReplyPacket = CdcReplyPacket<0x21, Query1ReplyPayload>;
+pub type Query1Packet = CdcCommandPacket<QUERY_1, ()>;
+pub type Query1ReplyPacket = CdcReplyPacket<QUERY_1, Query1ReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Query1ReplyPayload {
@@ -257,3 +268,209 @@ impl Decode for Query1ReplyPayload {
         })
     }
 }
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogEntry {
+    /// (RESEARCH NEEDED)
+    pub code: u8,
+
+    /// The subtype under the description (RESEARCH NEEDED)
+    pub log_type: u8,
+
+    /// The type of the log message (RESEARCH NEEDED)
+    pub description: u8,
+
+    /// (RESEARCH NEEDED)
+    pub spare: u8,
+
+    /// How long (in milliseconds) after the brain powered on
+    pub time: u32,
+}
+impl Decode for LogEntry {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let code = u8::decode(&mut data)?;
+        let log_type = u8::decode(&mut data)?;
+        let description = u8::decode(&mut data)?;
+        let spare = u8::decode(&mut data)?;
+        let time = u32::decode(&mut data)?;
+        Ok(Self {
+            code,
+            log_type,
+            description,
+            spare,
+            time,
+        })
+    }
+}
+
+pub type LogCountPacket = Cdc2CommandPacket<USER_CDC, LOG_STATUS, ()>;
+pub type LogCountReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_STATUS, LogCountReplyPayload>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogCountReplyPayload {
+    pub unknown: u8,
+    pub count: u32,
+}
+impl Decode for LogCountReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let unknown = u8::decode(&mut data)?;
+        let count = u32::decode(&mut data)?;
+        Ok(Self { unknown, count })
+    }
+}
+
+/// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].
+pub type LogReadPacket = Cdc2CommandPacket<USER_CDC, LOG_READ, LogReadPayload>;
+pub type LogReadReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_READ, LogReadReplyPayload>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogReadPayload {
+    pub offset: u32,
+    pub count: u32,
+}
+impl Encode for LogReadPayload {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = Vec::new();
+        encoded.extend(self.offset.to_le_bytes());
+        encoded.extend(self.count.to_le_bytes());
+        Ok(encoded)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct LogReadReplyPayload {
+    /// Size of each log item in bytes.
+    pub log_size: u8,
+    /// The offset number used in this packet.
+    pub offset: u32,
+    /// Number of elements in the following array.
+    pub count: u16,
+    pub entries: Vec<LogEntry>,
+}
+impl Decode for LogReadReplyPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+    where
+        Self: Sized,
+    {
+        let mut data = data.into_iter();
+
+        let log_size = u8::decode(&mut data)?;
+        let offset = u32::decode(&mut data)?;
+        let count = u16::decode(&mut data)?;
+        let entries = Vec::sized_decode(&mut data, count)?;
+
+        Ok(Self {
+            log_size,
+            offset,
+            count,
+            entries,
+        })
+    }
+}
+
+pub type KeyValueLoadPacket = Cdc2CommandPacket<USER_CDC, SYS_KV_LOAD, FixedString<31>>;
+pub type KeyValueLoadReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_LOAD, FixedString<255>>;
+
+pub type KeyValueSavePacket = Cdc2CommandPacket<USER_CDC, SYS_KV_SAVE, KeyValueSavePayload>;
+pub type KeyValueSaveReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_SAVE, ()>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct KeyValueSavePayload {
+    pub key: FixedString<31>,
+    pub value: FixedString<255>,
+}
+impl Encode for KeyValueSavePayload {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = Vec::new();
+
+        encoded.extend(self.key.as_ref().to_string().encode()?);
+        encoded.extend(self.value.as_ref().to_string().encode()?);
+
+        Ok(encoded)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Slot {
+    /// The number in the file icon: 'USER???x.bmp'.
+    pub icon_number: u16,
+    pub name_length: u8,
+    pub name: String,
+}
+impl Decode for Slot {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let icon_number = u16::decode(&mut data)?;
+        let name_length = u8::decode(&mut data)?;
+        let name = String::sized_decode(&mut data, (name_length - 1) as _)?;
+
+        Ok(Self {
+            icon_number,
+            name_length,
+            name,
+        })
+    }
+}
+
+pub type ProgramStatusPacket = Cdc2CommandPacket<USER_CDC, FILE_USER_STAT, ProgramStatusPayload>;
+pub type ProgramStatusReplyPacket =
+    Cdc2ReplyPacket<USER_CDC, FILE_USER_STAT, ProgramStatusReplyPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProgramStatusPayload {
+    pub vendor: FileVendor,
+    /// 0 = default. (RESEARCH NEEDED)
+    pub option: u8,
+    /// The bin file name.
+    pub file_name: FixedString<23>,
+}
+impl Encode for ProgramStatusPayload {
+    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut encoded = vec![self.vendor as _, self.option];
+
+        encoded.extend(self.file_name.encode()?);
+
+        Ok(encoded)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ProgramStatusReplyPayload {
+    /// A zero-based slot number.
+    pub slot: u8,
+
+    /// A zero-based slot number, always same as Slot.
+    pub requested_slot: u8,
+}
+
+pub type ProgramSlot1To4InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, ()>;
+pub type ProgramSlot1To4InfoReplyPacket =
+    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, SlotInfoPayload>;
+pub type ProgramSlot5To8InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, ()>;
+pub type ProgramSlot5To8InfoReplyPacket =
+    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, SlotInfoPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SlotInfoPayload {
+    /// Bit Mask.
+    ///
+    /// `flags & 2^(x - 1)` = Is slot x used
+    pub flags: u8,
+
+    /// Individual Slot Data
+    pub slots: Vec<Slot>,
+}
+impl Decode for SlotInfoPayload {
+    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+        let flags = u8::decode(&mut data)?;
+        let slots = Vec::sized_decode(&mut data, 4)?;
+
+        Ok(Self { flags, slots })
+    }
+}
+
+pub type UserProgramControlPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
+pub type UserProgramControlReplyPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;

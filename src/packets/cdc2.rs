@@ -13,6 +13,64 @@ use crate::{
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 use crate::decode::{Decode, DecodeError};
 
+/// Known CDC2 Command Identifiers
+pub(crate) mod ecmds {
+    // internal filesystem operations
+    pub const FILE_CTRL: u8 = 0x10;
+    pub const FILE_INIT: u8 = 0x11;
+    pub const FILE_EXIT: u8 = 0x12;
+    pub const FILE_WRITE: u8 = 0x13;
+    pub const FILE_READ: u8 = 0x14;
+    pub const FILE_LINK: u8 = 0x15;
+    pub const FILE_DIR: u8 = 0x16;
+    pub const FILE_DIR_ENTRY: u8 = 0x17;
+    pub const FILE_LOAD: u8 = 0x18;
+    pub const FILE_GET_INFO: u8 = 0x19;
+    pub const FILE_SET_INFO: u8 = 0x1A;
+    pub const FILE_ERASE: u8 = 0x1B;
+    pub const FILE_USER_STAT: u8 = 0x1C;
+    pub const FILE_VISUALIZE: u8 = 0x1D;
+    pub const FILE_CLEANUP: u8 = 0x1E;
+    pub const FILE_FORMAT: u8 = 0x1F;
+
+    // system and device stuff
+    pub const SYS_FLAGS: u8 = 0x20;
+    pub const DEV_STATUS: u8 = 0x21;
+    pub const SYS_STATUS: u8 = 0x22;
+    pub const FDT_STATUS: u8 = 0x23;
+    pub const LOG_STATUS: u8 = 0x24;
+    pub const LOG_READ: u8 = 0x25;
+    pub const RADIO_STATUS: u8 = 0x26;
+    pub const USER_READ: u8 = 0x27;
+    pub const SYS_SCREEN_CAP: u8 = 0x28;
+    pub const SYS_USER_PROG: u8 = 0x29;
+    pub const SYS_DASH_TOUCH: u8 = 0x2A;
+    pub const SYS_DASH_SEL: u8 = 0x2B;
+    pub const SYS_DASH_EBL: u8 = 0x2C;
+    pub const SYS_DASH_DIS: u8 = 0x2D;
+    pub const SYS_KV_LOAD: u8 = 0x2E;
+    pub const SYS_KV_SAVE: u8 = 0x2F;
+    pub const SYS_C_INFO_14: u8 = 0x31;
+    pub const SYS_C_INFO_58: u8 = 0x32;
+
+    // controller only!
+    pub const CON_COMP_CTRL: u8 = 0xC1;
+    pub const CON_VER_FLASH: u8 = 0x39;
+    pub const CON_RADIO_MODE: u8 = 0x41;
+    pub const CON_RADIO_FORCE: u8 = 0x3F;
+
+    // be careful!!
+    pub const FACTORY_STATUS: u8 = 0xF1;
+    pub const FACTORY_RESET: u8 = 0xF2;
+    pub const FACTORY_PING: u8 = 0xF4;
+    pub const FACTORY_PONG: u8 = 0xF5;
+    pub const FACTORY_HW_STATUS: u8 = 0xF9;
+    pub const FACTORY_CHAL: u8 = 0xFC;
+    pub const FACTORY_RESP: u8 = 0xFD;
+    pub const FACTORY_SPECIAL: u8 = 0xFE;
+    pub const FACTORY_EBL: u8 = 0xFF;
+}
+
 /// CDC2 Packet Acknowledgement Codes
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 #[repr(u8)]
@@ -56,7 +114,7 @@ pub enum Cdc2Ack {
     NackInvalidInitialization = 0xD5,
 
     /// Returned by the brain when we fail to pad a transfer to a four byte boundary.
-    #[error("File transfer was initialized incorrectly. (NACK 0xD6)")]
+    #[error("File transfer was not padded to a four byte boundary. (NACK 0xD6)")]
     NackAlignment = 0xD6,
 
     /// Returned by the brain when the addr on a file transfer does not match
@@ -94,8 +152,8 @@ pub enum Cdc2Ack {
 
 impl Decode for Cdc2Ack {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let this = u8::decode(data)?;
-        match this {
+        let byte = u8::decode(data)?;
+        match byte {
             0x76 => Ok(Self::Ack),
             0xFF => Ok(Self::Nack),
             0xCE => Ok(Self::NackPacketCrc),
@@ -125,7 +183,7 @@ impl Decode for Cdc2Ack {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Cdc2CommandPacket<const CMD: u8, const EXT_CMD: u8, P: Encode> {
     payload: P,
 }
@@ -167,16 +225,7 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
     }
 }
 
-impl<P: Encode + Debug, const CMD: u8, const EXT_CMD: u8> Debug
-    for Cdc2CommandPacket<CMD, EXT_CMD, P>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(std::any::type_name::<Self>())
-            .field("payload", &self.payload)
-            .finish_non_exhaustive()
-    }
-}
-
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> {
     pub ack: Cdc2Ack,
     pub payload_size: u16,
@@ -262,32 +311,10 @@ impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> connection::CheckHeader
     }
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode + Clone> Clone for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
-    fn clone(&self) -> Self {
-        Self {
-            ack: self.ack,
-            payload_size: self.payload_size,
-            payload: self.payload.clone(),
-            crc: self.crc,
-        }
-    }
-}
-
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode + Debug> Debug for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(std::any::type_name::<Self>())
-            .field("ack", &self.ack)
-            .field("payload_size", &self.payload_size)
-            .field("payload", &self.payload)
-            .field("crc", &self.crc)
-            .finish()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::connection::CheckHeader;
-    use crate::packets::device::GetDeviceStatusReplyPacket;
+    use crate::packets::device::DeviceStatusReplyPacket;
 
     #[test]
     fn has_valid_header_success() {
@@ -295,7 +322,7 @@ mod tests {
             0xaa, 0x55, 0x56, 0x15, 0x21, 0x76, 0x2, 0x16, 0xc, 0, 0xb, 0, 0x40, 0x1, 0x40, 0x17,
             0xe, 0, 0x19, 0x1, 0x40, 0x6, 0x40, 0x23, 0x87,
         ];
-        assert!(GetDeviceStatusReplyPacket::has_valid_header(
+        assert!(DeviceStatusReplyPacket::has_valid_header(
             data.iter().cloned()
         ));
     }

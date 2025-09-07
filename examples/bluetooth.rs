@@ -6,7 +6,7 @@ use vex_v5_serial::{
         bluetooth::{self, BluetoothError},
         Connection,
     },
-    packets::dash::{DashScreen, SelectDashPacket, SelectDashPayload},
+    packets::screen::{DashScreen, DashSelectPacket, DashSelectPayload},
 };
 
 #[tokio::main]
@@ -45,8 +45,8 @@ async fn main() -> Result<(), BluetoothError> {
 
     // Send a dash packet to test things out
     connection
-        .send_packet(SelectDashPacket::new(SelectDashPayload {
-            screen: DashScreen::ScaryConfiguration,
+        .send_packet(DashSelectPacket::new(DashSelectPayload {
+            screen: DashScreen::Config,
             port: 0,
         }))
         .await?;

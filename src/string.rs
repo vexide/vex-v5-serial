@@ -10,7 +10,9 @@ use crate::{
 pub struct FixedString<const N: usize>(String);
 
 impl<const N: usize> FixedString<N> {
-    pub fn new(string: String) -> Result<Self, EncodeError> {
+    pub fn new(string: impl AsRef<str>) -> Result<Self, EncodeError> {
+        let string = string.as_ref().to_string();
+
         if string.as_bytes().len() > N {
             return Err(EncodeError::StringTooLong);
         }

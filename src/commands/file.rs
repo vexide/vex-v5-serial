@@ -10,11 +10,12 @@ use crate::{
     connection::{Connection, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
-        ExitFileTransferPacket, ExitFileTransferReplyPacket, ExtensionType, FileExitAction,
-        FileInitAction, FileInitOption, FileMetadata, FileTransferTarget, FileVendor,
-        InitFileTransferPacket, InitFileTransferPayload, InitFileTransferReplyPacket,
-        LinkFilePacket, LinkFilePayload, LinkFileReplyPacket, ReadFilePacket, ReadFilePayload,
-        ReadFileReplyPacket, WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
+        ExtensionType, FileDataReadPacket, FileDataReadPayload, FileDataReadReplyPacket,
+        FileDataWritePacket, FileDataWritePayload, FileDataWriteReplyPacket, FileExitAction,
+        FileInitOption, FileLinkPacket, FileLinkPayload, FileLinkReplyPacket, FileMetadata,
+        FileTransferExitPacket, FileTransferExitReplyPacket, FileTransferInitializePacket,
+        FileTransferInitializePayload, FileTransferInitializeReplyPacket, FileTransferOperation,
+        FileTransferTarget, FileVendor,
     },
     string::FixedString,
     timestamp::j2000_timestamp,
@@ -44,11 +45,11 @@ impl Command for DownloadFile {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         let transfer_response = connection
-            .packet_handshake::<InitFileTransferReplyPacket>(
+            .packet_handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
-                InitFileTransferPacket::new(InitFileTransferPayload {
-                    operation: FileInitAction::Read,
+                FileTransferInitializePacket::new(FileTransferInitializePayload {
+                    operation: FileTransferOperation::Read,
                     target: self.target,
                     vendor: self.vendor,
                     options: FileInitOption::None,
@@ -84,10 +85,10 @@ impl Command for DownloadFile {
         let mut offset = 0;
         loop {
             let read = connection
-                .packet_handshake::<ReadFileReplyPacket>(
+                .packet_handshake::<FileDataReadReplyPacket>(
                     Duration::from_millis(500),
                     5,
-                    ReadFilePacket::new(ReadFilePayload {
+                    FileDataReadPacket::new(FileDataReadPayload {
                         address: self.load_addr + offset,
                         size: max_chunk_size,
                     }),
@@ -166,11 +167,11 @@ impl Command for UploadFile<'_> {
         let crc = VEX_CRC32.checksum(&self.data);
 
         let transfer_response = connection
-            .packet_handshake::<InitFileTransferReplyPacket>(
+            .packet_handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
-                InitFileTransferPacket::new(InitFileTransferPayload {
-                    operation: FileInitAction::Write,
+                FileTransferInitializePacket::new(FileTransferInitializePayload {
+                    operation: FileTransferOperation::Write,
                     target: self.target,
                     vendor: self.vendor,
                     options: FileInitOption::Overwrite,
@@ -187,10 +188,10 @@ impl Command for UploadFile<'_> {
 
         if let Some(linked_file) = self.linked_file {
             connection
-                .packet_handshake::<LinkFileReplyPacket>(
+                .packet_handshake::<FileLinkReplyPacket>(
                     Duration::from_millis(500),
                     5,
-                    LinkFilePacket::new(LinkFilePayload {
+                    FileLinkPacket::new(FileLinkPayload {
                         vendor: linked_file.vendor,
                         option: 0,
                         required_file: linked_file.file_name,
@@ -223,7 +224,7 @@ impl Command for UploadFile<'_> {
                 callback(progress);
             }
 
-            let packet = WriteFilePacket::new(WriteFilePayload {
+            let packet = FileDataWritePacket::new(FileDataWritePayload {
                 address: (self.load_addr + offset) as _,
                 chunk_data: chunk.clone(),
             });
@@ -233,7 +234,11 @@ impl Command for UploadFile<'_> {
                 connection.send_packet(packet).await?;
             } else {
                 connection
-                    .packet_handshake::<WriteFileReplyPacket>(Duration::from_millis(500), 5, packet)
+                    .packet_handshake::<FileDataWriteReplyPacket>(
+                        Duration::from_millis(500),
+                        5,
+                        packet,
+                    )
                     .await?
                     .try_into_inner()?;
             }
@@ -245,15 +250,18 @@ impl Command for UploadFile<'_> {
         }
 
         connection
-            .packet_handshake::<ExitFileTransferReplyPacket>(
+            .packet_handshake::<FileTransferExitReplyPacket>(
                 Duration::from_millis(1000),
                 5,
-                ExitFileTransferPacket::new(self.after_upload),
+                FileTransferExitPacket::new(self.after_upload),
             )
             .await?
             .try_into_inner()?;
 
-        debug!("Successfully uploaded file: {}", self.file_name.into_inner());
+        debug!(
+            "Successfully uploaded file: {}",
+            self.file_name.into_inner()
+        );
         Ok(())
     }
 }
@@ -344,7 +352,7 @@ impl Command for UploadProgram<'_> {
             .execute_command(UploadFile {
                 file_name: FixedString::new(format!("{}.ini", base_file_name))?,
                 metadata: FileMetadata {
-                    extension: FixedString::new("ini".to_string())?,
+                    extension: FixedString::new("ini")?,
                     extension_type: ExtensionType::default(),
                     timestamp: j2000_timestamp(),
                     version: Version {
@@ -388,7 +396,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_lib_name.clone())?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin".to_string())?,
+                        extension: FixedString::new("bin")?,
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
@@ -431,7 +439,7 @@ impl Command for UploadProgram<'_> {
                 debug!("Program will be linked to cold library: {program_lib_name:?}");
                 Some(LinkedFile {
                     file_name: FixedString::new(program_lib_name)?,
-                    vendor: FileVendor::User
+                    vendor: FileVendor::User,
                 })
             };
 
@@ -439,7 +447,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_bin_name)?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin".to_string())?,
+                        extension: FixedString::new("bin")?,
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
