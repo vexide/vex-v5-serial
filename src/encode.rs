@@ -54,8 +54,7 @@ macro_rules! impl_encode_for_primitive {
                 }
 
                 fn encode(&self, data: &mut [u8]) {
-                    let size = self.size();
-                    data[..size].copy_from_slice(&self.to_le_bytes());
+                    data[..size_of::<Self>()].copy_from_slice(&self.to_le_bytes());
                 }
             }
         )*
