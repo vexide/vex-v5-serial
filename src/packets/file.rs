@@ -14,7 +14,7 @@ use super::{
     },
 };
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::Encode,
     string::FixedString,
     version::Version,
@@ -314,102 +314,62 @@ impl Encode for FileDataReadPayload {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FileDataReadReplyContents {
-    Failure {
-        nack: Cdc2Ack,
-        crc: u16,
-    },
-    Success {
-        /// Memory address to read from.
+    Ack {
         address: u32,
         data: Vec<u8>,
-        crc: u16,
     },
+    Nack(Cdc2Ack),
 }
-// impl Decode for FileDataReadReplyContents {
-//     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-//         struct Success {
-//             address: u32,
-//             data: Vec<u8>,
-//             crc: u16,
-//         }
-//         impl Decode for Success {
-//             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-//                 let mut data = data.into_iter();
-//                 let address = u32::decode(&mut data)?;
 
-//                 // This is a cursed way to get the number of bytes in chunk_data.
-//                 let data_vec = data.collect::<Vec<_>>();
-//                 // The last two bytes are the CRC checksum.
-//                 let num_bytes = data_vec.len() - 2;
-//                 let mut data = data_vec.into_iter();
+impl SizedDecode for FileDataReadReplyContents {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
 
-//                 let chunk_data = Vec::sized_decode(&mut data, num_bytes as _)?;
-//                 let crc = u16::decode(&mut data)?.swap_bytes();
-//                 Ok(Self {
-//                     address,
-//                     data: chunk_data,
-//                     crc,
-//                 })
-//             }
-//         }
-//         struct Failure {
-//             nack: Cdc2Ack,
-//             crc: u16,
-//         }
-//         impl Decode for Failure {
-//             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-//                 let mut data = data.into_iter();
-//                 let nack = Cdc2Ack::decode(&mut data)?;
-//                 let crc = u16::decode(&mut data)?.swap_bytes();
-//                 Ok(Self { nack, crc })
-//             }
-//         }
+        if size == 1 {
+            Ok(Self::Nack(Cdc2Ack::decode(&mut data)?))
+        } else {
+            let address = u32::decode(&mut data)?;
 
-//         let result = Choice::<Success, Failure>::decode(data)?.prefer_left();
-//         Ok(match result {
-//             PrefferedChoice::Left(success) => Self::Success {
-//                 address: success.address,
-//                 data: success.data,
-//                 crc: success.crc,
-//             },
-//             PrefferedChoice::Right(failure) => Self::Failure {
-//                 nack: failure.nack,
-//                 crc: failure.crc,
-//             },
-//         })
-//     }
-// }
+            let chunk_data = Vec::sized_decode(&mut data, size - 4)?;
+            Ok(Self::Ack {
+                address,
+                data: chunk_data,
+            })
+        }
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileDataReadReplyPayload {
     pub contents: FileDataReadReplyContents,
+    pub crc: u16,
 }
-// impl Decode for FileDataReadReplyPayload {
-//     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-//     where
-//         Self: Sized,
-//     {
-//         let mut data = data.into_iter();
-//         let id = u8::decode(&mut data)?;
-//         if id != 0x14 {
-//             return Err(DecodeError::UnexpectedValue {
-//                 value: id,
-//                 expected: &[0x14],
-//             });
-//         }
-//         let contents = FileDataReadReplyContents::decode(&mut data)?;
-//         Ok(Self { contents })
-//     }
-// }
+impl SizedDecode for FileDataReadReplyPayload {
+    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError> {
+        let mut data = data.into_iter();
+
+        let ecmd = u8::decode(&mut data)?;
+        if ecmd != FILE_READ {
+            return Err(DecodeError::UnexpectedValue {
+                value: ecmd,
+                expected: &[FILE_READ],
+            });
+        }
+
+        let contents = FileDataReadReplyContents::sized_decode(&mut data, size - 3)?;
+        let crc = u16::decode(&mut data)?.swap_bytes();
+
+        Ok(Self { contents, crc })
+    }
+}
 impl FileDataReadReplyPayload {
     pub fn unwrap(self) -> Result<(u32, Vec<u8>), Cdc2Ack> {
         match self.contents {
-            FileDataReadReplyContents::Success {
+            FileDataReadReplyContents::Ack {
                 address,
                 data,
-                crc: _,
             } => Ok((address, data)),
-            FileDataReadReplyContents::Failure { nack, crc: _ } => Err(nack),
+            FileDataReadReplyContents::Nack(nack) => Err(nack),
         }
     }
 }

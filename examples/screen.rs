@@ -2,27 +2,13 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     connection::{
-        serial::{self, SerialError},
-        Connection,
+        Connection, serial::{self, SerialError}
     },
     encode::{Encode, EncodeError},
     packets::{
-        cdc2::Cdc2CommandPacket, screen::DashSelectReplyPacket,
+        cdc2::Cdc2CommandPacket, screen::{DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket},
     },
 };
-
-pub type DashSelectPacket = Cdc2CommandPacket<0x56, 0x2B, DashSelectPayload>;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DashSelectPayload {
-    screen: u8,
-    port: u8,
-}
-impl Encode for DashSelectPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.screen, self.port])
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
@@ -44,7 +30,10 @@ async fn main() -> Result<(), SerialError> {
         .handshake::<DashSelectReplyPacket>(
             Duration::from_millis(500),
             10,
-            DashSelectPacket::new(DashSelectPayload { screen: 85, port: 83 }),
+            DashSelectPacket::new(DashSelectPayload {
+                screen: DashScreen::Settings,
+                port: 0,
+            }),
         )
         .await?
         .try_into_inner()

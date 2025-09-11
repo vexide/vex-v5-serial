@@ -1,6 +1,6 @@
 use crate::{
     connection,
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, SizedDecode},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
 };
@@ -80,7 +80,7 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
 ///
 /// Encodes a reply payload to a [`CdcCommandPacket`] for a given ID.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
+pub struct CdcReplyPacket<const CMD: u8, P: SizedDecode> {
     /// Packet Payload Size
     pub payload_size: u16,
 
@@ -90,12 +90,12 @@ pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
     pub payload: P,
 }
 
-impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
+impl<const CMD: u8, P: SizedDecode> CdcReplyPacket<CMD, P> {
     /// Header used for host-bound VEX CDC packets.
     pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
 }
 
-impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
+impl<const CMD: u8, P: SizedDecode> Decode for CdcReplyPacket<CMD, P> {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();
 
@@ -113,7 +113,7 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
         }
 
         let payload_size = VarU16::decode(&mut data)?.into_inner();
-        let payload = P::decode(data.take(payload_size as usize))?;
+        let payload = P::sized_decode(data.take(payload_size as usize), payload_size)?;
 
         Ok(Self {
             payload_size,
@@ -122,7 +122,7 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
     }
 }
 
-impl<const CMD: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
+impl<const CMD: u8, P: SizedDecode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
     fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
         let mut data = data.into_iter();
         if <[u8; 2] as Decode>::decode(&mut data)
