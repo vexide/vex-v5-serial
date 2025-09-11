@@ -90,6 +90,6 @@ impl Encode for Vec<u8> {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        (&self).encode(data)
+        self.as_slice().encode(data)
     }
 }

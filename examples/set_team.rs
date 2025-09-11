@@ -37,7 +37,6 @@ async fn main() -> Result<(), SerialError> {
         .recv::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
         .await?;
 
-    // Get the new team number and print it
     connection
         .send(KeyValueLoadPacket::new(
             FixedString::new("teamnumber").unwrap(),
@@ -45,6 +44,15 @@ async fn main() -> Result<(), SerialError> {
         .await?;
     let res = connection
         .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
+        .await?
+        .try_into_inner()?;
+
+    let status = connection
+        .handshake::<DeviceStatusReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            DeviceStatusPacket::new(()),
+        )
         .await?
         .try_into_inner()?;
 
