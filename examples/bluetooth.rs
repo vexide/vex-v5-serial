@@ -45,7 +45,7 @@ async fn main() -> Result<(), BluetoothError> {
 
     // Send a dash packet to test things out
     connection
-        .send_packet(DashSelectPacket::new(DashSelectPayload {
+        .send(DashSelectPacket::new(DashSelectPayload {
             screen: DashScreen::Config,
             port: 0,
         }))

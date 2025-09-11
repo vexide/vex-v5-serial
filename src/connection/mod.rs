@@ -74,11 +74,11 @@ pub trait Connection {
     fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.
-    fn send_packet(&mut self, packet: impl Encode)
+    fn send(&mut self, packet: impl Encode)
         -> impl Future<Output = Result<(), Self::Error>>;
 
     /// Receives a packet.
-    fn receive_packet<P: Decode + CheckHeader>(
+    fn recv<P: Decode + CheckHeader>(
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, Self::Error>>;
@@ -102,7 +102,7 @@ pub trait Connection {
     /// # Note
     ///
     /// This function will fail immediately if the given packet fails to encode.
-    async fn packet_handshake<D: Decode + CheckHeader>(
+    async fn handshake<D: Decode + CheckHeader>(
         &mut self,
         timeout: Duration,
         retries: usize,
@@ -111,8 +111,8 @@ pub trait Connection {
         let mut last_error = None;
 
         for _ in 0..=retries {
-            self.send_packet(packet.clone()).await?;
-            match self.receive_packet::<D>(timeout).await {
+            self.send(packet.clone()).await?;
+            match self.recv::<D>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
                 Err(e) => {
                     warn!(

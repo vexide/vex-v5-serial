@@ -463,7 +463,7 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), SerialError> {
+    async fn send(&mut self, packet: impl Encode) -> Result<(), SerialError> {
         // Encode the packet
         let mut encoded = vec![0; packet.size()];
         packet.encode(&mut encoded);
@@ -484,7 +484,7 @@ impl Connection for SerialConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
+    async fn recv<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
@@ -519,7 +519,7 @@ impl Connection for SerialConnection {
             let mut data = Vec::new();
             loop {
                 let fifo = self
-                    .packet_handshake::<UserDataReplyPacket>(
+                    .handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
                         UserDataPacket::new(UserDataPayload {
@@ -550,7 +550,7 @@ impl Connection for SerialConnection {
             while !buf.is_empty() {
                 let (chunk, rest) = buf.split_at(std::cmp::min(224, buf.len()));
                 _ = self
-                    .packet_handshake::<UserDataReplyPacket>(
+                    .handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
                         UserDataPacket::new(UserDataPayload {

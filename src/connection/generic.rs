@@ -24,21 +24,21 @@ impl Connection for GenericConnection {
         }
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), GenericError> {
+    async fn send(&mut self, packet: impl Encode) -> Result<(), GenericError> {
         match self {
-            GenericConnection::Bluetooth(c) => c.send_packet(packet).await?,
-            GenericConnection::Serial(s) => s.send_packet(packet).await?,
+            GenericConnection::Bluetooth(c) => c.send(packet).await?,
+            GenericConnection::Serial(s) => s.send(packet).await?,
         };
         Ok(())
     }
 
-    async fn receive_packet<P: Decode + CheckHeader>(
+    async fn recv<P: Decode + CheckHeader>(
         &mut self,
         timeout: std::time::Duration,
     ) -> Result<P, GenericError> {
         Ok(match self {
-            GenericConnection::Bluetooth(c) => c.receive_packet(timeout).await?,
-            GenericConnection::Serial(s) => s.receive_packet(timeout).await?,
+            GenericConnection::Bluetooth(c) => c.recv(timeout).await?,
+            GenericConnection::Serial(s) => s.recv(timeout).await?,
         })
     }
 

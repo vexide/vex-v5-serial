@@ -25,7 +25,7 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let status = connection
-        .packet_handshake::<DeviceStatusReplyPacket>(
+        .handshake::<DeviceStatusReplyPacket>(
             Duration::from_millis(500),
             10,
             DeviceStatusPacket::new(()),

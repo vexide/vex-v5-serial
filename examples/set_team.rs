@@ -26,7 +26,7 @@ async fn main() -> Result<(), SerialError> {
 
     // Set the team number on the brain
     connection
-        .send_packet(KeyValueSavePacket::new(KeyValueSavePayload {
+        .send(KeyValueSavePacket::new(KeyValueSavePayload {
             key: FixedString::new("teamnumber")?,
             value: FixedString::new(
                 "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!",
@@ -34,17 +34,17 @@ async fn main() -> Result<(), SerialError> {
         }))
         .await?;
     connection
-        .receive_packet::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
+        .recv::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
         .await?;
 
     // Get the new team number and print it
     connection
-        .send_packet(KeyValueLoadPacket::new(
+        .send(KeyValueLoadPacket::new(
             FixedString::new("teamnumber").unwrap(),
         ))
         .await?;
     let res = connection
-        .receive_packet::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
+        .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
         .await?
         .try_into_inner()?;
 

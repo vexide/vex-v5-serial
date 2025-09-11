@@ -248,7 +248,7 @@ impl Connection for BluetoothConnection {
         ConnectionType::Bluetooth
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), BluetoothError> {
+    async fn send(&mut self, packet: impl Encode) -> Result<(), BluetoothError> {
         if !self.is_paired().await? {
             return Err(BluetoothError::PairingRequired);
         }
@@ -267,7 +267,7 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
+    async fn recv<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {

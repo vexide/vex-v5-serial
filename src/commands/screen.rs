@@ -26,7 +26,7 @@ impl Command for ScreenCapture {
     ) -> Result<Self::Output, C::Error> {
         // Tell the brain we want to take a screenshot
         connection
-            .packet_handshake::<ScreenCaptureReplyPacket>(
+            .handshake::<ScreenCaptureReplyPacket>(
                 Duration::from_millis(100),
                 5,
                 ScreenCapturePacket::new(ScreenCapturePayload {
@@ -83,7 +83,7 @@ impl Command for MockTouch {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         connection
-            .packet_handshake::<DashTouchReplyPacket>(
+            .handshake::<DashTouchReplyPacket>(
                 Duration::from_millis(100),
                 5,
                 DashTouchPacket::new(DashTouchPayload {
@@ -139,7 +139,7 @@ impl Command for OpenDashScreen {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         connection
-            .packet_handshake::<DashSelectReplyPacket>(
+            .handshake::<DashSelectReplyPacket>(
                 Duration::from_millis(100),
                 5,
                 DashSelectPacket::new(DashSelectPayload {

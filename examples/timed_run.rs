@@ -33,7 +33,7 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
-        .packet_handshake::<SystemVersionReplyPacket>(
+        .handshake::<SystemVersionReplyPacket>(
             Duration::from_millis(700),
             5,
             SystemVersionPacket::new(()),
@@ -50,7 +50,7 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to auto");
     connection
-        .packet_handshake::<CompetitionControlReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
             CompetitionControlPacket::new(CompetitionControlPayload {
@@ -64,7 +64,7 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to driver");
     connection
-        .packet_handshake::<CompetitionControlReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
             CompetitionControlPacket::new(CompetitionControlPayload {
@@ -79,7 +79,7 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to disabled");
     connection
-        .packet_handshake::<CompetitionControlReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
             CompetitionControlPacket::new(CompetitionControlPayload {

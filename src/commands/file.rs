@@ -55,7 +55,7 @@ impl Command for DownloadFile {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         let transfer_response = connection
-            .packet_handshake::<FileTransferInitializeReplyPacket>(
+            .handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
                 FileTransferInitializePacket::new(FileTransferInitializePayload {
@@ -95,7 +95,7 @@ impl Command for DownloadFile {
         let mut offset = 0;
         loop {
             let read = connection
-                .packet_handshake::<FileDataReadReplyPacket>(
+                .handshake::<FileDataReadReplyPacket>(
                     Duration::from_millis(500),
                     5,
                     FileDataReadPacket::new(FileDataReadPayload {
@@ -177,7 +177,7 @@ impl Command for UploadFile<'_> {
         let crc = VEX_CRC32.checksum(&self.data);
 
         let transfer_response = connection
-            .packet_handshake::<FileTransferInitializeReplyPacket>(
+            .handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
                 FileTransferInitializePacket::new(FileTransferInitializePayload {
@@ -198,7 +198,7 @@ impl Command for UploadFile<'_> {
 
         if let Some(linked_file) = self.linked_file {
             connection
-                .packet_handshake::<FileLinkReplyPacket>(
+                .handshake::<FileLinkReplyPacket>(
                     Duration::from_millis(500),
                     5,
                     FileLinkPacket::new(FileLinkPayload {
@@ -241,10 +241,10 @@ impl Command for UploadFile<'_> {
 
             // On bluetooth, we dont wait for the reply
             if connection.connection_type() == ConnectionType::Bluetooth {
-                connection.send_packet(packet).await?;
+                connection.send(packet).await?;
             } else {
                 connection
-                    .packet_handshake::<FileDataWriteReplyPacket>(
+                    .handshake::<FileDataWriteReplyPacket>(
                         Duration::from_millis(500),
                         5,
                         packet,
@@ -260,7 +260,7 @@ impl Command for UploadFile<'_> {
         }
 
         connection
-            .packet_handshake::<FileTransferExitReplyPacket>(
+            .handshake::<FileTransferExitReplyPacket>(
                 Duration::from_millis(1000),
                 5,
                 FileTransferExitPacket::new(self.after_upload),

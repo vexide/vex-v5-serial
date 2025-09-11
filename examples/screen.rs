@@ -41,7 +41,7 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     connection
-        .packet_handshake::<DashSelectReplyPacket>(
+        .handshake::<DashSelectReplyPacket>(
             Duration::from_millis(500),
             10,
             DashSelectPacket::new(DashSelectPayload { screen: 85, port: 83 }),
