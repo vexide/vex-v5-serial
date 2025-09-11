@@ -6,7 +6,7 @@ use super::{
     },
 };
 
-use crate::encode::{Encode, EncodeError};
+use crate::encode::Encode;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
@@ -165,12 +165,14 @@ pub struct DashTouchPayload {
     pub pressing: u16,
 }
 impl Encode for DashTouchPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.extend(self.x.to_le_bytes());
-        encoded.extend(self.y.to_le_bytes());
-        encoded.extend(self.pressing.to_le_bytes());
-        Ok(encoded)
+    fn size(&self) -> usize {
+        6
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.x.encode(data);
+        self.y.encode(&mut data[2..]);
+        self.pressing.encode(&mut data[4..]);
     }
 }
 
@@ -188,8 +190,13 @@ pub struct DashSelectPayload {
     pub port: u8,
 }
 impl Encode for DashSelectPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.screen as u8, self.port])
+    fn size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.screen as _;
+        data[1] = self.port;
     }
 }
 
@@ -202,11 +209,17 @@ pub struct ScreenCapturePayload {
     pub layer: Option<u8>,
 }
 impl Encode for ScreenCapturePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(if let Some(layer) = self.layer {
-            vec![layer]
+    fn size(&self) -> usize {
+        if self.layer.is_some() {
+            1
         } else {
-            Vec::new()
-        })
+            0
+        }
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        if let Some(layer) = self.layer {
+            data[0] = layer;
+        }
     }
 }

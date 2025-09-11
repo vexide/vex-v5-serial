@@ -1,7 +1,7 @@
 use crate::{
     connection::{bluetooth, serial, Connection, ConnectionType},
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     packets::cdc2::Cdc2Ack,
 };
 use futures::{try_join, TryFutureExt};
@@ -163,8 +163,6 @@ pub enum GenericError {
     SerialError(#[from] SerialError),
     #[error("Bluetooth Error: {0}")]
     BluetoothError(#[from] BluetoothError),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
     #[error("NACK received: {0:?}")]

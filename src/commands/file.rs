@@ -1,4 +1,4 @@
-use std::{io::Write, str::FromStr, time::Duration};
+use std::{io::Write, str::FromStr, time::{Duration, SystemTime}};
 
 use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
@@ -18,11 +18,21 @@ use crate::{
         FileTransferTarget, FileVendor,
     },
     string::FixedString,
-    timestamp::j2000_timestamp,
     version::Version,
 };
 
 use super::Command;
+
+/// The epoch of the serial protocols timestamps
+const J2000_EPOCH: u32 = 946684800;
+
+fn j2000_timestamp() -> i32 {
+    (SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+        - J2000_EPOCH as u128) as i32
+}
 
 pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
 pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;

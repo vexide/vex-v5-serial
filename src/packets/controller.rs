@@ -7,7 +7,7 @@ use super::{
 };
 use crate::{
     decode::{Decode, DecodeError, SizedDecode},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     string::FixedString,
 };
 
@@ -23,17 +23,19 @@ pub struct UserDataPayload {
     pub write: Option<FixedString<224>>,
 }
 impl Encode for UserDataPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.extend(self.channel.to_le_bytes());
+    fn size(&self) -> usize {
+        2 + self.write.as_ref().map(|write| write.size()).unwrap_or(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.channel;
+
         if let Some(write) = &self.write {
-            let encoded_write = write.encode()?;
-            encoded.extend((encoded_write.len() as u8).to_le_bytes());
-            encoded.extend(encoded_write);
+            data[1] = write.size() as u8;
+            write.encode(&mut data[2..]);
         } else {
-            encoded.extend([0]); // 0 write length
+            data[1] = 0;
         }
-        Ok(encoded)
     }
 }
 
@@ -86,6 +88,7 @@ pub type CompetitionControlPacket =
 pub type CompetitionControlReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_COMP_CTRL, ()>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum MatchMode {
     Driver = 8,
     Auto = 10,
@@ -99,10 +102,12 @@ pub struct CompetitionControlPayload {
     pub match_time: u32,
 }
 impl Encode for CompetitionControlPayload {
-    fn encode(&self) -> Result<Vec<u8>, crate::encode::EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.push(self.match_mode as u8);
-        encoded.extend(self.match_time.to_le_bytes());
-        Ok(encoded)
+    fn size(&self) -> usize {
+        5
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.match_mode as u8;
+        self.match_time.encode(&mut data[1..]);
     }
 }

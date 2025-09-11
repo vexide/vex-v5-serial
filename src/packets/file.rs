@@ -1,6 +1,6 @@
 //! Filesystem Access
 
-use std::{str, vec};
+use std::str;
 
 use super::{
     cdc::cmds::USER_CDC,
@@ -14,9 +14,8 @@ use super::{
     },
 };
 use crate::{
-    choice::{Choice, PrefferedChoice},
-    decode::{Decode, DecodeError, SizedDecode},
-    encode::{Encode, EncodeError},
+    decode::{Decode, DecodeError},
+    encode::Encode,
     string::FixedString,
     version::Version,
 };
@@ -143,15 +142,16 @@ pub struct FileMetadata {
 }
 
 impl Encode for FileMetadata {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut data = vec![0; 3];
-        // extension is not null terminated and is fixed length
-        data[..self.extension.as_ref().len()].copy_from_slice(self.extension.as_ref().as_bytes());
-        data.push(self.extension_type as _);
-        data.extend(self.timestamp.to_le_bytes());
-        data.extend(self.version.encode()?);
+    fn size(&self) -> usize {
+        12
+    }
 
-        Ok(data)
+    fn encode(&self, data: &mut [u8]) {
+        let extension = self.extension.as_ref();
+        data[..extension.len()].copy_from_slice(extension.as_bytes());
+        data[3] = self.extension_type as _;
+        self.timestamp.encode(&mut data[4..]);
+        self.version.encode(&mut data[8..]);
     }
 }
 
@@ -196,20 +196,20 @@ pub struct FileTransferInitializePayload {
 }
 
 impl Encode for FileTransferInitializePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![
-            self.operation as _,
-            self.target as _,
-            self.vendor as _,
-            self.options as _,
-        ];
-        encoded.extend(self.file_size.to_le_bytes());
-        encoded.extend(self.load_address.to_le_bytes());
-        encoded.extend(self.write_file_crc.to_le_bytes());
-        encoded.extend(self.metadata.encode()?);
-        encoded.extend(self.file_name.encode()?);
+    fn size(&self) -> usize {
+        28 + self.file_name.size()
+    }
 
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.operation as _;
+        data[1] = self.target as _;
+        data[2] = self.vendor as _;
+        data[3] = self.options as _;
+        self.file_size.encode(&mut data[4..]);
+        self.load_address.encode(&mut data[8..]);
+        self.write_file_crc.encode(&mut data[12..]);
+        self.metadata.encode(&mut data[16..]);
+        self.file_name.encode(&mut data[28..]);
     }
 }
 
@@ -258,8 +258,11 @@ pub enum FileExitAction {
     ShowRunScreen = 3,
 }
 impl Encode for FileExitAction {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![*self as _])
+    fn size(&self) -> usize {
+        1
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = *self as _;
     }
 }
 /// Write to the brain
@@ -275,13 +278,13 @@ pub struct FileDataWritePayload {
     pub chunk_data: Vec<u8>,
 }
 impl Encode for FileDataWritePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-
-        encoded.extend(self.address.to_le_bytes());
-        encoded.extend(&self.chunk_data);
-
-        Ok(encoded)
+    fn size(&self) -> usize {
+        4 + self.chunk_data.len()
+    }
+    
+    fn encode(&self, data: &mut [u8]) {
+        self.address.encode(data);
+        self.chunk_data.encode(&mut data[4..]);
     }
 }
 
@@ -299,11 +302,13 @@ pub struct FileDataReadPayload {
     pub size: u16,
 }
 impl Encode for FileDataReadPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.extend(self.address.to_le_bytes());
-        encoded.extend(self.size.to_le_bytes());
-        Ok(encoded)
+    fn size(&self) -> usize {
+        6
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.address.encode(data);
+        self.size.encode(&mut data[4..]);
     }
 }
 
@@ -320,82 +325,82 @@ pub enum FileDataReadReplyContents {
         crc: u16,
     },
 }
-impl Decode for FileDataReadReplyContents {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        struct Success {
-            address: u32,
-            data: Vec<u8>,
-            crc: u16,
-        }
-        impl Decode for Success {
-            fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-                let mut data = data.into_iter();
-                let address = u32::decode(&mut data)?;
+// impl Decode for FileDataReadReplyContents {
+//     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+//         struct Success {
+//             address: u32,
+//             data: Vec<u8>,
+//             crc: u16,
+//         }
+//         impl Decode for Success {
+//             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+//                 let mut data = data.into_iter();
+//                 let address = u32::decode(&mut data)?;
 
-                // This is a cursed way to get the number of bytes in chunk_data.
-                let data_vec = data.collect::<Vec<_>>();
-                // The last two bytes are the CRC checksum.
-                let num_bytes = data_vec.len() - 2;
-                let mut data = data_vec.into_iter();
+//                 // This is a cursed way to get the number of bytes in chunk_data.
+//                 let data_vec = data.collect::<Vec<_>>();
+//                 // The last two bytes are the CRC checksum.
+//                 let num_bytes = data_vec.len() - 2;
+//                 let mut data = data_vec.into_iter();
 
-                let chunk_data = Vec::sized_decode(&mut data, num_bytes as _)?;
-                let crc = u16::decode(&mut data)?.swap_bytes();
-                Ok(Self {
-                    address,
-                    data: chunk_data,
-                    crc,
-                })
-            }
-        }
-        struct Failure {
-            nack: Cdc2Ack,
-            crc: u16,
-        }
-        impl Decode for Failure {
-            fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-                let mut data = data.into_iter();
-                let nack = Cdc2Ack::decode(&mut data)?;
-                let crc = u16::decode(&mut data)?.swap_bytes();
-                Ok(Self { nack, crc })
-            }
-        }
+//                 let chunk_data = Vec::sized_decode(&mut data, num_bytes as _)?;
+//                 let crc = u16::decode(&mut data)?.swap_bytes();
+//                 Ok(Self {
+//                     address,
+//                     data: chunk_data,
+//                     crc,
+//                 })
+//             }
+//         }
+//         struct Failure {
+//             nack: Cdc2Ack,
+//             crc: u16,
+//         }
+//         impl Decode for Failure {
+//             fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+//                 let mut data = data.into_iter();
+//                 let nack = Cdc2Ack::decode(&mut data)?;
+//                 let crc = u16::decode(&mut data)?.swap_bytes();
+//                 Ok(Self { nack, crc })
+//             }
+//         }
 
-        let result = Choice::<Success, Failure>::decode(data)?.prefer_left();
-        Ok(match result {
-            PrefferedChoice::Left(success) => Self::Success {
-                address: success.address,
-                data: success.data,
-                crc: success.crc,
-            },
-            PrefferedChoice::Right(failure) => Self::Failure {
-                nack: failure.nack,
-                crc: failure.crc,
-            },
-        })
-    }
-}
+//         let result = Choice::<Success, Failure>::decode(data)?.prefer_left();
+//         Ok(match result {
+//             PrefferedChoice::Left(success) => Self::Success {
+//                 address: success.address,
+//                 data: success.data,
+//                 crc: success.crc,
+//             },
+//             PrefferedChoice::Right(failure) => Self::Failure {
+//                 nack: failure.nack,
+//                 crc: failure.crc,
+//             },
+//         })
+//     }
+// }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileDataReadReplyPayload {
     pub contents: FileDataReadReplyContents,
 }
-impl Decode for FileDataReadReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
-        let mut data = data.into_iter();
-        let id = u8::decode(&mut data)?;
-        if id != 0x14 {
-            return Err(DecodeError::UnexpectedValue {
-                value: id,
-                expected: &[0x14],
-            });
-        }
-        let contents = FileDataReadReplyContents::decode(&mut data)?;
-        Ok(Self { contents })
-    }
-}
+// impl Decode for FileDataReadReplyPayload {
+//     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
+//     where
+//         Self: Sized,
+//     {
+//         let mut data = data.into_iter();
+//         let id = u8::decode(&mut data)?;
+//         if id != 0x14 {
+//             return Err(DecodeError::UnexpectedValue {
+//                 value: id,
+//                 expected: &[0x14],
+//             });
+//         }
+//         let contents = FileDataReadReplyContents::decode(&mut data)?;
+//         Ok(Self { contents })
+//     }
+// }
 impl FileDataReadReplyPayload {
     pub fn unwrap(self) -> Result<(u32, Vec<u8>), Cdc2Ack> {
         match self.contents {
@@ -423,12 +428,14 @@ pub struct FileLinkPayload {
     pub required_file: FixedString<23>,
 }
 impl Encode for FileLinkPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.option as _];
-        let string = self.required_file.encode()?;
-        encoded.extend(string);
+    fn size(&self) -> usize {
+        2 + self.required_file.size()
+    }
 
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option;
+        self.required_file.encode(&mut data[2..]);
     }
 }
 
@@ -443,13 +450,16 @@ pub struct DirectoryFileCountPayload {
     pub option: u8,
 }
 impl Encode for DirectoryFileCountPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.vendor as _, self.option])
+    fn size(&self) -> usize {
+        2
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option;
     }
 }
 
-pub type DirectoryEntryPacket =
-    Cdc2CommandPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryPayload>;
+pub type DirectoryEntryPacket = Cdc2CommandPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryPayload>;
 pub type DirectoryEntryReplyPacket =
     Cdc2ReplyPacket<USER_CDC, FILE_DIR_ENTRY, Option<DirectoryEntryReplyPayload>>;
 
@@ -460,8 +470,13 @@ pub struct DirectoryEntryPayload {
     pub unknown: u8,
 }
 impl Encode for DirectoryEntryPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.file_index, self.unknown])
+    fn size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.file_index;
+        data[1] = self.unknown;
     }
 }
 
@@ -520,12 +535,14 @@ pub struct FileLoadActionPayload {
     pub file_name: FixedString<23>,
 }
 impl Encode for FileLoadActionPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.action as _];
-        let string = self.file_name.encode()?;
-        encoded.extend(string);
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
 
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.action as _;
+        self.file_name.encode(&mut data[2..]);
     }
 }
 pub type FileMetadataPacket = Cdc2CommandPacket<USER_CDC, FILE_GET_INFO, FileMetadataPayload>;
@@ -540,12 +557,14 @@ pub struct FileMetadataPayload {
     pub file_name: FixedString<23>,
 }
 impl Encode for FileMetadataPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.option];
-        let string = self.file_name.encode()?;
-        encoded.extend(string);
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
 
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option as _;
+        self.file_name.encode(&mut data[2..]);
     }
 }
 
@@ -612,12 +631,16 @@ pub struct FileMetadataSetPayload {
     pub file_name: FixedString<23>,
 }
 impl Encode for FileMetadataSetPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.option];
-        encoded.extend(self.load_address.to_le_bytes());
-        encoded.extend(self.metadata.encode()?);
-        encoded.extend(self.file_name.encode()?);
-        Ok(encoded)
+    fn size(&self) -> usize {
+        18 + self.file_name.size()
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option as _;
+        self.load_address.encode(&mut data[2..]);
+        self.metadata.encode(&mut data[6..]);
+        self.file_name.encode(&mut data[18..]);
     }
 }
 
@@ -632,11 +655,14 @@ pub struct FileErasePayload {
     pub file_name: FixedString<23>,
 }
 impl Encode for FileErasePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.option];
-        encoded.extend(self.file_name.encode()?);
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
 
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option as _;
+        self.file_name.encode(&mut data[2..]);
     }
 }
 
@@ -650,13 +676,18 @@ pub struct FileCleanUpPayload {
     pub option: u8,
 }
 impl Encode for FileCleanUpPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.vendor as _, self.option])
+    fn size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option as _;
     }
 }
 
-#[repr(u8)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
 /// (RESEARCH NEEDED)
 pub enum FileCleanUpResult {
     /// No file deleted
@@ -700,9 +731,30 @@ pub struct FileFormatConfirmation {
     /// Must be [0x44, 0x43, 0x42, 0x41].
     pub confirmation_code: [u8; 4],
 }
+
+impl FileFormatConfirmation {
+    pub const FORMAT_CODE: [u8; 4] = [0x44, 0x43, 0x42, 0x41];
+
+    pub const fn new() -> Self {
+        Self {
+            confirmation_code: Self::FORMAT_CODE,
+        }
+    }
+}
+
+impl Default for FileFormatConfirmation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Encode for FileFormatConfirmation {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(self.confirmation_code.to_vec())
+    fn size(&self) -> usize {
+        4
+    }
+    
+    fn encode(&self, data: &mut [u8]) {
+        self.confirmation_code.encode(data)
     }
 }
 
@@ -712,12 +764,20 @@ pub enum FileControlGroup {
 }
 
 impl Encode for FileControlGroup {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(match self {
-            Self::Radio(channel) => {
-                vec![0x01, *channel as u8]
-            }
-        })
+    fn size(&self) -> usize {
+        if matches!(self, Self::Radio(_)) {
+            2
+        } else {
+            0
+        }
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        #[allow(irrefutable_let_patterns)] // may change in the future
+        if let Self::Radio(channel) = self {
+            data[0] = 0x01;
+            data[1] = *channel as _;
+        }
     }
 }
 

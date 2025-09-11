@@ -1,5 +1,5 @@
 use crate::decode::{Decode, DecodeError};
-use crate::encode::{Encode, EncodeError};
+use crate::encode::Encode;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Version {
@@ -8,11 +8,20 @@ pub struct Version {
     pub build: u8,
     pub beta: u8,
 }
+
 impl Encode for Version {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(vec![self.major, self.minor, self.build, self.beta])
+    fn size(&self) -> usize {
+        4
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.major;
+        data[1] = self.minor;
+        data[2] = self.build;
+        data[3] = self.beta;
     }
 }
+
 impl Decode for Version {
     fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
         let mut data = data.into_iter();

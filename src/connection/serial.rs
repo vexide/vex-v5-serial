@@ -15,7 +15,7 @@ use super::{CheckHeader, Connection, ConnectionType};
 use crate::{
     connection::{trim_packets, RawPacket},
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     packets::{
         cdc2::Cdc2Ack,
         controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}, HOST_BOUND_HEADER,
@@ -465,7 +465,8 @@ impl Connection for SerialConnection {
 
     async fn send_packet(&mut self, packet: impl Encode) -> Result<(), SerialError> {
         // Encode the packet
-        let encoded = packet.encode()?;
+        let mut encoded = vec![0; packet.size()];
+        packet.encode(&mut encoded);
 
         trace!("sent packet: {:x?}", encoded);
 
@@ -574,8 +575,6 @@ impl Connection for SerialConnection {
 pub enum SerialError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
     #[error("Packet timeout")]

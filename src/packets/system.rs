@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     decode::{Decode, DecodeError, SizedDecode},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     string::FixedString,
     version::Version,
 };
@@ -331,11 +331,13 @@ pub struct LogReadPayload {
     pub count: u32,
 }
 impl Encode for LogReadPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.extend(self.offset.to_le_bytes());
-        encoded.extend(self.count.to_le_bytes());
-        Ok(encoded)
+    fn size(&self) -> usize {
+        8
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.offset.encode(data);
+        self.count.encode(&mut data[4..]);
     }
 }
 
@@ -382,13 +384,13 @@ pub struct KeyValueSavePayload {
     pub value: FixedString<255>,
 }
 impl Encode for KeyValueSavePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
+    fn size(&self) -> usize {
+        self.key.size() + self.value.size()
+    }
 
-        encoded.extend(self.key.as_ref().to_string().encode()?);
-        encoded.extend(self.value.as_ref().to_string().encode()?);
-
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        self.key.as_ref().to_string().encode(data);
+        self.value.as_ref().to_string().encode(&mut data[self.key.size()..]);
     }
 }
 
@@ -425,14 +427,17 @@ pub struct ProgramStatusPayload {
     pub option: u8,
     /// The bin file name.
     pub file_name: FixedString<23>,
-}
+} 
 impl Encode for ProgramStatusPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = vec![self.vendor as _, self.option];
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
 
-        encoded.extend(self.file_name.encode()?);
-
-        Ok(encoded)
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.option;
+        
+        self.file_name.encode(&mut data[2..]);
     }
 }
 

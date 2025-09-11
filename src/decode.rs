@@ -5,19 +5,18 @@ use thiserror::Error;
 pub enum DecodeError {
     #[error("Packet too short")]
     PacketTooShort,
+
     #[error("Invalid response header")]
     InvalidHeader,
+
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
+
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] Utf8Error),
+
     #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
     UnexpectedValue { value: u8, expected: &'static [u8] },
-    #[error("Attempted to decode a choice, but neither choice was successful: left: {left}, right: {right}")]
-    BothChoicesFailed {
-        left: Box<DecodeError>,
-        right: Box<DecodeError>,
-    },
 }
 
 pub trait Decode {

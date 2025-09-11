@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     packets::cdc::CdcReplyPacket,
 };
 
@@ -58,8 +58,12 @@ pub type FactoryEnableReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_EBL, ()>;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryEnablePayload(pub [u8; 4]);
 impl Encode for FactoryEnablePayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        Ok(self.0.to_vec())
+    fn size(&self) -> usize {
+        4
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.0.encode(data)
     }
 }
 

@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::connection::trim_packets;
 use crate::decode::{Decode, DecodeError};
-use crate::encode::{Encode, EncodeError};
+use crate::encode::Encode;
 use crate::packets::cdc2::Cdc2Ack;
 
 use super::{CheckHeader, Connection, ConnectionType, RawPacket};
@@ -254,7 +254,8 @@ impl Connection for BluetoothConnection {
         }
 
         // Encode the packet
-        let encoded = packet.encode()?;
+        let mut encoded = vec![0; packet.size()];
+        packet.encode(&mut encoded);
 
         trace!("sent packet: {:x?}", encoded);
 
@@ -312,8 +313,6 @@ impl Connection for BluetoothConnection {
 pub enum BluetoothError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
     #[error("Packet timeout")]

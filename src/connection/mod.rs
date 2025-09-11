@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::{
     commands::Command,
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::{Encode},
     packets::cdc2::Cdc2Ack,
 };
 
@@ -69,7 +69,7 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
 /// Represents an open connection to a V5 peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection {
-    type Error: std::error::Error + From<EncodeError> + From<DecodeError> + From<Cdc2Ack>;
+    type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack>;
 
     fn connection_type(&self) -> ConnectionType;
 

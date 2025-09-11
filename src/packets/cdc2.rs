@@ -6,7 +6,7 @@ use crate::{
     connection,
     crc::VEX_CRC16,
     decode::SizedDecode,
-    encode::{Encode, EncodeError},
+    encode::{Encode, MessageEncoder},
     varint::VarU16,
 };
 
@@ -201,28 +201,31 @@ impl<P: Encode, const CMD: u8, const EXT_CMD: u8> Cdc2CommandPacket<CMD, EXT_CMD
 }
 
 impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<CMD, EXT_CMD, P> {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
+    fn size(&self) -> usize {
+        let payload_size = self.payload.size();
 
-        encoded.extend(Self::HEADER);
+        8 + if payload_size > (u8::MAX >> 1) as _ {
+            2
+        } else {
+            1
+        } + payload_size
+    }
 
-        // Push CMDs
-        encoded.push(CMD);
-        encoded.push(EXT_CMD);
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = CMD;
+        data[5] = EXT_CMD;
 
+        let mut enc = MessageEncoder::new(&mut data[6..]);
+        
         // Push the payload size and encoded bytes
-        let payload_bytes = self.payload.encode()?;
-        let payload_size = VarU16::new(payload_bytes.len() as u16);
-        encoded.extend(payload_size.encode()?);
-        encoded.extend(payload_bytes);
-
-        // The CRC32 checksum is of the whole encoded packet, meaning we need
+        enc.write(&VarU16::new(self.payload.size() as u16));
+        enc.write(&self.payload);
+        
+        // The CRC16 checksum is of the whole encoded packet, meaning we need
         // to also include the header bytes.
-        let checksum = VEX_CRC16.checksum(&encoded);
-
-        encoded.extend(checksum.to_be_bytes());
-
-        Ok(encoded)
+        let crc = VEX_CRC16.checksum(&enc.get_ref()[0..enc.position()]);
+        enc.write(&crc.to_be_bytes());
     }
 }
 
