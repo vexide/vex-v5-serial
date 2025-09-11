@@ -8,6 +8,7 @@ use crate::{
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 
 /// Known CDC Command Identifiers
+#[allow(unused)]
 pub(crate) mod cmds {
     pub const ACK: u8 = 0x33;
     pub const QUERY_1: u8 = 0x21;

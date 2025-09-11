@@ -14,6 +14,7 @@ use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 use crate::decode::{Decode, DecodeError};
 
 /// Known CDC2 Command Identifiers
+#[allow(unused)]
 pub(crate) mod ecmds {
     // internal filesystem operations
     pub const FILE_CTRL: u8 = 0x10;
