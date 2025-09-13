@@ -49,7 +49,7 @@ async fn main() -> Result<(), SerialError> {
 
     sleep(Duration::from_millis(1000)).await;
 
-    let file = "slot_3.bin";
+    let file = "slot_1.bin";
 
     // Download program file
     let download = connection

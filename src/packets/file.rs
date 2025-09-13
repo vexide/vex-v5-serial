@@ -440,6 +440,16 @@ pub struct DirectoryEntryReplyPayload {
     pub file_name: String,
 }
 
+impl Decode for Option<DirectoryEntryReplyPayload> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(if data.len() == 3 {
+            None
+        } else {
+            Some(Decode::decode(data)?)
+        })
+    }
+}
+
 impl Decode for DirectoryEntryReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let file_index = u8::decode(data)?;

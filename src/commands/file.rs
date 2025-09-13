@@ -28,9 +28,9 @@ use crate::{
 use super::Command;
 
 /// The epoch of the serial protocols timestamps
-const J2000_EPOCH: u32 = 946684800;
+pub const J2000_EPOCH: u32 = 946684800;
 
-fn j2000_timestamp() -> i32 {
+pub fn j2000_timestamp() -> i32 {
     (SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("Time went backwards")
