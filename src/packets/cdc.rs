@@ -125,7 +125,7 @@ impl<const CMD: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<CMD, P
             return false;
         };
 
-        data[0..2] != Self::HEADER && data[3] == CMD
+        data[0..2] == Self::HEADER && data[2] == CMD
     }
 }
 
