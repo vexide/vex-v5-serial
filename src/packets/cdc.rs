@@ -53,7 +53,9 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
     fn size(&self) -> usize {
         let payload_size = self.payload.size();
 
-        5 + if payload_size > (u8::MAX >> 1) as _ {
+        5 + if payload_size == 0 {
+            0
+        } else if payload_size > (u8::MAX >> 1) as _ {
             2
         } else {
             1
@@ -68,7 +70,7 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
 
         // We only encode the payload size if there is a payload
         if payload_size > 0 {
-            let mut enc = MessageEncoder::new(&mut data[5..]);
+            let mut enc = MessageEncoder::new_with_position(data, 5);
 
             enc.write(&VarU16::new(payload_size as u16));
             enc.write(&self.payload);

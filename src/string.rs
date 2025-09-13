@@ -67,7 +67,7 @@ impl<const N: usize> Display for FixedString<N> {
 
 impl<const N: usize> Encode for FixedString<N> {
     fn size(&self) -> usize {
-        self.0.len() + 1
+        N + 1
     }
 
     fn encode(&self, data: &mut [u8]) {
