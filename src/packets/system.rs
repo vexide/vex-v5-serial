@@ -472,5 +472,5 @@ impl Decode for SlotInfoPayload {
     }
 }
 
-pub type UserProgramControlPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
-pub type UserProgramControlReplyPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
+pub type ProgramControlPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
+pub type ProgramControlReplyPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;

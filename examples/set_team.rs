@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use vex_v5_serial::connection::serial::SerialError;
 use vex_v5_serial::connection::{serial, Connection};
-use vex_v5_serial::packets::device::{DeviceStatusPacket, DeviceStatusReplyPacket};
 use vex_v5_serial::packets::system::{
     KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
     KeyValueSaveReplyPacket,
@@ -46,15 +45,6 @@ async fn main() -> Result<(), SerialError> {
     let res = connection
         .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
         .await.unwrap()
-        .try_into_inner()?;
-
-    let status = connection
-        .handshake::<DeviceStatusReplyPacket>(
-            Duration::from_millis(500),
-            10,
-            DeviceStatusPacket::new(()),
-        )
-        .await?
         .try_into_inner()?;
 
     println!("{:?}", res);
