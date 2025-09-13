@@ -344,7 +344,7 @@ impl SerialDevice {
 }
 
 /// Decodes a [`HostBoundPacket`]'s header sequence.
-fn decode_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
+fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
     let header = Decode::decode(&mut data)?;
     if header != HOST_BOUND_HEADER {
         return Err(DecodeError::InvalidHeader);
@@ -403,7 +403,7 @@ impl SerialConnection {
         self.system_port.read_exact(&mut header).await?;
 
         // Verify that the header is valid
-        if let Err(e) = decode_header(&header) {
+        if let Err(e) = validate_header(&header) {
             warn!(
                 "Skipping packet with invalid header: {:x?}. Error: {}",
                 header, e
@@ -573,16 +573,22 @@ impl Connection for SerialConnection {
 pub enum SerialError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
+
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
+    
     #[error("Packet timeout")]
     Timeout,
+    
     #[error("NACK received: {0:?}")]
     Nack(#[from] Cdc2Ack),
+    
     #[error("Serialport Error")]
     SerialportError(#[from] tokio_serial::Error),
+    
     #[error("Could not infer serial port types")]
     CouldntInferTypes,
+    
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
 }

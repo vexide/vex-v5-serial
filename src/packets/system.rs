@@ -103,8 +103,10 @@ impl Decode for SystemFlags {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemStatus {
-    pub unknown: u8,
-    pub system_version: Version,
+    /// Always zero as of VEXos 1.1.5
+    pub reserved: u8,
+    /// returns None when connected via controller
+    pub system_version: Option<Version>,
     pub cpu0_version: Version,
     pub cpu1_version: Version,
     pub touch_version: Version,
@@ -112,8 +114,19 @@ pub struct SystemStatus {
 }
 impl Decode for SystemStatus {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let unknown = u8::decode(data)?;
-        let system_version = Version::decode(data)?;
+        let reserved = u8::decode(data)?;
+        let system_version = match Version::decode(data)? {
+            Version { 
+                major: 0,
+                minor: 0,
+                build: 0,
+                beta: 0,
+            } => {
+                None
+            },
+            version => Some(version),
+        };
+
         let cpu0_version = Version::decode(data)?;
         let cpu1_version = Version::decode(data)?;
 
@@ -132,7 +145,7 @@ impl Decode for SystemStatus {
         };
 
         Ok(Self {
-            unknown,
+            reserved,
             system_version,
             cpu0_version,
             cpu1_version,
@@ -144,41 +157,18 @@ impl Decode for SystemStatus {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemDetails {
-    pub unique_id: u32,
-
-    /// (RESEARCH NEEDED)
-    pub flags_1: u16,
-
-    /// Bit mask.
-    /// From left to right:
-    /// no.1 bit = Is master controller charging
-    /// no.2 bit = Is autonomous mode
-    /// no.3 bit = Is disabled
-    /// no.4 bit = Field controller connected
-    /// (RESEARCH NEEDED)
-    pub flags_2: u16,
-
-    /// Bit mask.
-    /// From left to right:
-    /// no.1 to 4 bit = Language index, check out setting/language page
-    /// no.6 bit = Is white theme
-    /// no.8 bit = Is rotation normal
-    /// no.14 bit = Ram boot loader active
-    /// no.15 bit = Rom boot loader active
-    /// no.16 bit = Is event brain/ Is field control signal from serial
-    /// (RESEARCH NEEDED)
-    pub flags_3: u16,
-    pub unknown: u16,
+    /// Unique ID for the Brain.
+    pub ssn: u32,
+    pub boot_flags: u32,
+    pub system_flags: u32,
     pub golden_version: Version,
     pub nxp_version: Option<Version>,
 }
 impl Decode for SystemDetails {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let unique_id = u32::decode(data)?;
-        let flags_1 = u16::decode(data)?;
-        let flags_2 = u16::decode(data)?;
-        let flags_3 = u16::decode(data)?;
-        let unknown = u16::decode(data)?;
+        let ssn = u32::decode(data)?;
+        let boot_flags = u32::decode(data)?;
+        let system_flags = u32::decode(data)?;
         let golden_version = Version::decode(data)?;
         let nxp_version = match Version::decode(data) {
             Ok(version) => Some(version),
@@ -187,11 +177,9 @@ impl Decode for SystemDetails {
         };
 
         Ok(Self {
-            unique_id,
-            flags_1,
-            flags_2,
-            flags_3,
-            unknown,
+            ssn,
+            boot_flags,
+            system_flags,
             golden_version,
             nxp_version,
         })
@@ -232,38 +220,28 @@ pub type Query1ReplyPacket = CdcReplyPacket<QUERY_1, Query1ReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Query1ReplyPayload {
-    pub unknown_1: [u8; 4],
-    /// bytes 0-3 unknown
-    pub joystick_flag_1: u8,
-    pub joystick_flag_2: u8,
-    /// Theorized to be version related, unsure.
-    pub brain_flag_1: u8,
-    pub brain_flag_2: u8,
-    pub unknown_2: [u8; 2], // bytes 8 and 9 unknown
-    pub bootload_flag_1: u8,
-    pub bootload_flag_2: u8,
+    pub version_1: u32,
+    pub version_2: u32,
+
+    /// 0xFF = QSPI, 0 = NOT sdcard, other = sdcard (returns devcfg.MULTIBOOT_ADDR)
+    pub boot_source: u8,
+
+    /// Number of times this packet has been replied to.
+    pub count: u8,
 }
 
 impl Decode for Query1ReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let unknown_1 = <[u8; 4]>::decode(data)?;
-        let joystick_flag_1 = u8::decode(data)?;
-        let joystick_flag_2 = u8::decode(data)?;
-        let brain_flag_1 = u8::decode(data)?;
-        let brain_flag_2 = u8::decode(data)?;
-        let unknown_2 = <[u8; 2]>::decode(data)?;
-        let bootload_flag_1 = u8::decode(data)?;
-        let bootload_flag_2 = u8::decode(data)?;
+        let version_1 = u32::decode(data)?;
+        let version_2 = u32::decode(data)?;
+        let boot_source = u8::decode(data)?;
+        let count = u8::decode(data)?;
 
         Ok(Self {
-            unknown_1,
-            joystick_flag_1,
-            joystick_flag_2,
-            brain_flag_1,
-            brain_flag_2,
-            unknown_2,
-            bootload_flag_1,
-            bootload_flag_2,
+            version_1,
+            version_2,
+            boot_source,
+            count,
         })
     }
 }
@@ -303,20 +281,41 @@ impl Decode for LogEntry {
     }
 }
 
-pub type LogCountPacket = Cdc2CommandPacket<USER_CDC, LOG_STATUS, ()>;
-pub type LogCountReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_STATUS, LogCountReplyPayload>;
+pub type LogStatusPacket = Cdc2CommandPacket<USER_CDC, LOG_STATUS, ()>;
+pub type LogStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_STATUS, LogStatusReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LogCountReplyPayload {
-    pub unknown: u8,
-    pub count: u32,
-}
-impl Decode for LogCountReplyPayload {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let unknown = u8::decode(data)?;
-        let count = u32::decode(data)?;
+pub struct LogStatusReplyPayload {
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_1: u8,
 
-        Ok(Self { unknown, count })
+    /// Total number of recorded event logs.
+    pub count: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_2: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_3: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_4: u32,
+}
+impl Decode for LogStatusReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let reserved = u8::decode(data)?;
+        let count = u32::decode(data)?;
+        let reserved_2 = u32::decode(data)?;
+        let reserved_3 = u32::decode(data)?;
+        let reserved_4 = u32::decode(data)?;
+
+        Ok(Self {
+            reserved_1: reserved,
+            count,
+            reserved_2,
+            reserved_3,
+            reserved_4,
+        })
     }
 }
 
@@ -419,8 +418,8 @@ pub type ProgramStatusReplyPacket =
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ProgramStatusPayload {
     pub vendor: FileVendor,
-    /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
     /// The bin file name.
     pub file_name: FixedString<23>,
 }
@@ -431,7 +430,7 @@ impl Encode for ProgramStatusPayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option;
+        data[1] = self.reserved;
 
         self.file_name.encode(&mut data[2..]);
     }

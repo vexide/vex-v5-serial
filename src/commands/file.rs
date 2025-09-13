@@ -207,7 +207,7 @@ impl Command for UploadFile<'_> {
                     5,
                     FileLinkPacket::new(FileLinkPayload {
                         vendor: linked_file.vendor,
-                        option: 0,
+                        reserved: 0,
                         required_file: linked_file.file_name,
                     }),
                 )

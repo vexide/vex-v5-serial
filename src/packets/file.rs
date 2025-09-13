@@ -371,7 +371,7 @@ pub type FileLinkReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_LINK, ()>;
 pub struct FileLinkPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    pub reserved: u8,
     pub required_file: FixedString<23>,
 }
 impl Encode for FileLinkPayload {
@@ -381,7 +381,7 @@ impl Encode for FileLinkPayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option;
+        data[1] = self.reserved;
         self.required_file.encode(&mut data[2..]);
     }
 }
@@ -393,8 +393,8 @@ pub type DirectoryFileCountReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_DIR, u16
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DirectoryFileCountPayload {
     pub vendor: FileVendor,
-    /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
 }
 impl Encode for DirectoryFileCountPayload {
     fn size(&self) -> usize {
@@ -402,7 +402,7 @@ impl Encode for DirectoryFileCountPayload {
     }
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option;
+        data[1] = self.reserved;
     }
 }
 
@@ -413,8 +413,7 @@ pub type DirectoryEntryReplyPacket =
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DirectoryEntryPayload {
     pub file_index: u8,
-    /// 0 = default. (RESEARCH NEEDED)
-    pub unknown: u8,
+    pub reserved: u8,
 }
 impl Encode for DirectoryEntryPayload {
     fn size(&self) -> usize {
@@ -423,7 +422,7 @@ impl Encode for DirectoryEntryPayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.file_index;
-        data[1] = self.unknown;
+        data[1] = self.reserved;
     }
 }
 
@@ -505,8 +504,8 @@ pub type FileMetadataReplyPacket =
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileMetadataPayload {
     pub vendor: FileVendor,
-    /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
     pub file_name: FixedString<23>,
 }
 impl Encode for FileMetadataPayload {
@@ -516,7 +515,7 @@ impl Encode for FileMetadataPayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option as _;
+        data[1] = self.reserved as _;
         self.file_name.encode(&mut data[2..]);
     }
 }
@@ -576,7 +575,7 @@ pub type FileMetadataSetReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_SET_INFO, (
 pub struct FileMetadataSetPayload {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    pub options: u8,
     /// The storage entry address of the file.
     pub load_address: u32,
     pub metadata: FileMetadata,
@@ -589,7 +588,7 @@ impl Encode for FileMetadataSetPayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option as _;
+        data[1] = self.options as _;
         self.load_address.encode(&mut data[2..]);
         self.metadata.encode(&mut data[6..]);
         self.file_name.encode(&mut data[18..]);
@@ -602,8 +601,8 @@ pub type FileEraseReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_ERASE, ()>;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileErasePayload {
     pub vendor: FileVendor,
-    /// 128 = default. (RESEARCH NEEDED)
-    pub option: u8,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
     pub file_name: FixedString<23>,
 }
 impl Encode for FileErasePayload {
@@ -613,63 +612,24 @@ impl Encode for FileErasePayload {
 
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
-        data[1] = self.option as _;
+        data[1] = self.reserved as _;
         self.file_name.encode(&mut data[2..]);
     }
 }
 
-pub type FileCleanUpPacket = Cdc2CommandPacket<USER_CDC, FILE_CLEANUP, FileCleanUpPayload>;
-pub type FileCleanUpReplyPacket = Cdc2CommandPacket<USER_CDC, FILE_CLEANUP, FileCleanUpResult>;
+pub type FileCleanUpPacket = Cdc2CommandPacket<USER_CDC, FILE_CLEANUP, ()>;
+pub type FileCleanUpReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_CLEANUP, FileCleanUpReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FileCleanUpPayload {
-    pub vendor: FileVendor,
-    /// 0 = default. (RESEARCH NEEDED)
-    pub option: u8,
-}
-impl Encode for FileCleanUpPayload {
-    fn size(&self) -> usize {
-        2
-    }
-
-    fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.option as _;
-    }
+pub struct FileCleanUpReplyPayload {
+    count: u16,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[repr(u8)]
-/// (RESEARCH NEEDED)
-pub enum FileCleanUpResult {
-    /// No file deleted
-    None = 0,
-
-    /// Deleted all files
-    AllFiles = 1,
-
-    /// Deleted all files with linked files
-    LinkedFiles = 2,
-
-    /// Deleted all files for the first time after restart
-    AllFilesAfterRestart = 3,
-
-    /// Deleted all files with linked files for the first time after restart.
-    LinkedFilesAfterRestart = 4,
-}
-impl Decode for FileCleanUpResult {
+impl Decode for FileCleanUpReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        match u8::decode(data)? {
-            0 => Ok(Self::None),
-            1 => Ok(Self::AllFiles),
-            2 => Ok(Self::LinkedFiles),
-            3 => Ok(Self::AllFilesAfterRestart),
-            4 => Ok(Self::LinkedFilesAfterRestart),
-            value => Err(DecodeError::UnexpectedValue {
-                value,
-                expected: &[0x00, 0x01, 0x02, 0x03, 0x04],
-            }),
-        }
+        Ok(Self {
+            count: Decode::decode(data)?
+        })
     }
 }
 
