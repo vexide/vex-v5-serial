@@ -57,7 +57,7 @@ async fn main() -> Result<(), SerialError> {
             size: 2000,
             vendor: FileVendor::User,
             target: FileTransferTarget::Qspi,
-            load_addr: 0x03800000,
+            address: 0x03800000,
             progress_callback: Some(Box::new(move |progress| {
                 log::info!("{}: {:.2}%", file, progress);
             }) as Box<dyn FnMut(f32) + Send>),

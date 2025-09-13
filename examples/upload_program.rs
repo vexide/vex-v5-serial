@@ -59,7 +59,7 @@ async fn main() -> Result<(), SerialError> {
             program_type: "vexide".to_string(),
             slot: 4,
             data: ProgramData::Monolith(program_data),
-            compress_program: true,
+            compress: true,
             after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
             lib_callback: Some(callback_generator("LIB")),

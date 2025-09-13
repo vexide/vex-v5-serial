@@ -47,7 +47,7 @@ pub struct DownloadFile {
     pub size: u32,
     pub vendor: FileVendor,
     pub target: FileTransferTarget,
-    pub load_addr: u32,
+    pub address: u32,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
@@ -69,7 +69,7 @@ impl Command for DownloadFile {
                     options: FileInitOption::None,
                     file_size: self.size,
                     write_file_crc: 0,
-                    load_address: self.load_addr,
+                    load_address: self.address,
                     metadata: FileMetadata {
                         extension: FixedString::from_str("ini").unwrap(),
                         extension_type: ExtensionType::EncryptedBinary,
@@ -103,7 +103,7 @@ impl Command for DownloadFile {
                     Duration::from_millis(500),
                     5,
                     FileDataReadPacket::new(FileDataReadPayload {
-                        address: self.load_addr + offset,
+                        address: self.address + offset,
                         size: max_chunk_size,
                     }),
                 )
@@ -317,7 +317,7 @@ pub struct UploadProgram<'a> {
     pub program_type: String,
     /// 0-indexed slot
     pub slot: u8,
-    pub compress_program: bool,
+    pub compress: bool,
     pub data: ProgramData,
     pub after_upload: FileExitAction,
 
@@ -396,7 +396,7 @@ impl Command for UploadProgram<'_> {
 
             // Compress the file to improve upload times
             // We don't need to change any other flags, the brain is smart enough to decompress it
-            if self.compress_program {
+            if self.compress {
                 debug!("Compressing cold library binary");
                 compress(&mut library_data);
                 debug!("Compression complete");
@@ -435,7 +435,7 @@ impl Command for UploadProgram<'_> {
         if let Some(mut program_data) = program_data {
             debug!("Uploading program binary");
 
-            if self.compress_program {
+            if self.compress {
                 debug!("Compressing program binary");
                 compress(&mut program_data);
                 debug!("Compression complete");

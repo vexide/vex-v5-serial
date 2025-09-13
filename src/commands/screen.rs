@@ -41,7 +41,7 @@ impl Command for ScreenCapture {
                 file_name: FixedString::new("screen".to_string()).unwrap(),
                 vendor: FileVendor::Sys,
                 target: FileTransferTarget::Cbuf,
-                load_addr: 0,
+                address: 0,
                 size: 512 * 272 * 4,
                 progress_callback: Some(Box::new(|progress| {
                     info!("Downloading screen: {:.2}%", progress)
