@@ -34,8 +34,7 @@ async fn main() -> Result<(), SerialError> {
             }),
         )
         .await?
-        .try_into_inner()
-        .unwrap();
+        .payload?;
 
     Ok(())
 }

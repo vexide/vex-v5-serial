@@ -31,7 +31,7 @@ async fn main() -> Result<(), SerialError> {
             DeviceStatusPacket::new(()),
         )
         .await?
-        .try_into_inner()?;
+        .payload?;
 
     for device in status.devices {
         info!("{:?} on port: {}", device.device_type, device.port);

@@ -526,7 +526,7 @@ impl Connection for SerialConnection {
                         }),
                     )
                     .await?
-                    .try_into_inner()?;
+                    .payload?;
                 if let Some(read) = fifo.data {
                     data.extend(read.as_bytes());
                     break;
@@ -560,7 +560,7 @@ impl Connection for SerialConnection {
                         }),
                     )
                     .await?
-                    .try_into_inner()?;
+                    .payload?;
                 buf = rest;
             }
 

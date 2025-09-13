@@ -45,7 +45,7 @@ async fn main() -> Result<(), SerialError> {
     let res = connection
         .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
         .await.unwrap()
-        .try_into_inner()?;
+        .payload?;
 
     println!("{:?}", res);
 

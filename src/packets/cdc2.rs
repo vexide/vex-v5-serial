@@ -227,21 +227,21 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: Decode> {
-    pub ack: Cdc2Ack,
+    /// Total payload size. This includes the size taken by the ecmd, ack, and crc fields.
     pub payload_size: u16,
-    pub payload: P,
+
+    /// Payload. Only decoded if the packet is acknowledged.
+    pub payload: Result<P, Cdc2Ack>,
+
+    /// CRC16 calculated from the entire packet contents.
     pub crc: u16,
 }
 
 impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Cdc2ReplyPacket<CMD, EXT_CMD, P> {
     pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
 
-    pub fn try_into_inner(self) -> Result<P, Cdc2Ack> {
-        if let Cdc2Ack::Ack = self.ack {
-            Ok(self.payload)
-        } else {
-            Err(self.ack)
-        }
+    pub fn ack(&self) -> Cdc2Ack {
+        *self.payload.as_ref().err().unwrap_or(&Cdc2Ack::Ack)
     }
 }
 
@@ -264,11 +264,14 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
         }
 
         let ack = Cdc2Ack::decode(data)?;
-        let payload = P::decode(data)?;
+        let payload = if ack == Cdc2Ack::Ack {
+            Ok(P::decode(data)?)
+        } else {
+            Err(ack)
+        };
         let crc = u16::decode(data)?;
 
         Ok(Self {
-            ack,
             payload_size,
             payload,
             crc,

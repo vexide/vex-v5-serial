@@ -44,8 +44,7 @@ async fn main() -> Result<(), SerialError> {
             FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
         .await?
-        .try_into_inner()
-        .unwrap();
+        .payload?;
 
     sleep(Duration::from_millis(1000)).await;
 

@@ -48,8 +48,7 @@ async fn main() -> Result<(), SerialError> {
             FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
         .await?
-        .try_into_inner()
-        .unwrap();
+        .payload?;
 
     // Upload program file
     connection
