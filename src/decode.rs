@@ -1,10 +1,15 @@
-use std::str::Utf8Error;
+use std::{mem::MaybeUninit, str::Utf8Error};
 use thiserror::Error;
+
+use crate::string::FixedStringSizeError;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum DecodeError {
     #[error("Packet too short")]
-    PacketTooShort,
+    UnexpectedEnd,
+
+    #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
+    UnexpectedValue { value: u8, expected: &'static [u8] },
 
     #[error("Invalid response header")]
     InvalidHeader,
@@ -12,113 +17,66 @@ pub enum DecodeError {
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
 
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
+
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] Utf8Error),
+}
 
-    #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
-    UnexpectedValue { value: u8, expected: &'static [u8] },
+impl<T: Decode> DecodeWithLength for Vec<T> {
+    fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError> {
+        let mut vec = Vec::with_capacity(len);
+        for _ in 0..len {
+            vec.push(T::decode(data)?);
+        }
+        Ok(vec)
+    }
 }
 
 pub trait Decode {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized;
-}
-pub trait SizedDecode {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError>
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError>
     where
         Self: Sized;
 }
 
-impl<T: Decode> SizedDecode for T {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, _: u16) -> Result<Self, DecodeError>
+pub trait DecodeWithLength {
+    fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError>
     where
-        Self: Sized,
-    {
-        Decode::decode(data)
-    }
+        Self: Sized;
 }
 
 impl Decode for () {
-    fn decode(_data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(())
     }
 }
-impl Decode for u8 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        data.next().ok_or(DecodeError::PacketTooShort)
-    }
-}
-impl Decode for i8 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        // This is just a tad silly, but id rather not transmute
-        data.next()
-            .map(|byte| i8::from_le_bytes([byte]))
-            .ok_or(DecodeError::PacketTooShort)
-    }
-}
-impl Decode for u16 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        Ok(u16::from_le_bytes(Decode::decode(&mut data)?))
-    }
-}
-impl Decode for i16 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        Ok(i16::from_le_bytes(Decode::decode(&mut data)?))
-    }
-}
-impl Decode for u32 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        Ok(u32::from_le_bytes(Decode::decode(&mut data)?))
-    }
-}
-impl Decode for i32 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        Ok(i32::from_le_bytes(Decode::decode(&mut data)?))
-    }
-}
-impl<D: Decode> Decode for Option<D> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        D::decode(data).map(|decoded| Some(decoded))
-    }
-}
-impl<D: Decode + Default, const N: usize> Decode for [D; N] {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let results: [_; N] = std::array::from_fn(move |_| D::decode(&mut data));
-        let mut decoded = Vec::new();
-        for result in results.into_iter() {
-            match result {
-                Ok(d) => decoded.push(d),
-                Err(e) => return Err(e),
+
+macro_rules! impl_decode_for_primitive {
+    ($($t:ty),*) => {
+        $(
+            impl Decode for $t {
+                fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+                    let bytes = data.get(..size_of::<Self>()).ok_or_else(|| DecodeError::UnexpectedEnd)?;
+                    *data = &data[size_of::<Self>()..];
+                    Ok(Self::from_le_bytes(bytes.try_into().unwrap()))
+                }
             }
-        }
-        let mut decoded_array = std::array::from_fn(|_| D::default());
-        decoded_array
-            .iter_mut()
-            .zip(decoded)
-            .for_each(|(a, b)| *a = b);
-
-        Ok(decoded_array)
-    }
+        )*
+    };
 }
 
-impl<T: Decode> SizedDecode for Vec<T> {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, len: u16) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
-        let mut data = data.into_iter();
-        let mut vec = Vec::with_capacity(len as usize);
-        for _ in 0..len {
-            vec.push(T::decode(&mut data)?);
+impl_decode_for_primitive!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+// TODO: Switch to try_from_fn and/or array::try_map once stabilized
+impl<const N: usize, T: Decode> Decode for [T; N] {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let mut arr: [MaybeUninit<T>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        for i in 0..N {
+            arr[i] = MaybeUninit::new(T::decode(data)?);
         }
-        Ok(vec)
+
+        Ok(unsafe { std::mem::transmute_copy::<_, [T; N]>(&arr) })
     }
 }

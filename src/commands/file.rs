@@ -1,4 +1,8 @@
-use std::{io::Write, str::FromStr, time::{Duration, SystemTime}};
+use std::{
+    io::Write,
+    str::FromStr,
+    time::{Duration, SystemTime},
+};
 
 use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
@@ -161,7 +165,7 @@ pub struct UploadFile<'a> {
     pub vendor: FileVendor,
     pub data: Vec<u8>,
     pub target: FileTransferTarget,
-    pub load_addr: u32,
+    pub load_address: u32,
     pub linked_file: Option<LinkedFile>,
     pub after_upload: FileExitAction,
 
@@ -186,7 +190,7 @@ impl Command for UploadFile<'_> {
                     vendor: self.vendor,
                     options: FileInitOption::Overwrite,
                     file_size: self.data.len() as u32,
-                    load_address: self.load_addr,
+                    load_address: self.load_address,
                     write_file_crc: crc,
                     metadata: self.metadata,
                     file_name: self.file_name.clone(),
@@ -235,7 +239,7 @@ impl Command for UploadFile<'_> {
             }
 
             let packet = FileDataWritePacket::new(FileDataWritePayload {
-                address: (self.load_addr + offset) as _,
+                address: (self.load_address + offset) as _,
                 chunk_data: chunk.clone(),
             });
 
@@ -244,11 +248,7 @@ impl Command for UploadFile<'_> {
                 connection.send(packet).await?;
             } else {
                 connection
-                    .handshake::<FileDataWriteReplyPacket>(
-                        Duration::from_millis(500),
-                        5,
-                        packet,
-                    )
+                    .handshake::<FileDataWriteReplyPacket>(Duration::from_millis(500), 5, packet)
                     .await?
                     .try_into_inner()?;
             }
@@ -362,7 +362,7 @@ impl Command for UploadProgram<'_> {
             .execute_command(UploadFile {
                 file_name: FixedString::new(format!("{}.ini", base_file_name))?,
                 metadata: FileMetadata {
-                    extension: FixedString::new("ini")?,
+                    extension: unsafe { FixedString::new_unchecked("ini") },
                     extension_type: ExtensionType::default(),
                     timestamp: j2000_timestamp(),
                     version: Version {
@@ -375,7 +375,7 @@ impl Command for UploadProgram<'_> {
                 vendor: FileVendor::User,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: FileTransferTarget::Qspi,
-                load_addr: USER_PROGRAM_LOAD_ADDR,
+                load_address: USER_PROGRAM_LOAD_ADDR,
                 linked_file: None,
                 after_upload: FileExitAction::DoNothing,
                 progress_callback: self.ini_callback.take(),
@@ -406,7 +406,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_lib_name.clone())?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin")?,
+                        extension: unsafe { FixedString::new_unchecked("bin") },
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
@@ -419,7 +419,7 @@ impl Command for UploadProgram<'_> {
                     vendor: FileVendor::User,
                     data: library_data,
                     target: FileTransferTarget::Qspi,
-                    load_addr: PROS_HOT_BIN_LOAD_ADDR,
+                    load_address: PROS_HOT_BIN_LOAD_ADDR,
                     linked_file: None,
                     after_upload: if is_monolith {
                         self.after_upload
@@ -457,7 +457,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_bin_name)?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin")?,
+                        extension: unsafe { FixedString::new_unchecked("bin") },
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
@@ -470,7 +470,7 @@ impl Command for UploadProgram<'_> {
                     vendor: FileVendor::User,
                     data: program_data,
                     target: FileTransferTarget::Qspi,
-                    load_addr: USER_PROGRAM_LOAD_ADDR,
+                    load_address: USER_PROGRAM_LOAD_ADDR,
                     linked_file,
                     after_upload: self.after_upload,
                     progress_callback: self.bin_callback.take(),

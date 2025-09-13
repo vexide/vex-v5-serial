@@ -41,10 +41,6 @@ pub trait Encode {
     fn encode(&self, data: &mut [u8]);
 }
 
-// pub trait Decode {
-//     fn decode(&self, data: &[u8]) -> Result<usize, EncodeError>;
-// }
-
 macro_rules! impl_encode_for_primitive {
     ($($t:ty),*) => {
         $(
@@ -62,6 +58,13 @@ macro_rules! impl_encode_for_primitive {
 }
 
 impl_encode_for_primitive!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
+
+impl Encode for () {
+    fn size(&self) -> usize {
+        0
+    }
+    fn encode(&self, _data: &mut [u8]) {}
+}
 
 impl Encode for &[u8] {
     fn size(&self) -> usize {

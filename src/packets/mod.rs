@@ -1,11 +1,11 @@
 pub mod cdc;
 pub mod cdc2;
 
-pub mod screen;
 pub mod controller;
 pub mod device;
 pub mod factory;
 pub mod file;
+pub mod screen;
 pub mod system;
 
 /// Header byte sequence used for all device-bound packets.

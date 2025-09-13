@@ -13,14 +13,13 @@ use tokio_serial::SerialStream;
 
 use super::{CheckHeader, Connection, ConnectionType};
 use crate::{
-    connection::{trim_packets, RawPacket},
+    connection::{RawPacket, trim_packets},
     decode::{Decode, DecodeError},
     encode::Encode,
     packets::{
-        cdc2::Cdc2Ack,
-        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}, HOST_BOUND_HEADER,
+        HOST_BOUND_HEADER, cdc2::Cdc2Ack, controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}
     },
-    string::FixedString,
+    string::{FixedString, FixedStringSizeError},
     varint::VarU16,
 };
 
@@ -345,8 +344,7 @@ impl SerialDevice {
 }
 
 /// Decodes a [`HostBoundPacket`]'s header sequence.
-fn decode_header(data: impl IntoIterator<Item = u8>) -> Result<[u8; 2], DecodeError> {
-    let mut data = data.into_iter();
+fn decode_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
     let header = Decode::decode(&mut data)?;
     if header != HOST_BOUND_HEADER {
         return Err(DecodeError::InvalidHeader);
@@ -405,7 +403,7 @@ impl SerialConnection {
         self.system_port.read_exact(&mut header).await?;
 
         // Verify that the header is valid
-        if let Err(e) = decode_header(header) {
+        if let Err(e) = decode_header(&header) {
             warn!(
                 "Skipping packet with invalid header: {:x?}. Error: {}",
                 header, e
@@ -427,12 +425,12 @@ impl SerialConnection {
             packet.extend([first_size_byte, second_size_byte]);
 
             // Decode the size of the packet
-            VarU16::decode(vec![first_size_byte, second_size_byte])?
+            VarU16::decode(&mut [first_size_byte, second_size_byte].as_slice())?
         } else {
             packet.push(first_size_byte);
 
             // Decode the size of the packet
-            VarU16::decode(vec![first_size_byte])?
+            VarU16::decode(&mut [first_size_byte].as_slice())?
         }
         .into_inner() as usize;
 
@@ -585,4 +583,6 @@ pub enum SerialError {
     SerialportError(#[from] tokio_serial::Error),
     #[error("Could not infer serial port types")]
     CouldntInferTypes,
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
 }

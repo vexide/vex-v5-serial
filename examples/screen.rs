@@ -2,12 +2,10 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     connection::{
-        Connection, serial::{self, SerialError}
+        serial::{self, SerialError},
+        Connection,
     },
-    encode::{Encode, EncodeError},
-    packets::{
-        cdc2::Cdc2CommandPacket, screen::{DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket},
-    },
+    packets::screen::{DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket},
 };
 
 #[tokio::main]

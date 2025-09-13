@@ -1,8 +1,8 @@
 use crate::{
-    connection::{bluetooth, serial, Connection, ConnectionType},
+    connection::{Connection, ConnectionType, bluetooth, serial},
     decode::{Decode, DecodeError},
     encode::Encode,
-    packets::cdc2::Cdc2Ack,
+    packets::cdc2::Cdc2Ack, string::FixedStringSizeError,
 };
 use futures::{try_join, TryFutureExt};
 use std::time::Duration;
@@ -169,4 +169,6 @@ pub enum GenericError {
     Nack(#[from] Cdc2Ack),
     #[error("Pairing is not supported over any connection other than Bluetooth")]
     PairingNotSupported,
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
 }

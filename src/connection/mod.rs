@@ -8,8 +8,8 @@ use std::time::Duration;
 use crate::{
     commands::Command,
     decode::{Decode, DecodeError},
-    encode::{Encode},
-    packets::cdc2::Cdc2Ack,
+    encode::Encode,
+    packets::cdc2::Cdc2Ack, string::FixedStringSizeError,
 };
 
 #[cfg(feature = "bluetooth")]
@@ -20,7 +20,7 @@ pub mod generic;
 pub mod serial;
 
 pub trait CheckHeader {
-    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool;
+    fn has_valid_header(data: &[u8]) -> bool;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,7 +43,7 @@ impl RawPacket {
     }
 
     pub fn check_header<H: CheckHeader>(&self) -> bool {
-        H::has_valid_header(self.bytes.clone())
+        H::has_valid_header(&self.bytes)
     }
 
     /// Decodes the packet into the given type.
@@ -51,7 +51,7 @@ impl RawPacket {
     /// # Note
     /// This function will **NOT** fail if the packet has already been used.
     pub fn decode_and_use<D: Decode>(&mut self) -> Result<D, DecodeError> {
-        let decoded = D::decode(self.bytes.clone())?;
+        let decoded = D::decode(&mut self.bytes.as_slice())?;
         self.used = true;
         Ok(decoded)
     }
@@ -69,13 +69,12 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
 /// Represents an open connection to a V5 peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection {
-    type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack>;
+    type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError>;
 
     fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.
-    fn send(&mut self, packet: impl Encode)
-        -> impl Future<Output = Result<(), Self::Error>>;
+    fn send(&mut self, packet: impl Encode) -> impl Future<Output = Result<(), Self::Error>>;
 
     /// Receives a packet.
     fn recv<P: Decode + CheckHeader>(
@@ -90,7 +89,10 @@ pub trait Connection {
     fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
 
     /// Executes a [`Command`].
-    fn execute_command<C: Command>(&mut self, command: C) -> impl Future<Output = Result<C::Output, Self::Error>> {
+    fn execute_command<C: Command>(
+        &mut self,
+        command: C,
+    ) -> impl Future<Output = Result<C::Output, Self::Error>> {
         command.execute(self)
     }
 

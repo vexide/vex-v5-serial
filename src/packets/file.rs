@@ -14,7 +14,7 @@ use super::{
     },
 };
 use crate::{
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError, DecodeWithLength},
     encode::Encode,
     string::FixedString,
     version::Version,
@@ -69,9 +69,8 @@ pub enum FileVendor {
     Undefined = 241,
 }
 impl Decode for FileVendor {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let this = u8::decode(data)?;
-        match this {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        match u8::decode(data)? {
             1 => Ok(Self::User),
             15 => Ok(Self::Sys),
             16 => Ok(Self::Dev1),
@@ -115,10 +114,7 @@ pub enum ExtensionType {
 }
 
 impl Decode for ExtensionType {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(match u8::decode(data)? {
             0x0 => Self::Binary,
             0x61 => Self::Vm,
@@ -156,22 +152,15 @@ impl Encode for FileMetadata {
 }
 
 impl Decode for FileMetadata {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
-        let mut data = data.into_iter();
-
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
-                FixedString::new_unchecked(
-                    str::from_utf8(&<[u8; 3]>::decode(&mut data)?)?.to_string(),
-                )
+                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?)?.to_string())
             },
-            extension_type: Decode::decode(&mut data).unwrap(),
-            timestamp: i32::decode(&mut data)?,
-            version: Version::decode(&mut data)?,
+            extension_type: Decode::decode(data).unwrap(),
+            timestamp: i32::decode(data)?,
+            version: Version::decode(data)?,
         })
     }
 }
@@ -201,10 +190,13 @@ impl Encode for FileTransferInitializePayload {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.operation as _;
-        data[1] = self.target as _;
-        data[2] = self.vendor as _;
-        data[3] = self.options as _;
+        [
+            self.operation as u8,
+            self.target as u8,
+            self.vendor as u8,
+            self.options as u8,
+        ]
+        .encode(data);
         self.file_size.encode(&mut data[4..]);
         self.load_address.encode(&mut data[8..]);
         self.write_file_crc.encode(&mut data[12..]);
@@ -230,12 +222,11 @@ pub struct FileTransferInitializeReplyPayload {
 }
 
 impl Decode for FileTransferInitializeReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let window_size = u16::decode(&mut data)?;
-        let file_size = u32::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let window_size = u16::decode(data)?;
+        let file_size = u32::decode(data)?;
         // Convert from big endian
-        let file_crc = u32::decode(&mut data)?.swap_bytes();
+        let file_crc = u32::decode(data)?.swap_bytes();
         Ok(Self {
             window_size,
             file_size,
@@ -281,7 +272,7 @@ impl Encode for FileDataWritePayload {
     fn size(&self) -> usize {
         4 + self.chunk_data.len()
     }
-    
+
     fn encode(&self, data: &mut [u8]) {
         self.address.encode(data);
         self.chunk_data.encode(&mut data[4..]);
@@ -314,23 +305,18 @@ impl Encode for FileDataReadPayload {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FileDataReadReplyContents {
-    Ack {
-        address: u32,
-        data: Vec<u8>,
-    },
+    Ack { address: u32, data: Vec<u8> },
     Nack(Cdc2Ack),
 }
 
-impl SizedDecode for FileDataReadReplyContents {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        if size == 1 {
-            Ok(Self::Nack(Cdc2Ack::decode(&mut data)?))
+impl Decode for FileDataReadReplyContents {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        if data.len() == 1 {
+            Ok(Self::Nack(Cdc2Ack::decode(data)?))
         } else {
-            let address = u32::decode(&mut data)?;
+            let address = u32::decode(data)?;
+            let chunk_data = Vec::decode_with_len(data, data.len())?;
 
-            let chunk_data = Vec::sized_decode(&mut data, size - 4)?;
             Ok(Self::Ack {
                 address,
                 data: chunk_data,
@@ -344,11 +330,9 @@ pub struct FileDataReadReplyPayload {
     pub contents: FileDataReadReplyContents,
     pub crc: u16,
 }
-impl SizedDecode for FileDataReadReplyPayload {
-    fn sized_decode(data: impl IntoIterator<Item = u8>, size: u16) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let ecmd = u8::decode(&mut data)?;
+impl Decode for FileDataReadReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let ecmd = u8::decode(data)?;
         if ecmd != FILE_READ {
             return Err(DecodeError::UnexpectedValue {
                 value: ecmd,
@@ -356,8 +340,14 @@ impl SizedDecode for FileDataReadReplyPayload {
             });
         }
 
-        let contents = FileDataReadReplyContents::sized_decode(&mut data, size - 3)?;
-        let crc = u16::decode(&mut data)?.swap_bytes();
+        let contents = FileDataReadReplyContents::decode(
+            &mut data
+                .get(..data.len() - 2)
+                .ok_or_else(|| DecodeError::UnexpectedEnd)?,
+        )?;
+        *data = &data[data.len() - 2..];
+
+        let crc = u16::decode(data)?.swap_bytes();
 
         Ok(Self { contents, crc })
     }
@@ -365,10 +355,7 @@ impl SizedDecode for FileDataReadReplyPayload {
 impl FileDataReadReplyPayload {
     pub fn unwrap(self) -> Result<(u32, Vec<u8>), Cdc2Ack> {
         match self.contents {
-            FileDataReadReplyContents::Ack {
-                address,
-                data,
-            } => Ok((address, data)),
+            FileDataReadReplyContents::Ack { address, data } => Ok((address, data)),
             FileDataReadReplyContents::Nack(nack) => Err(nack),
         }
     }
@@ -454,24 +441,20 @@ pub struct DirectoryEntryReplyPayload {
 }
 
 impl Decode for DirectoryEntryReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let file_index = u8::decode(data)?;
+        let size = u32::decode(data)?;
+        let load_address = u32::decode(data)?;
+        let crc = u32::decode(data)?;
 
-        let file_index = u8::decode(&mut data)?;
-        let size = u32::decode(&mut data)?;
-        let load_address = u32::decode(&mut data)?;
-        let crc = u32::decode(&mut data)?;
-
-        let mut data = data.peekable();
-
-        let metadata = if data.peek() == Some(&255) {
-            let _ = <[u8; 12]>::decode(&mut data);
+        let metadata = if data.get(0) == Some(&255) {
+            let _ = <[u8; 12]>::decode(data);
             None
         } else {
-            Some(FileMetadata::decode(&mut data)?)
+            Some(FileMetadata::decode(data)?)
         };
 
-        let file_name = FixedString::<23>::decode(&mut data)?.into_inner();
+        let file_name = FixedString::<23>::decode(data)?.into_inner();
 
         Ok(Self {
             file_index,
@@ -539,9 +522,8 @@ pub struct FileMetadataReplyPayload {
     pub metadata: FileMetadata,
 }
 impl Decode for Option<FileMetadataReplyPayload> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let maybe_vid = u8::decode(&mut data).unwrap();
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let maybe_vid = u8::decode(data).unwrap();
 
         let linked_vendor = match maybe_vid {
             // 0 is returned if there is no linked file.
@@ -550,10 +532,10 @@ impl Decode for Option<FileMetadataReplyPayload> {
             // In this case, the rest of the packet will be empty, so
             // we return None for the whole packet.
             255 => return Ok(None),
-            vid => Some(FileVendor::decode([vid])?),
+            vid => Some(FileVendor::decode(&mut [vid].as_slice())?),
         };
 
-        let size = u32::decode(&mut data)?;
+        let size = u32::decode(data)?;
 
         // This happens when we try to read a system file from the
         // `/vex_/*` VID. In this case, all of bytes after the vendor
@@ -563,9 +545,9 @@ impl Decode for Option<FileMetadataReplyPayload> {
             return Ok(None);
         }
 
-        let load_address = u32::decode(&mut data)?;
-        let crc32 = u32::decode(&mut data)?;
-        let metadata = FileMetadata::decode(&mut data)?;
+        let load_address = u32::decode(data)?;
+        let crc32 = u32::decode(data)?;
+        let metadata = FileMetadata::decode(data)?;
 
         Ok(Some(FileMetadataReplyPayload {
             linked_vendor,
@@ -666,9 +648,8 @@ pub enum FileCleanUpResult {
     LinkedFilesAfterRestart = 4,
 }
 impl Decode for FileCleanUpResult {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let this = u8::decode(data)?;
-        match this {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        match u8::decode(data)? {
             0 => Ok(Self::None),
             1 => Ok(Self::AllFiles),
             2 => Ok(Self::LinkedFiles),
@@ -712,7 +693,7 @@ impl Encode for FileFormatConfirmation {
     fn size(&self) -> usize {
         4
     }
-    
+
     fn encode(&self, data: &mut [u8]) {
         self.confirmation_code.encode(data)
     }

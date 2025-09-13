@@ -5,7 +5,6 @@ use thiserror::Error;
 use crate::{
     connection,
     crc::VEX_CRC16,
-    decode::SizedDecode,
     encode::{Encode, MessageEncoder},
     varint::VarU16,
 };
@@ -15,7 +14,7 @@ use crate::decode::{Decode, DecodeError};
 
 /// Known CDC2 Command Identifiers
 #[allow(unused)]
-pub(crate) mod ecmds {
+pub mod ecmds {
     // internal filesystem operations
     pub const FILE_CTRL: u8 = 0x10;
     pub const FILE_INIT: u8 = 0x11;
@@ -152,9 +151,8 @@ pub enum Cdc2Ack {
 }
 
 impl Decode for Cdc2Ack {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let byte = u8::decode(data)?;
-        match byte {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        match u8::decode(data)? {
             0x76 => Ok(Self::Ack),
             0xFF => Ok(Self::Nack),
             0xCE => Ok(Self::NackPacketCrc),
@@ -194,9 +192,7 @@ impl<P: Encode, const CMD: u8, const EXT_CMD: u8> Cdc2CommandPacket<CMD, EXT_CMD
 
     /// Creates a new device-bound packet with a given generic payload type.
     pub fn new(payload: P) -> Self {
-        Self {
-            payload,
-        }
+        Self { payload }
     }
 }
 
@@ -217,11 +213,11 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
         data[5] = EXT_CMD;
 
         let mut enc = MessageEncoder::new(&mut data[6..]);
-        
+
         // Push the payload size and encoded bytes
         enc.write(&VarU16::new(self.payload.size() as u16));
         enc.write(&self.payload);
-        
+
         // The CRC16 checksum is of the whole encoded packet, meaning we need
         // to also include the header bytes.
         let crc = VEX_CRC16.checksum(&enc.get_ref()[0..enc.position()]);
@@ -230,14 +226,14 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> {
+pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: Decode> {
     pub ack: Cdc2Ack,
     pub payload_size: u16,
     pub payload: P,
     pub crc: u16,
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Cdc2ReplyPacket<CMD, EXT_CMD, P> {
     pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
 
     pub fn try_into_inner(self) -> Result<P, Cdc2Ack> {
@@ -249,30 +245,27 @@ impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> Cdc2ReplyPacket<CMD, EXT_
     }
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> Decode for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let header: [u8; 2] = Decode::decode(&mut data)?;
-        if header != Self::HEADER {
+impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        if <[u8; 2]>::decode(data)? != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
 
-        let id = u8::decode(&mut data)?;
+        let id = u8::decode(data)?;
         if id != CMD {
             return Err(DecodeError::InvalidHeader);
         }
 
-        let payload_size = VarU16::decode(&mut data)?.into_inner();
+        let payload_size = VarU16::decode(data)?.into_inner();
 
-        let ext_cmd = u8::decode(&mut data)?;
+        let ext_cmd = u8::decode(data)?;
         if ext_cmd != EXT_CMD {
             return Err(DecodeError::InvalidHeader);
         }
 
-        let ack = Cdc2Ack::decode(&mut data)?;
-
-        let payload = P::sized_decode(&mut data, payload_size)?;
-        let crc = u16::decode(&mut data)?;
+        let ack = Cdc2Ack::decode(data)?;
+        let payload = P::decode(data)?;
+        let crc = u16::decode(data)?;
 
         Ok(Self {
             ack,
@@ -283,28 +276,29 @@ impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> Decode for Cdc2ReplyPacke
     }
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: SizedDecode> connection::CheckHeader
+impl<const CMD: u8, const EXT_CMD: u8, P: Decode> connection::CheckHeader
     for Cdc2ReplyPacket<CMD, EXT_CMD, P>
 {
-    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
-        let mut data = data.into_iter();
-        if <[u8; 2] as Decode>::decode(&mut data)
+    fn has_valid_header(mut data: &[u8]) -> bool {
+        let data = &mut data;
+
+        if <[u8; 2] as Decode>::decode(data)
             .map(|header| header != HOST_BOUND_HEADER)
             .unwrap_or(true)
         {
             return false;
         }
 
-        if u8::decode(&mut data).map(|id| id != CMD).unwrap_or(true) {
+        if u8::decode(data).map(|id| id != CMD).unwrap_or(true) {
             return false;
         }
 
-        let payload_size = VarU16::decode(&mut data);
+        let payload_size = VarU16::decode(data);
         if payload_size.is_err() {
             return false;
         }
 
-        if u8::decode(&mut data)
+        if u8::decode(data)
             .map(|ext_cmd| ext_cmd != EXT_CMD)
             .unwrap_or(true)
         {
@@ -326,8 +320,6 @@ mod tests {
             0xaa, 0x55, 0x56, 0x15, 0x21, 0x76, 0x2, 0x16, 0xc, 0, 0xb, 0, 0x40, 0x1, 0x40, 0x17,
             0xe, 0, 0x19, 0x1, 0x40, 0x6, 0x40, 0x23, 0x87,
         ];
-        assert!(DeviceStatusReplyPacket::has_valid_header(
-            data.iter().cloned()
-        ));
+        assert!(DeviceStatusReplyPacket::has_valid_header(data));
     }
 }

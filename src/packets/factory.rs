@@ -19,10 +19,9 @@ pub struct FactoryStatus {
     pub percent: u8,
 }
 impl Decode for FactoryStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let status = u8::decode(&mut data)?;
-        let percent = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let status = u8::decode(data)?;
+        let percent = u8::decode(data)?;
         Ok(Self { status, percent })
     }
 }
@@ -36,10 +35,7 @@ pub struct FactoryChallengeReplyPayload {
 }
 
 impl Decode for FactoryChallengeReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {
             data: Decode::decode(data)?,
         })

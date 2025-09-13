@@ -6,7 +6,7 @@ use super::{
     },
 };
 
-use crate::decode::{Decode, DecodeError, SizedDecode};
+use crate::decode::{Decode, DecodeError, DecodeWithLength};
 
 // This is copied from vex-sdk
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -43,7 +43,7 @@ pub enum DeviceType {
     UndefinedSensor = 255,
 }
 impl Decode for DeviceType {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let value = u8::decode(data)?;
         Ok(match value {
             0 => DeviceType::NoSensor,
@@ -103,14 +103,13 @@ pub struct DeviceStatus {
     pub boot_version: u16,
 }
 impl Decode for DeviceStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let port = u8::decode(&mut data)?;
-        let device_type = DeviceType::decode(&mut data)?;
-        let status = u8::decode(&mut data)?;
-        let beta_version = u8::decode(&mut data)?;
-        let version = u16::decode(&mut data)?;
-        let boot_version = u16::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let port = u8::decode(data)?;
+        let device_type = DeviceType::decode(data)?;
+        let status = u8::decode(data)?;
+        let beta_version = u8::decode(data)?;
+        let version = u16::decode(data)?;
+        let boot_version = u16::decode(data)?;
 
         Ok(Self {
             port,
@@ -133,10 +132,9 @@ pub struct DeviceStatusReplyPayload {
     pub devices: Vec<DeviceStatus>,
 }
 impl Decode for DeviceStatusReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let count = u8::decode(&mut data)?;
-        let devices = Vec::sized_decode(&mut data, count as _)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let count = u8::decode(data)?;
+        let devices = Vec::decode_with_len(data, count as _)?;
         Ok(Self { count, devices })
     }
 }
@@ -147,10 +145,10 @@ pub struct FdtStatus {
     pub files: Vec<Fdt>,
 }
 impl Decode for FdtStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let count = u8::decode(&mut data)?;
-        let entries = Vec::sized_decode(&mut data, count as _)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let count = u8::decode(data)?;
+        let entries = Vec::decode_with_len(data, count as _)?;
+        
         Ok(Self {
             count,
             files: entries,
@@ -168,14 +166,13 @@ pub struct Fdt {
     pub boot_version: u16,
 }
 impl Decode for Fdt {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let index = u8::decode(&mut data)?;
-        let fdt_type = u8::decode(&mut data)?;
-        let status = u8::decode(&mut data)?;
-        let beta_version = u8::decode(&mut data)?;
-        let version = u16::decode(&mut data)?;
-        let boot_version = u16::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let index = u8::decode(data)?;
+        let fdt_type = u8::decode(data)?;
+        let status = u8::decode(data)?;
+        let beta_version = u8::decode(data)?;
+        let version = u16::decode(data)?;
+        let boot_version = u16::decode(data)?;
 
         Ok(Self {
             index,
@@ -205,14 +202,12 @@ pub struct RadioStatus {
     pub timeslot: u8,
 }
 impl Decode for RadioStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let device = u8::decode(&mut data)?;
-        let quality = u16::decode(&mut data)?;
-        let strength = i16::decode(&mut data)?;
-        let channel = u8::decode(&mut data)?;
-        let timeslot = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let device = u8::decode(data)?;
+        let quality = u16::decode(data)?;
+        let strength = i16::decode(data)?;
+        let channel = u8::decode(data)?;
+        let timeslot = u8::decode(data)?;
 
         Ok(Self {
             device,

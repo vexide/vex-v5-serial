@@ -23,12 +23,12 @@ impl Encode for Version {
 }
 
 impl Decode for Version {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let major = u8::decode(&mut data)?;
-        let minor = u8::decode(&mut data)?;
-        let build = u8::decode(&mut data)?;
-        let beta = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let major = u8::decode(data)?;
+        let minor = u8::decode(data)?;
+        let build = u8::decode(data)?;
+        let beta = u8::decode(data)?;
+
         Ok(Self {
             major,
             minor,

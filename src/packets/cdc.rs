@@ -1,6 +1,6 @@
 use crate::{
     connection,
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
 };
@@ -9,7 +9,7 @@ use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 
 /// Known CDC Command Identifiers
 #[allow(unused)]
-pub(crate) mod cmds {
+pub mod cmds {
     pub const ACK: u8 = 0x33;
     pub const QUERY_1: u8 = 0x21;
     pub const USER_CDC: u8 = 0x56;
@@ -65,11 +65,11 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
         data[4] = CMD;
 
         let payload_size = self.payload.size();
-        
+
         // We only encode the payload size if there is a payload
         if payload_size > 0 {
             let mut enc = MessageEncoder::new(&mut data[5..]);
-            
+
             enc.write(&VarU16::new(payload_size as u16));
             enc.write(&self.payload);
         }
@@ -80,7 +80,7 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
 ///
 /// Encodes a reply payload to a [`CdcCommandPacket`] for a given ID.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct CdcReplyPacket<const CMD: u8, P: SizedDecode> {
+pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
     /// Packet Payload Size
     pub payload_size: u16,
 
@@ -90,21 +90,18 @@ pub struct CdcReplyPacket<const CMD: u8, P: SizedDecode> {
     pub payload: P,
 }
 
-impl<const CMD: u8, P: SizedDecode> CdcReplyPacket<CMD, P> {
+impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
     /// Header used for host-bound VEX CDC packets.
     pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
 }
 
-impl<const CMD: u8, P: SizedDecode> Decode for CdcReplyPacket<CMD, P> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let header: [u8; 2] = Decode::decode(&mut data)?;
-        if header != Self::HEADER {
+impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        if <[u8; 2]>::decode(data)? != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
 
-        let cmd = u8::decode(&mut data)?;
+        let cmd = u8::decode(data)?;
         if cmd != CMD {
             return Err(DecodeError::UnexpectedValue {
                 value: cmd,
@@ -112,8 +109,8 @@ impl<const CMD: u8, P: SizedDecode> Decode for CdcReplyPacket<CMD, P> {
             });
         }
 
-        let payload_size = VarU16::decode(&mut data)?.into_inner();
-        let payload = P::sized_decode(data.take(payload_size as usize), payload_size)?;
+        let payload_size = VarU16::decode(data)?.into_inner();
+        let payload = P::decode(data)?;
 
         Ok(Self {
             payload_size,
@@ -122,21 +119,13 @@ impl<const CMD: u8, P: SizedDecode> Decode for CdcReplyPacket<CMD, P> {
     }
 }
 
-impl<const CMD: u8, P: SizedDecode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
-    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
-        let mut data = data.into_iter();
-        if <[u8; 2] as Decode>::decode(&mut data)
-            .map(|header| header != HOST_BOUND_HEADER)
-            .unwrap_or(true)
-        {
+impl<const CMD: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
+    fn has_valid_header(data: &[u8]) -> bool {
+        let Some(data) = data.get(0..3) else {
             return false;
-        }
+        };
 
-        if u8::decode(&mut data).map(|id| id != CMD).unwrap_or(true) {
-            return false;
-        }
-
-        true
+        data[0..2] != Self::HEADER && data[3] == CMD
     }
 }
 
@@ -145,11 +134,11 @@ mod tests {
     use crate::connection::CheckHeader;
     use crate::packets::file::FileDataReadReplyPacket;
 
-    // #[test]
-    // fn has_valid_header_success() {
-    //     let data: &[u8] = &[
-    //         0xaa, 0x55, 0x56, 0x7, 0x14, 0xd4, 0xff, 0xff, 0xff, 0xca, 0x3d,
-    //     ];
-    //     assert!(FileDataReadReplyPacket::has_valid_header(data.iter().cloned()));
-    // }
+    #[test]
+    fn has_valid_header_success() {
+        let data: &[u8] = &[
+            0xaa, 0x55, 0x56, 0x7, 0x14, 0xd4, 0xff, 0xff, 0xff, 0xca, 0x3d,
+        ];
+        assert!(FileDataReadReplyPacket::has_valid_header(data));
+    }
 }

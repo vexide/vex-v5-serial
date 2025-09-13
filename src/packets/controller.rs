@@ -6,7 +6,7 @@ use super::{
     },
 };
 use crate::{
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError},
     encode::Encode,
     string::FixedString,
 };
@@ -47,21 +47,17 @@ pub struct UserDataReplyPayload {
     /// Bytes read from stdout.
     pub data: Option<String>,
 }
-impl SizedDecode for UserDataReplyPayload {
-    fn sized_decode(
-        data: impl IntoIterator<Item = u8>,
-        payload_size: u16,
-    ) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let channel = u8::decode(&mut data)?;
-        let data_len = payload_size.saturating_sub(5);
+impl Decode for UserDataReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let data_len = data.len().saturating_sub(5);
+        let channel = u8::decode(data)?;
 
         let read = if data_len > 0 {
             Some({
                 let mut utf8 = vec![];
 
                 for _ in 0..data_len {
-                    let byte = u8::decode(&mut data)?;
+                    let byte = u8::decode(data)?;
 
                     if byte == 0 {
                         break;

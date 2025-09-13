@@ -2,7 +2,8 @@ use std::pin::Pin;
 use std::time::{Duration, Instant};
 
 use btleplug::api::{
-    Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter, ValueNotification, WriteType
+    Central, CentralEvent, Characteristic, Manager as _, Peripheral as _, ScanFilter,
+    ValueNotification, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
 use futures::Stream;
@@ -17,6 +18,7 @@ use crate::connection::trim_packets;
 use crate::decode::{Decode, DecodeError};
 use crate::encode::Encode;
 use crate::packets::cdc2::Cdc2Ack;
+use crate::string::FixedStringSizeError;
 
 use super::{CheckHeader, Connection, ConnectionType, RawPacket};
 
@@ -267,7 +269,10 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn recv<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
+    async fn recv<P: Decode + CheckHeader>(
+        &mut self,
+        timeout: Duration,
+    ) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
@@ -304,7 +309,9 @@ impl Connection for BluetoothConnection {
     }
 
     async fn write_user(&mut self, buf: &[u8]) -> Result<usize, BluetoothError> {
-        self.peripheral.write(&self.user_rx, buf, WriteType::WithoutResponse).await?;
+        self.peripheral
+            .write(&self.user_rx, buf, WriteType::WithoutResponse)
+            .await?;
         Ok(buf.len())
     }
 }
@@ -331,4 +338,6 @@ pub enum BluetoothError {
     IncorrectPin,
     #[error("Pairing is required")]
     PairingRequired,
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
 }

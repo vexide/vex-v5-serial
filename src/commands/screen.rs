@@ -7,7 +7,9 @@ use crate::{
     packets::{
         file::{FileTransferTarget, FileVendor},
         screen::{
-            DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket, DashTouchPacket, DashTouchPayload, DashTouchReplyPacket, ScreenCapturePacket, ScreenCapturePayload, ScreenCaptureReplyPacket
+            DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket,
+            DashTouchPacket, DashTouchPayload, DashTouchReplyPacket, ScreenCapturePacket,
+            ScreenCapturePayload, ScreenCaptureReplyPacket,
         },
     },
     string::FixedString,
@@ -29,9 +31,7 @@ impl Command for ScreenCapture {
             .handshake::<ScreenCaptureReplyPacket>(
                 Duration::from_millis(100),
                 5,
-                ScreenCapturePacket::new(ScreenCapturePayload {
-                    layer: None,
-                }),
+                ScreenCapturePacket::new(ScreenCapturePayload { layer: None }),
             )
             .await?;
 

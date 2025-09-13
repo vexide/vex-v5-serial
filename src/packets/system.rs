@@ -1,3 +1,5 @@
+use std::u8;
+
 use super::{
     cdc::{
         cmds::{QUERY_1, SYSTEM_VERSION, USER_CDC},
@@ -13,7 +15,7 @@ use super::{
     file::FileVendor,
 };
 use crate::{
-    decode::{Decode, DecodeError, SizedDecode},
+    decode::{Decode, DecodeError, DecodeWithLength},
     encode::Encode,
     string::FixedString,
     version::Version,
@@ -27,11 +29,10 @@ pub enum ProductType {
     Controller = 0x11,
 }
 impl Decode for ProductType {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let _unknown = u8::decode(&mut data)?;
-        let val = u8::decode(data)?;
-        match val {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let data = <[u8; 2]>::decode(data)?;
+
+        match data[1] {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
             v => Err(DecodeError::UnexpectedValue {
@@ -85,12 +86,11 @@ pub struct SystemFlags {
     pub current_program: u8,
 }
 impl Decode for SystemFlags {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let flags = u32::decode(&mut data)?;
-        let byte_1 = u8::decode(&mut data)?;
-        let byte_2 = u8::decode(&mut data)?;
-        let current_program = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let flags = u32::decode(data)?;
+        let byte_1 = u8::decode(data)?;
+        let byte_2 = u8::decode(data)?;
+        let current_program = u8::decode(data)?;
 
         Ok(Self {
             flags,
@@ -111,25 +111,25 @@ pub struct SystemStatus {
     pub details: Option<SystemDetails>,
 }
 impl Decode for SystemStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let unknown = u8::decode(&mut data)?;
-        let system_version = Version::decode(&mut data)?;
-        let cpu0_version = Version::decode(&mut data)?;
-        let cpu1_version = Version::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let unknown = u8::decode(data)?;
+        let system_version = Version::decode(data)?;
+        let cpu0_version = Version::decode(data)?;
+        let cpu1_version = Version::decode(data)?;
 
         // This version is little endian for some reason
-        let touch_beta = u8::decode(&mut data)?;
-        let touch_build = u8::decode(&mut data)?;
-        let touch_minor = u8::decode(&mut data)?;
-        let touch_major = u8::decode(&mut data)?;
         let touch_version = Version {
-            major: touch_major,
-            minor: touch_minor,
-            build: touch_build,
-            beta: touch_beta,
+            beta: u8::decode(data)?,
+            build: u8::decode(data)?,
+            minor: u8::decode(data)?,
+            major: u8::decode(data)?,
         };
-        let details = Option::<SystemDetails>::decode(&mut data)?;
+
+        let details = match SystemDetails::decode(data) {
+            Ok(details) => Some(details),
+            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
             unknown,
@@ -173,16 +173,18 @@ pub struct SystemDetails {
     pub nxp_version: Option<Version>,
 }
 impl Decode for SystemDetails {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let unique_id = u32::decode(&mut data)?;
-        let flags_1 = u16::decode(&mut data)?;
-        let flags_2 = u16::decode(&mut data)?;
-        let flags_3 = u16::decode(&mut data)?;
-        let unknown = u16::decode(&mut data)?;
-        let golden_version = Version::decode(&mut data)?;
-        let nxp_version = Option::<Version>::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let unique_id = u32::decode(data)?;
+        let flags_1 = u16::decode(data)?;
+        let flags_2 = u16::decode(data)?;
+        let flags_3 = u16::decode(data)?;
+        let unknown = u16::decode(data)?;
+        let golden_version = Version::decode(data)?;
+        let nxp_version = match Version::decode(data) {
+            Ok(version) => Some(version),
+            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
             unique_id,
@@ -212,11 +214,10 @@ pub struct SystemVersionReplyPayload {
     pub flags: ProductFlags,
 }
 impl Decode for SystemVersionReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let version = Version::decode(&mut data)?;
-        let product_type = ProductType::decode(&mut data)?;
-        let flags = ProductFlags::from_bits_truncate(u8::decode(&mut data)?);
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let version = Version::decode(data)?;
+        let product_type = ProductType::decode(data)?;
+        let flags = ProductFlags::from_bits_truncate(u8::decode(data)?);
 
         Ok(Self {
             version,
@@ -244,17 +245,15 @@ pub struct Query1ReplyPayload {
 }
 
 impl Decode for Query1ReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let unknown_1 = <[u8; 4]>::decode(&mut data)?;
-        let joystick_flag_1 = u8::decode(&mut data)?;
-        let joystick_flag_2 = u8::decode(&mut data)?;
-        let brain_flag_1 = u8::decode(&mut data)?;
-        let brain_flag_2 = u8::decode(&mut data)?;
-        let unknown_2 = <[u8; 2]>::decode(&mut data)?;
-        let bootload_flag_1 = u8::decode(&mut data)?;
-        let bootload_flag_2 = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let unknown_1 = <[u8; 4]>::decode(data)?;
+        let joystick_flag_1 = u8::decode(data)?;
+        let joystick_flag_2 = u8::decode(data)?;
+        let brain_flag_1 = u8::decode(data)?;
+        let brain_flag_2 = u8::decode(data)?;
+        let unknown_2 = <[u8; 2]>::decode(data)?;
+        let bootload_flag_1 = u8::decode(data)?;
+        let bootload_flag_2 = u8::decode(data)?;
 
         Ok(Self {
             unknown_1,
@@ -287,13 +286,13 @@ pub struct LogEntry {
     pub time: u32,
 }
 impl Decode for LogEntry {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let code = u8::decode(&mut data)?;
-        let log_type = u8::decode(&mut data)?;
-        let description = u8::decode(&mut data)?;
-        let spare = u8::decode(&mut data)?;
-        let time = u32::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let code = u8::decode(data)?;
+        let log_type = u8::decode(data)?;
+        let description = u8::decode(data)?;
+        let spare = u8::decode(data)?;
+        let time = u32::decode(data)?;
+
         Ok(Self {
             code,
             log_type,
@@ -313,10 +312,10 @@ pub struct LogCountReplyPayload {
     pub count: u32,
 }
 impl Decode for LogCountReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let unknown = u8::decode(&mut data)?;
-        let count = u32::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let unknown = u8::decode(data)?;
+        let count = u32::decode(data)?;
+
         Ok(Self { unknown, count })
     }
 }
@@ -352,16 +351,11 @@ pub struct LogReadReplyPayload {
     pub entries: Vec<LogEntry>,
 }
 impl Decode for LogReadReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError>
-    where
-        Self: Sized,
-    {
-        let mut data = data.into_iter();
-
-        let log_size = u8::decode(&mut data)?;
-        let offset = u32::decode(&mut data)?;
-        let count = u16::decode(&mut data)?;
-        let entries = Vec::sized_decode(&mut data, count)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let log_size = u8::decode(data)?;
+        let offset = u32::decode(data)?;
+        let count = u16::decode(data)?;
+        let entries = Vec::decode_with_len(data, count as _)?;
 
         Ok(Self {
             log_size,
@@ -390,7 +384,10 @@ impl Encode for KeyValueSavePayload {
 
     fn encode(&self, data: &mut [u8]) {
         self.key.as_ref().to_string().encode(data);
-        self.value.as_ref().to_string().encode(&mut data[self.key.size()..]);
+        self.value
+            .as_ref()
+            .to_string()
+            .encode(&mut data[self.key.size()..]);
     }
 }
 
@@ -402,11 +399,10 @@ pub struct Slot {
     pub name: String,
 }
 impl Decode for Slot {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let icon_number = u16::decode(&mut data)?;
-        let name_length = u8::decode(&mut data)?;
-        let name = String::sized_decode(&mut data, (name_length - 1) as _)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let icon_number = u16::decode(data)?;
+        let name_length = u8::decode(data)?;
+        let name = String::decode_with_len(data, (name_length - 1) as _)?;
 
         Ok(Self {
             icon_number,
@@ -427,7 +423,7 @@ pub struct ProgramStatusPayload {
     pub option: u8,
     /// The bin file name.
     pub file_name: FixedString<23>,
-} 
+}
 impl Encode for ProgramStatusPayload {
     fn size(&self) -> usize {
         2 + self.file_name.size()
@@ -436,7 +432,7 @@ impl Encode for ProgramStatusPayload {
     fn encode(&self, data: &mut [u8]) {
         data[0] = self.vendor as _;
         data[1] = self.option;
-        
+
         self.file_name.encode(&mut data[2..]);
     }
 }
@@ -465,13 +461,13 @@ pub struct SlotInfoPayload {
     pub flags: u8,
 
     /// Individual Slot Data
-    pub slots: Vec<Slot>,
+    pub slots: [Slot; 4],
 }
+
 impl Decode for SlotInfoPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let flags = u8::decode(&mut data)?;
-        let slots = Vec::sized_decode(&mut data, 4)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let flags = u8::decode(data)?;
+        let slots = <[Slot; 4]>::decode(data)?;
 
         Ok(Self { flags, slots })
     }

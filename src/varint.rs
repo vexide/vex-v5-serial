@@ -57,13 +57,12 @@ impl Encode for VarU16 {
 }
 
 impl Decode for VarU16 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let first = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let first = u8::decode(data)?;
         let wide = first & (1 << 7) != 0;
 
         if wide {
-            let last = u8::decode(&mut data)?;
+            let last = u8::decode(data)?;
             let both = [first & u8::MAX >> 1, last];
             Ok(Self(u16::from_be_bytes(both)))
         } else {
@@ -87,29 +86,37 @@ impl std::error::Error for VarU16SizeError {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{decode::Decode, encode::Encode, varint::VarU16};
+#[cfg(test)]
+mod tests {
+    use crate::{decode::Decode, encode::Encode, varint::VarU16};
 
-//     #[test]
-//     fn wide() {
-//         // A value that will be encoded as a wide variable length u16.
-//         const VAL: u16 = 0xF00;
-//         const ENCODED: [u8; 2] = [0x8f, 0x00];
+    #[test]
+    fn wide() {
+        // A value that will be encoded as a wide variable length u16.
+        const VAL: u16 = 0xF00;
+        const EXPECTED_ENCODING: [u8; 2] = [0x8f, 0x00];
 
-//         let var = super::VarU16::new(VAL);
-//         assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
-//         assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
-//     }
+        let mut buf = [0; 2];
 
-//     #[test]
-//     fn thin() {
-//         // A value that will be encoded as a thin variable length u16.
-//         const VAL: u16 = 0x0F;
-//         const ENCODED: [u8; 1] = [0x0F];
+        let var = VarU16::new(VAL);
+        var.encode(&mut buf);
+        
+        assert_eq!(EXPECTED_ENCODING, buf);
+        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
+    }
 
-//         let var = super::VarU16::new(VAL);
-//         assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
-//         assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
-//     }
-// }
+    #[test]
+    fn thin() {
+        // A value that will be encoded as a thin variable length u16.
+        const VAL: u16 = 0x0F;
+        const EXPECTED_ENCODING: [u8; 1] = [0x0F];
+
+        let mut buf = [0; 1];
+
+        let var = VarU16::new(VAL);
+        var.encode(&mut buf);
+
+        assert_eq!(EXPECTED_ENCODING, buf);
+        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
+    }
+}
