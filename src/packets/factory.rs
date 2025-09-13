@@ -9,7 +9,6 @@ use super::{
 };
 use crate::{
     decode::{Decode, DecodeError},
-    encode::Encode,
     packets::cdc::CdcReplyPacket,
 };
 
@@ -27,20 +26,7 @@ impl Decode for FactoryStatus {
 }
 
 pub type FactoryChallengePacket = Cdc2CommandPacket<USER_CDC, FACTORY_CHAL, ()>;
-pub type FactoryChallengeReplyPacket = CdcReplyPacket<USER_CDC, FactoryChallengeReplyPayload>;
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FactoryChallengeReplyPayload {
-    pub data: [u8; 16],
-}
-
-impl Decode for FactoryChallengeReplyPayload {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        Ok(Self {
-            data: Decode::decode(data)?,
-        })
-    }
-}
+pub type FactoryChallengeReplyPacket = CdcReplyPacket<USER_CDC, [u8; 16]>;
 
 pub type FactoryResponsePacket = Cdc2CommandPacket<USER_CDC, FACTORY_RESP, [u8; 16]>;
 pub type FactoryResponseReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_RESP, ()>;
@@ -48,31 +34,9 @@ pub type FactoryResponseReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_RESP, ()
 pub type FactoryStatusPacket = Cdc2CommandPacket<USER_CDC, FACTORY_STATUS, ()>;
 pub type FactoryStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_STATUS, FactoryStatus>;
 
-pub type FactoryEnablePacket = Cdc2CommandPacket<USER_CDC, FACTORY_EBL, FactoryEnablePayload>;
+pub type FactoryEnablePacket = Cdc2CommandPacket<USER_CDC, FACTORY_EBL, [u8; 4]>;
 pub type FactoryEnableReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_EBL, ()>;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FactoryEnablePayload(pub [u8; 4]);
-impl Encode for FactoryEnablePayload {
-    fn size(&self) -> usize {
-        4
-    }
-
-    fn encode(&self, data: &mut [u8]) {
-        self.0.encode(data)
-    }
-}
-
-impl Default for FactoryEnablePayload {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl FactoryEnablePayload {
+impl FactoryEnablePacket {
     pub const MAGIC: [u8; 4] = [0x4D, 0x4C, 0x4B, 0x4A];
-
-    pub const fn new() -> Self {
-        Self(Self::MAGIC)
-    }
 }
