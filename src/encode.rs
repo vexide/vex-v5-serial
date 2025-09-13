@@ -8,6 +8,10 @@ impl<'a> MessageEncoder<'a> {
         Self { data, pos: 0 }
     }
 
+    pub const fn new_with_position(data: &'a mut [u8], pos: usize) -> Self {
+        Self { data, pos }
+    }
+
     pub fn write<T: Encode>(&mut self, value: &T) {
         let data = &mut self.data[self.pos..];
 

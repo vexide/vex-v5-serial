@@ -212,7 +212,7 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
         data[4] = CMD;
         data[5] = EXT_CMD;
 
-        let mut enc = MessageEncoder::new(&mut data[6..]);
+        let mut enc = MessageEncoder::new_with_position(data, 6);
 
         // Push the payload size and encoded bytes
         enc.write(&VarU16::new(self.payload.size() as u16));
