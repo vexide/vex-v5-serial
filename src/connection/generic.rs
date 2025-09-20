@@ -1,8 +1,8 @@
 use crate::{
-    connection::{bluetooth, serial, Connection, ConnectionType},
+    connection::{Connection, ConnectionType, bluetooth, serial},
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
-    packets::cdc2::Cdc2Ack,
+    encode::Encode,
+    packets::cdc2::Cdc2Ack, string::FixedStringSizeError,
 };
 use futures::{try_join, TryFutureExt};
 use std::time::Duration;
@@ -24,21 +24,21 @@ impl Connection for GenericConnection {
         }
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), GenericError> {
+    async fn send(&mut self, packet: impl Encode) -> Result<(), GenericError> {
         match self {
-            GenericConnection::Bluetooth(c) => c.send_packet(packet).await?,
-            GenericConnection::Serial(s) => s.send_packet(packet).await?,
+            GenericConnection::Bluetooth(c) => c.send(packet).await?,
+            GenericConnection::Serial(s) => s.send(packet).await?,
         };
         Ok(())
     }
 
-    async fn receive_packet<P: Decode + CheckHeader>(
+    async fn recv<P: Decode + CheckHeader>(
         &mut self,
         timeout: std::time::Duration,
     ) -> Result<P, GenericError> {
         Ok(match self {
-            GenericConnection::Bluetooth(c) => c.receive_packet(timeout).await?,
-            GenericConnection::Serial(s) => s.receive_packet(timeout).await?,
+            GenericConnection::Bluetooth(c) => c.recv(timeout).await?,
+            GenericConnection::Serial(s) => s.recv(timeout).await?,
         })
     }
 
@@ -163,12 +163,12 @@ pub enum GenericError {
     SerialError(#[from] SerialError),
     #[error("Bluetooth Error: {0}")]
     BluetoothError(#[from] BluetoothError),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
     #[error("NACK received: {0:?}")]
     Nack(#[from] Cdc2Ack),
     #[error("Pairing is not supported over any connection other than Bluetooth")]
     PairingNotSupported,
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
 }

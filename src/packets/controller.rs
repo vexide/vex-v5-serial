@@ -1,64 +1,68 @@
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
+use super::{
+    cdc::cmds::{CON_CDC, USER_CDC},
+    cdc2::{
+        ecmds::{CON_COMP_CTRL, USER_READ},
+        Cdc2CommandPacket, Cdc2ReplyPacket,
+    },
+};
 use crate::{
-    decode::{Decode, DecodeError, SizedDecode},
-    encode::{Encode, EncodeError},
+    decode::{Decode, DecodeError},
+    encode::Encode,
     string::FixedString,
 };
 
-pub type UserFifoPacket = Cdc2CommandPacket<0x56, 0x27, UserFifoPayload>;
-pub type UserFifoReplyPacket = Cdc2ReplyPacket<0x56, 0x27, UserFifoReplyPayload>;
+pub type UserDataPacket = Cdc2CommandPacket<USER_CDC, USER_READ, UserDataPayload>;
+pub type UserDataReplyPacket = Cdc2ReplyPacket<USER_CDC, USER_READ, UserDataReplyPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UserFifoPayload {
+pub struct UserDataPayload {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,
 
     /// Write (stdin) bytes.
     pub write: Option<FixedString<224>>,
 }
-impl Encode for UserFifoPayload {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        encoded.extend(self.channel.to_le_bytes());
+impl Encode for UserDataPayload {
+    fn size(&self) -> usize {
+        2 + self.write.as_ref().map(|write| write.size()).unwrap_or(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.channel;
+
         if let Some(write) = &self.write {
-            let encoded_write = write.encode()?;
-            encoded.extend((encoded_write.len() as u8).to_le_bytes());
-            encoded.extend(encoded_write);
+            data[1] = write.size() as u8;
+            write.encode(&mut data[2..]);
         } else {
-            encoded.extend([0]); // 0 write length
+            data[1] = 0;
         }
-        Ok(encoded)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UserFifoReplyPayload {
+pub struct UserDataReplyPayload {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,
 
     /// Bytes read from stdout.
     pub data: Option<String>,
 }
-impl SizedDecode for UserFifoReplyPayload {
-    fn sized_decode(
-        data: impl IntoIterator<Item = u8>,
-        payload_size: u16,
-    ) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let channel = u8::decode(&mut data)?;
-        let data_len = payload_size.saturating_sub(5);
+impl Decode for UserDataReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let data_len = data.len().saturating_sub(5);
+        let channel = u8::decode(data)?;
 
         let read = if data_len > 0 {
             Some({
                 let mut utf8 = vec![];
 
                 for _ in 0..data_len {
-                    let byte = u8::decode(&mut data)?;
-                    
+                    let byte = u8::decode(data)?;
+
                     if byte == 0 {
                         break;
                     }
-                    
+
                     utf8.push(byte);
                 }
 
@@ -72,5 +76,34 @@ impl SizedDecode for UserFifoReplyPayload {
             channel,
             data: read,
         })
+    }
+}
+
+pub type CompetitionControlPacket =
+    Cdc2CommandPacket<CON_CDC, CON_COMP_CTRL, CompetitionControlPayload>;
+pub type CompetitionControlReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_COMP_CTRL, ()>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum MatchMode {
+    Driver = 8,
+    Auto = 10,
+    Disabled = 11,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompetitionControlPayload {
+    pub match_mode: MatchMode,
+    /// Time in seconds that should be displayed on the controller
+    pub match_time: u32,
+}
+impl Encode for CompetitionControlPayload {
+    fn size(&self) -> usize {
+        5
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.match_mode as u8;
+        self.match_time.encode(&mut data[1..]);
     }
 }

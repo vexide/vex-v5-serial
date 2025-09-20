@@ -1,18 +1,15 @@
 use std::{str::FromStr, time::Duration};
 
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use vex_v5_serial::{
     commands::file::DownloadFile,
     connection::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::{
-        file::{FileTransferTarget, FileVendor},
-        radio::{
-            RadioChannel, SelectRadioChannelPacket, SelectRadioChannelPayload,
-            SelectRadioChannelReplyPacket,
-        },
+    packets::file::{
+        FileControlGroup, FileControlPacket, FileControlReplyPacket, FileTransferTarget,
+        FileVendor, RadioChannel,
     },
     string::FixedString,
 };
@@ -34,19 +31,24 @@ async fn main() -> Result<(), SerialError> {
     // Open a connection to the device
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
+    // Swap radio to download channel.
+    //
+    // This is a very naive approach to doing this for demonstration purposes.
+    // `cargo-v5` has a more advanced polling-based implementation which is faster
+    // and can be found here::
+    // <https://github.com/vexide/cargo-v5/blob/main/src/connection.rs#L61>
     connection
-        .packet_handshake::<SelectRadioChannelReplyPacket>(
+        .handshake::<FileControlReplyPacket>(
             Duration::from_millis(500),
             10,
-            SelectRadioChannelPacket::new(SelectRadioChannelPayload {
-                channel: RadioChannel::Pit,
-            }),
+            FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
         .await?
-        .try_into_inner()
-        .unwrap();
+        .payload?;
 
-    let file = "slot_3.bin";
+    sleep(Duration::from_millis(1000)).await;
+
+    let file = "slot_1.bin";
 
     // Download program file
     let download = connection
@@ -54,8 +56,8 @@ async fn main() -> Result<(), SerialError> {
             file_name: FixedString::from_str(file).unwrap(),
             size: 2000,
             vendor: FileVendor::User,
-            target: Some(FileTransferTarget::Qspi),
-            load_addr: 0x03800000,
+            target: FileTransferTarget::Qspi,
+            address: 0x03800000,
             progress_callback: Some(Box::new(move |progress| {
                 log::info!("{}: {:.2}%", file, progress);
             }) as Box<dyn FnMut(f32) + Send>),

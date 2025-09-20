@@ -5,7 +5,8 @@ use vex_v5_serial::{
     connection::{
         serial::{self, SerialError},
         Connection,
-    }, packets::device::{GetDeviceStatusPacket, GetDeviceStatusReplyPacket}
+    },
+    packets::device::{DeviceStatusPacket, DeviceStatusReplyPacket},
 };
 
 #[tokio::main]
@@ -24,13 +25,13 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let status = connection
-        .packet_handshake::<GetDeviceStatusReplyPacket>(
+        .handshake::<DeviceStatusReplyPacket>(
             Duration::from_millis(500),
             10,
-            GetDeviceStatusPacket::new(()),
+            DeviceStatusPacket::new(()),
         )
         .await?
-        .try_into_inner()?;
+        .payload?;
 
     for device in status.devices {
         info!("{:?} on port: {}", device.device_type, device.port);

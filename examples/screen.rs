@@ -1,13 +1,11 @@
 use std::time::Duration;
 
-use tokio::time::sleep;
 use vex_v5_serial::{
-    commands::screen::{MockTap, OpenDashScreen, ScreenCapture},
     connection::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::dash::DashScreen,
+    packets::screen::{DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket},
 };
 
 #[tokio::main]
@@ -27,22 +25,16 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     connection
-        .execute_command(ScreenCapture)
+        .handshake::<DashSelectReplyPacket>(
+            Duration::from_millis(500),
+            10,
+            DashSelectPacket::new(DashSelectPayload {
+                screen: DashScreen::Settings,
+                port: 0,
+            }),
+        )
         .await?
-        .save("screencap.png")
-        .unwrap();
-
-    connection
-        .execute_command(OpenDashScreen {
-            dash: DashScreen::Home,
-        })
-        .await?;
-
-    sleep(Duration::from_millis(50)).await;
-
-    connection
-        .execute_command(MockTap { x: 300, y: 100 })
-        .await?;
+        .payload?;
 
     Ok(())
 }

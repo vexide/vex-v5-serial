@@ -13,14 +13,13 @@ use tokio_serial::SerialStream;
 
 use super::{CheckHeader, Connection, ConnectionType};
 use crate::{
-    connection::{trim_packets, RawPacket},
+    connection::{RawPacket, trim_packets},
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::Encode,
     packets::{
-        cdc2::Cdc2Ack,
-        controller::{UserFifoPacket, UserFifoPayload, UserFifoReplyPacket}, HOST_BOUND_HEADER,
+        HOST_BOUND_HEADER, cdc2::Cdc2Ack, controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}
     },
-    string::FixedString,
+    string::{FixedString, FixedStringSizeError},
     varint::VarU16,
 };
 
@@ -345,8 +344,7 @@ impl SerialDevice {
 }
 
 /// Decodes a [`HostBoundPacket`]'s header sequence.
-fn decode_header(data: impl IntoIterator<Item = u8>) -> Result<[u8; 2], DecodeError> {
-    let mut data = data.into_iter();
+fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
     let header = Decode::decode(&mut data)?;
     if header != HOST_BOUND_HEADER {
         return Err(DecodeError::InvalidHeader);
@@ -405,7 +403,7 @@ impl SerialConnection {
         self.system_port.read_exact(&mut header).await?;
 
         // Verify that the header is valid
-        if let Err(e) = decode_header(header) {
+        if let Err(e) = validate_header(&header) {
             warn!(
                 "Skipping packet with invalid header: {:x?}. Error: {}",
                 header, e
@@ -427,12 +425,12 @@ impl SerialConnection {
             packet.extend([first_size_byte, second_size_byte]);
 
             // Decode the size of the packet
-            VarU16::decode(vec![first_size_byte, second_size_byte])?
+            VarU16::decode(&mut [first_size_byte, second_size_byte].as_slice())?
         } else {
             packet.push(first_size_byte);
 
             // Decode the size of the packet
-            VarU16::decode(vec![first_size_byte])?
+            VarU16::decode(&mut [first_size_byte].as_slice())?
         }
         .into_inner() as usize;
 
@@ -463,9 +461,10 @@ impl Connection for SerialConnection {
         }
     }
 
-    async fn send_packet(&mut self, packet: impl Encode) -> Result<(), SerialError> {
+    async fn send(&mut self, packet: impl Encode) -> Result<(), SerialError> {
         // Encode the packet
-        let encoded = packet.encode()?;
+        let mut encoded = vec![0; packet.size()];
+        packet.encode(&mut encoded);
 
         trace!("sent packet: {:x?}", encoded);
 
@@ -483,7 +482,7 @@ impl Connection for SerialConnection {
         Ok(())
     }
 
-    async fn receive_packet<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
+    async fn recv<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
@@ -518,16 +517,16 @@ impl Connection for SerialConnection {
             let mut data = Vec::new();
             loop {
                 let fifo = self
-                    .packet_handshake::<UserFifoReplyPacket>(
+                    .handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
-                        UserFifoPacket::new(UserFifoPayload {
+                        UserDataPacket::new(UserDataPayload {
                             channel: 1, // stdio channel
                             write: None,
                         }),
                     )
                     .await?
-                    .try_into_inner()?;
+                    .payload?;
                 if let Some(read) = fifo.data {
                     data.extend(read.as_bytes());
                     break;
@@ -549,10 +548,10 @@ impl Connection for SerialConnection {
             while !buf.is_empty() {
                 let (chunk, rest) = buf.split_at(std::cmp::min(224, buf.len()));
                 _ = self
-                    .packet_handshake::<UserFifoReplyPacket>(
+                    .handshake::<UserDataReplyPacket>(
                         Duration::from_millis(100),
                         1,
-                        UserFifoPacket::new(UserFifoPayload {
+                        UserDataPacket::new(UserDataPayload {
                             channel: 2, // stdio channel
                             write: Some(
                                 FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
@@ -561,7 +560,7 @@ impl Connection for SerialConnection {
                         }),
                     )
                     .await?
-                    .try_into_inner()?;
+                    .payload?;
                 buf = rest;
             }
 
@@ -574,16 +573,22 @@ impl Connection for SerialConnection {
 pub enum SerialError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Packet encoding error: {0}")]
-    EncodeError(#[from] EncodeError),
+
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
+    
     #[error("Packet timeout")]
     Timeout,
+    
     #[error("NACK received: {0:?}")]
     Nack(#[from] Cdc2Ack),
+    
     #[error("Serialport Error")]
     SerialportError(#[from] tokio_serial::Error),
+    
     #[error("Could not infer serial port types")]
     CouldntInferTypes,
+    
+    #[error(transparent)]
+    FixedStringSizeError(#[from] FixedStringSizeError),
 }

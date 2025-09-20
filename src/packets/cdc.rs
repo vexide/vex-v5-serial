@@ -1,19 +1,40 @@
-use std::fmt::Debug;
-
 use crate::{
     connection,
     decode::{Decode, DecodeError},
-    encode::{Encode, EncodeError},
+    encode::{Encode, MessageEncoder},
     varint::VarU16,
 };
 
 use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
 
+/// Known CDC Command Identifiers
+#[allow(unused)]
+pub mod cmds {
+    pub const ACK: u8 = 0x33;
+    pub const QUERY_1: u8 = 0x21;
+    pub const USER_CDC: u8 = 0x56;
+    pub const CON_CDC: u8 = 0x58;
+    pub const SYSTEM_VERSION: u8 = 0xA4;
+    pub const EEPROM_ERASE: u8 = 0x31;
+    pub const USER_ENTER: u8 = 0x60;
+    pub const USER_CATALOG: u8 = 0x61;
+    pub const FLASH_ERASE: u8 = 0x63;
+    pub const FLASH_WRITE: u8 = 0x64;
+    pub const FLASH_READ: u8 = 0x65;
+    pub const USER_EXIT: u8 = 0x66;
+    pub const USER_PLAY: u8 = 0x67;
+    pub const USER_STOP: u8 = 0x68;
+    pub const COMPONENT_GET: u8 = 0x69;
+    pub const USER_SLOT_GET: u8 = 0x78;
+    pub const USER_SLOT_SET: u8 = 0x79;
+    pub const BRAIN_NAME_GET: u8 = 0x44;
+}
+
 /// CDC (Simple) Command Packet
 ///
 /// Encodes a simple device-bound message over the protocol containing
-/// an ID and a payload.
-#[derive(Debug, Eq, PartialEq)]
+/// a command identifier and a payload.
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcCommandPacket<const CMD: u8, P: Encode> {
     payload: P,
 }
@@ -29,29 +50,30 @@ impl<const CMD: u8, P: Encode> CdcCommandPacket<CMD, P> {
 }
 
 impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        let mut encoded = Vec::new();
-        // Push the header and CMD
-        encoded.extend(Self::HEADER);
-        encoded.push(CMD);
+    fn size(&self) -> usize {
+        let payload_size = self.payload.size();
 
-        let payload_bytes = self.payload.encode()?;
+        5 + if payload_size == 0 {
+            0
+        } else if payload_size > (u8::MAX >> 1) as _ {
+            2
+        } else {
+            1
+        } + payload_size
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = CMD;
+
+        let payload_size = self.payload.size();
 
         // We only encode the payload size if there is a payload
-        if !payload_bytes.is_empty() {
-            let size = VarU16::new(payload_bytes.len() as _);
-            encoded.extend(size.encode()?);
-            encoded.extend(payload_bytes);
-        }
+        if payload_size > 0 {
+            let mut enc = MessageEncoder::new_with_position(data, 5);
 
-        Ok(encoded)
-    }
-}
-
-impl<const CMD: u8, P: Encode + Clone> Clone for CdcCommandPacket<CMD, P> {
-    fn clone(&self) -> Self {
-        Self {
-            payload: self.payload.clone(),
+            enc.write(&VarU16::new(payload_size as u16));
+            enc.write(&self.payload);
         }
     }
 }
@@ -59,6 +81,7 @@ impl<const CMD: u8, P: Encode + Clone> Clone for CdcCommandPacket<CMD, P> {
 /// CDC (Simple) Command Reply Packet
 ///
 /// Encodes a reply payload to a [`CdcCommandPacket`] for a given ID.
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
     /// Packet Payload Size
     pub payload_size: u16,
@@ -75,24 +98,21 @@ impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
 }
 
 impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let header: [u8; 2] = Decode::decode(&mut data)?;
-        if header != Self::HEADER {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        if <[u8; 2]>::decode(data)? != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
         }
-        
-        let cmd = u8::decode(&mut data)?;
+
+        let cmd = u8::decode(data)?;
         if cmd != CMD {
             return Err(DecodeError::UnexpectedValue {
                 value: cmd,
                 expected: &[CMD],
             });
         }
-        
-        let payload_size = VarU16::decode(&mut data)?.into_inner();
-        let payload = P::decode(data.take(payload_size as usize))?;
+
+        let payload_size = VarU16::decode(data)?.into_inner();
+        let payload = P::decode(data)?;
 
         Ok(Self {
             payload_size,
@@ -102,54 +122,25 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
 }
 
 impl<const CMD: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
-    fn has_valid_header(data: impl IntoIterator<Item = u8>) -> bool {
-        let mut data = data.into_iter();
-        if <[u8; 2] as Decode>::decode(&mut data)
-            .map(|header| header != HOST_BOUND_HEADER)
-            .unwrap_or(true)
-        {
+    fn has_valid_header(data: &[u8]) -> bool {
+        let Some(data) = data.get(0..3) else {
             return false;
-        }
+        };
 
-        if u8::decode(&mut data).map(|id| id != CMD).unwrap_or(true) {
-            return false;
-        }
-
-        true
-    }
-}
-
-impl<const CMD: u8, P: Decode + Debug> Debug for CdcReplyPacket<CMD, P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(&format!(
-            "CdcReplyPacket<{CMD}, {}>",
-            std::any::type_name::<P>()
-        ))
-        .field("payload_size", &self.payload_size)
-        .field("payload", &self.payload)
-        .finish()
-    }
-}
-
-impl<const CMD: u8, P: Decode + Clone> Clone for CdcReplyPacket<CMD, P> {
-    fn clone(&self) -> Self {
-        Self {
-            payload_size: self.payload_size,
-            payload: self.payload.clone(),
-        }
+        data[0..2] == Self::HEADER && data[2] == CMD
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::connection::CheckHeader;
-    use crate::packets::file::ReadFileReplyPacket;
+    use crate::packets::file::FileDataReadReplyPacket;
 
     #[test]
     fn has_valid_header_success() {
         let data: &[u8] = &[
             0xaa, 0x55, 0x56, 0x7, 0x14, 0xd4, 0xff, 0xff, 0xff, 0xca, 0x3d,
         ];
-        assert!(ReadFileReplyPacket::has_valid_header(data.iter().cloned()));
+        assert!(FileDataReadReplyPacket::has_valid_header(data));
     }
 }

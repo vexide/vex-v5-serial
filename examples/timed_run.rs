@@ -8,8 +8,11 @@ use vex_v5_serial::{
         Connection,
     },
     packets::{
-        match_mode::{MatchMode, SetMatchModePacket, SetMatchModePayload, SetMatchModeReplyPacket},
-        system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
+        controller::{
+            CompetitionControlPacket, CompetitionControlPayload, CompetitionControlReplyPacket,
+            MatchMode,
+        },
+        system::{SystemVersionPacket, SystemVersionReplyPacket},
     },
 };
 
@@ -30,10 +33,10 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
-        .packet_handshake::<GetSystemVersionReplyPacket>(
+        .handshake::<SystemVersionReplyPacket>(
             Duration::from_millis(700),
             5,
-            GetSystemVersionPacket::new(()),
+            SystemVersionPacket::new(()),
         )
         .await?;
 
@@ -47,10 +50,10 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to auto");
     connection
-        .packet_handshake::<SetMatchModeReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
-            SetMatchModePacket::new(SetMatchModePayload {
+            CompetitionControlPacket::new(CompetitionControlPayload {
                 match_mode: MatchMode::Auto,
                 match_time: 0,
             }),
@@ -61,10 +64,10 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to driver");
     connection
-        .packet_handshake::<SetMatchModeReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
-            SetMatchModePacket::new(SetMatchModePayload {
+            CompetitionControlPacket::new(CompetitionControlPayload {
                 match_mode: MatchMode::Driver,
                 match_time: 2,
             }),
@@ -76,10 +79,10 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to disabled");
     connection
-        .packet_handshake::<SetMatchModeReplyPacket>(
+        .handshake::<CompetitionControlReplyPacket>(
             Duration::from_millis(500),
             10,
-            SetMatchModePacket::new(SetMatchModePayload {
+            CompetitionControlPacket::new(CompetitionControlPayload {
                 match_mode: MatchMode::Disabled,
                 match_time: 4,
             }),

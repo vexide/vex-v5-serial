@@ -7,14 +7,11 @@
 //! Because manually sending and receiving packets is a chore, this library also provides high level [`Command`](commands::Command)s.
 //! These commands provide easier ways to perform complicated tasks, such as uploading a program.
 
-mod choice;
-
 pub mod crc;
 pub mod decode;
 pub mod encode;
 pub mod packets;
 pub mod string;
-pub mod timestamp;
 pub mod varint;
 pub mod version;
 

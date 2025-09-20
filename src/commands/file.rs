@@ -1,4 +1,8 @@
-use std::{io::Write, str::FromStr, time::Duration};
+use std::{
+    io::Write,
+    str::FromStr,
+    time::{Duration, SystemTime},
+};
 
 use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
@@ -10,18 +14,29 @@ use crate::{
     connection::{Connection, ConnectionType},
     crc::VEX_CRC32,
     packets::file::{
-        ExitFileTransferPacket, ExitFileTransferReplyPacket, ExtensionType, FileExitAction,
-        FileInitAction, FileInitOption, FileMetadata, FileTransferTarget, FileVendor,
-        InitFileTransferPacket, InitFileTransferPayload, InitFileTransferReplyPacket,
-        LinkFilePacket, LinkFilePayload, LinkFileReplyPacket, ReadFilePacket, ReadFilePayload,
-        ReadFileReplyPacket, WriteFilePacket, WriteFilePayload, WriteFileReplyPacket,
+        ExtensionType, FileDataReadPacket, FileDataReadPayload, FileDataReadReplyPacket,
+        FileDataWritePacket, FileDataWritePayload, FileDataWriteReplyPacket, FileExitAction,
+        FileInitOption, FileLinkPacket, FileLinkPayload, FileLinkReplyPacket, FileMetadata,
+        FileTransferExitPacket, FileTransferExitReplyPacket, FileTransferInitializePacket,
+        FileTransferInitializePayload, FileTransferInitializeReplyPacket, FileTransferOperation,
+        FileTransferTarget, FileVendor,
     },
     string::FixedString,
-    timestamp::j2000_timestamp,
     version::Version,
 };
 
 use super::Command;
+
+/// The epoch of the serial protocols timestamps
+pub const J2000_EPOCH: u32 = 946684800;
+
+pub fn j2000_timestamp() -> i32 {
+    (SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis()
+        - J2000_EPOCH as u128) as i32
+}
 
 pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
 pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;
@@ -32,7 +47,7 @@ pub struct DownloadFile {
     pub size: u32,
     pub vendor: FileVendor,
     pub target: FileTransferTarget,
-    pub load_addr: u32,
+    pub address: u32,
 
     pub progress_callback: Option<Box<dyn FnMut(f32) + Send>>,
 }
@@ -44,17 +59,17 @@ impl Command for DownloadFile {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         let transfer_response = connection
-            .packet_handshake::<InitFileTransferReplyPacket>(
+            .handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
-                InitFileTransferPacket::new(InitFileTransferPayload {
-                    operation: FileInitAction::Read,
+                FileTransferInitializePacket::new(FileTransferInitializePayload {
+                    operation: FileTransferOperation::Read,
                     target: self.target,
                     vendor: self.vendor,
                     options: FileInitOption::None,
                     file_size: self.size,
                     write_file_crc: 0,
-                    load_address: self.load_addr,
+                    load_address: self.address,
                     metadata: FileMetadata {
                         extension: FixedString::from_str("ini").unwrap(),
                         extension_type: ExtensionType::EncryptedBinary,
@@ -70,7 +85,7 @@ impl Command for DownloadFile {
                 }),
             )
             .await?;
-        let transfer_response = transfer_response.try_into_inner()?;
+        let transfer_response = transfer_response.payload?;
 
         let max_chunk_size = if transfer_response.window_size > 0
             && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
@@ -84,11 +99,11 @@ impl Command for DownloadFile {
         let mut offset = 0;
         loop {
             let read = connection
-                .packet_handshake::<ReadFileReplyPacket>(
+                .handshake::<FileDataReadReplyPacket>(
                     Duration::from_millis(500),
                     5,
-                    ReadFilePacket::new(ReadFilePayload {
-                        address: self.load_addr + offset,
+                    FileDataReadPacket::new(FileDataReadPayload {
+                        address: self.address + offset,
                         size: max_chunk_size,
                     }),
                 )
@@ -150,7 +165,7 @@ pub struct UploadFile<'a> {
     pub vendor: FileVendor,
     pub data: Vec<u8>,
     pub target: FileTransferTarget,
-    pub load_addr: u32,
+    pub load_address: u32,
     pub linked_file: Option<LinkedFile>,
     pub after_upload: FileExitAction,
 
@@ -166,16 +181,16 @@ impl Command for UploadFile<'_> {
         let crc = VEX_CRC32.checksum(&self.data);
 
         let transfer_response = connection
-            .packet_handshake::<InitFileTransferReplyPacket>(
+            .handshake::<FileTransferInitializeReplyPacket>(
                 Duration::from_millis(500),
                 5,
-                InitFileTransferPacket::new(InitFileTransferPayload {
-                    operation: FileInitAction::Write,
+                FileTransferInitializePacket::new(FileTransferInitializePayload {
+                    operation: FileTransferOperation::Write,
                     target: self.target,
                     vendor: self.vendor,
                     options: FileInitOption::Overwrite,
                     file_size: self.data.len() as u32,
-                    load_address: self.load_addr,
+                    load_address: self.load_address,
                     write_file_crc: crc,
                     metadata: self.metadata,
                     file_name: self.file_name.clone(),
@@ -183,21 +198,21 @@ impl Command for UploadFile<'_> {
             )
             .await?;
         debug!("transfer init responded");
-        let transfer_response = transfer_response.try_into_inner()?;
+        let transfer_response = transfer_response.payload?;
 
         if let Some(linked_file) = self.linked_file {
             connection
-                .packet_handshake::<LinkFileReplyPacket>(
+                .handshake::<FileLinkReplyPacket>(
                     Duration::from_millis(500),
                     5,
-                    LinkFilePacket::new(LinkFilePayload {
+                    FileLinkPacket::new(FileLinkPayload {
                         vendor: linked_file.vendor,
-                        option: 0,
+                        reserved: 0,
                         required_file: linked_file.file_name,
                     }),
                 )
                 .await?
-                .try_into_inner()?;
+                .payload?;
         }
 
         let window_size = transfer_response.window_size;
@@ -223,19 +238,19 @@ impl Command for UploadFile<'_> {
                 callback(progress);
             }
 
-            let packet = WriteFilePacket::new(WriteFilePayload {
-                address: (self.load_addr + offset) as _,
+            let packet = FileDataWritePacket::new(FileDataWritePayload {
+                address: (self.load_address + offset) as _,
                 chunk_data: chunk.clone(),
             });
 
             // On bluetooth, we dont wait for the reply
             if connection.connection_type() == ConnectionType::Bluetooth {
-                connection.send_packet(packet).await?;
+                connection.send(packet).await?;
             } else {
                 connection
-                    .packet_handshake::<WriteFileReplyPacket>(Duration::from_millis(500), 5, packet)
+                    .handshake::<FileDataWriteReplyPacket>(Duration::from_millis(500), 5, packet)
                     .await?
-                    .try_into_inner()?;
+                    .payload?;
             }
 
             offset += chunk.len() as u32;
@@ -245,15 +260,18 @@ impl Command for UploadFile<'_> {
         }
 
         connection
-            .packet_handshake::<ExitFileTransferReplyPacket>(
+            .handshake::<FileTransferExitReplyPacket>(
                 Duration::from_millis(1000),
                 5,
-                ExitFileTransferPacket::new(self.after_upload),
+                FileTransferExitPacket::new(self.after_upload),
             )
             .await?
-            .try_into_inner()?;
+            .payload?;
 
-        debug!("Successfully uploaded file: {}", self.file_name.into_inner());
+        debug!(
+            "Successfully uploaded file: {}",
+            self.file_name.into_inner()
+        );
         Ok(())
     }
 }
@@ -299,7 +317,7 @@ pub struct UploadProgram<'a> {
     pub program_type: String,
     /// 0-indexed slot
     pub slot: u8,
-    pub compress_program: bool,
+    pub compress: bool,
     pub data: ProgramData,
     pub after_upload: FileExitAction,
 
@@ -344,7 +362,7 @@ impl Command for UploadProgram<'_> {
             .execute_command(UploadFile {
                 file_name: FixedString::new(format!("{}.ini", base_file_name))?,
                 metadata: FileMetadata {
-                    extension: FixedString::new("ini".to_string())?,
+                    extension: unsafe { FixedString::new_unchecked("ini") },
                     extension_type: ExtensionType::default(),
                     timestamp: j2000_timestamp(),
                     version: Version {
@@ -357,7 +375,7 @@ impl Command for UploadProgram<'_> {
                 vendor: FileVendor::User,
                 data: serde_ini::to_vec(&ini).unwrap(),
                 target: FileTransferTarget::Qspi,
-                load_addr: USER_PROGRAM_LOAD_ADDR,
+                load_address: USER_PROGRAM_LOAD_ADDR,
                 linked_file: None,
                 after_upload: FileExitAction::DoNothing,
                 progress_callback: self.ini_callback.take(),
@@ -378,7 +396,7 @@ impl Command for UploadProgram<'_> {
 
             // Compress the file to improve upload times
             // We don't need to change any other flags, the brain is smart enough to decompress it
-            if self.compress_program {
+            if self.compress {
                 debug!("Compressing cold library binary");
                 compress(&mut library_data);
                 debug!("Compression complete");
@@ -388,7 +406,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_lib_name.clone())?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin".to_string())?,
+                        extension: unsafe { FixedString::new_unchecked("bin") },
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
@@ -401,7 +419,7 @@ impl Command for UploadProgram<'_> {
                     vendor: FileVendor::User,
                     data: library_data,
                     target: FileTransferTarget::Qspi,
-                    load_addr: PROS_HOT_BIN_LOAD_ADDR,
+                    load_address: PROS_HOT_BIN_LOAD_ADDR,
                     linked_file: None,
                     after_upload: if is_monolith {
                         self.after_upload
@@ -417,7 +435,7 @@ impl Command for UploadProgram<'_> {
         if let Some(mut program_data) = program_data {
             debug!("Uploading program binary");
 
-            if self.compress_program {
+            if self.compress {
                 debug!("Compressing program binary");
                 compress(&mut program_data);
                 debug!("Compression complete");
@@ -431,7 +449,7 @@ impl Command for UploadProgram<'_> {
                 debug!("Program will be linked to cold library: {program_lib_name:?}");
                 Some(LinkedFile {
                     file_name: FixedString::new(program_lib_name)?,
-                    vendor: FileVendor::User
+                    vendor: FileVendor::User,
                 })
             };
 
@@ -439,7 +457,7 @@ impl Command for UploadProgram<'_> {
                 .execute_command(UploadFile {
                     file_name: FixedString::new(program_bin_name)?,
                     metadata: FileMetadata {
-                        extension: FixedString::new("bin".to_string())?,
+                        extension: unsafe { FixedString::new_unchecked("bin") },
                         extension_type: ExtensionType::default(),
                         timestamp: j2000_timestamp(),
                         version: Version {
@@ -452,7 +470,7 @@ impl Command for UploadProgram<'_> {
                     vendor: FileVendor::User,
                     data: program_data,
                     target: FileTransferTarget::Qspi,
-                    load_addr: USER_PROGRAM_LOAD_ADDR,
+                    load_address: USER_PROGRAM_LOAD_ADDR,
                     linked_file,
                     after_upload: self.after_upload,
                     progress_callback: self.bin_callback.take(),

@@ -1,25 +1,38 @@
+use std::u8;
+
 use super::{
-    cdc::{CdcCommandPacket, CdcReplyPacket},
-    cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket},
+    cdc::{
+        cmds::{QUERY_1, SYSTEM_VERSION, USER_CDC},
+        CdcCommandPacket, CdcReplyPacket,
+    },
+    cdc2::{
+        ecmds::{
+            FILE_USER_STAT, LOG_READ, LOG_STATUS, SYS_C_INFO_14, SYS_C_INFO_58, SYS_FLAGS,
+            SYS_KV_LOAD, SYS_KV_SAVE, SYS_STATUS, SYS_USER_PROG,
+        },
+        Cdc2CommandPacket, Cdc2ReplyPacket,
+    },
+    file::FileVendor,
 };
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, DecodeWithLength},
+    encode::Encode,
+    string::FixedString,
     version::Version,
 };
 use bitflags::bitflags;
 
-#[repr(u16)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u16)]
 pub enum ProductType {
     Brain = 0x10,
     Controller = 0x11,
 }
 impl Decode for ProductType {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let _unknown = u8::decode(&mut data)?;
-        let val = u8::decode(data)?;
-        match val {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let data = <[u8; 2]>::decode(data)?;
+
+        match data[1] {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
             v => Err(DecodeError::UnexpectedValue {
@@ -73,12 +86,11 @@ pub struct SystemFlags {
     pub current_program: u8,
 }
 impl Decode for SystemFlags {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let flags = u32::decode(&mut data)?;
-        let byte_1 = u8::decode(&mut data)?;
-        let byte_2 = u8::decode(&mut data)?;
-        let current_program = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let flags = u32::decode(data)?;
+        let byte_1 = u8::decode(data)?;
+        let byte_2 = u8::decode(data)?;
+        let current_program = u8::decode(data)?;
 
         Ok(Self {
             flags,
@@ -91,37 +103,49 @@ impl Decode for SystemFlags {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemStatus {
-    pub unknown: u8,
-    pub system_version: Version,
+    /// Always zero as of VEXos 1.1.5
+    pub reserved: u8,
+    /// returns None when connected via controller
+    pub system_version: Option<Version>,
     pub cpu0_version: Version,
     pub cpu1_version: Version,
-    /// NOTE: Encoded as little endian
     pub touch_version: Version,
     pub details: Option<SystemDetails>,
 }
 impl Decode for SystemStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let unknown = u8::decode(&mut data)?;
-        let system_version = Version::decode(&mut data)?;
-        let cpu0_version = Version::decode(&mut data)?;
-        let cpu1_version = Version::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let reserved = u8::decode(data)?;
+        let system_version = match Version::decode(data)? {
+            Version { 
+                major: 0,
+                minor: 0,
+                build: 0,
+                beta: 0,
+            } => {
+                None
+            },
+            version => Some(version),
+        };
+
+        let cpu0_version = Version::decode(data)?;
+        let cpu1_version = Version::decode(data)?;
 
         // This version is little endian for some reason
-        let touch_beta = u8::decode(&mut data)?;
-        let touch_build = u8::decode(&mut data)?;
-        let touch_minor = u8::decode(&mut data)?;
-        let touch_major = u8::decode(&mut data)?;
         let touch_version = Version {
-            major: touch_major,
-            minor: touch_minor,
-            build: touch_build,
-            beta: touch_beta,
+            beta: u8::decode(data)?,
+            build: u8::decode(data)?,
+            minor: u8::decode(data)?,
+            major: u8::decode(data)?,
         };
-        let details = Option::<SystemDetails>::decode(&mut data)?;
+
+        let details = match SystemDetails::decode(data) {
+            Ok(details) => Some(details),
+            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
-            unknown,
+            reserved,
             system_version,
             cpu0_version,
             cpu1_version,
@@ -133,79 +157,55 @@ impl Decode for SystemStatus {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemDetails {
-    pub unique_id: u32,
-
-    /// (RESEARCH NEEDED)
-    pub flags_1: u16,
-
-    /// Bit mask.
-    /// From left to right:
-    /// no.1 bit = Is master controller charging
-    /// no.2 bit = Is autonomous mode
-    /// no.3 bit = Is disabled
-    /// no.4 bit = Field controller connected
-    /// (RESEARCH NEEDED)
-    pub flags_2: u16,
-
-    /// Bit mask.
-    /// From left to right:
-    /// no.1 to 4 bit = Language index, check out setting/language page
-    /// no.6 bit = Is white theme
-    /// no.8 bit = Is rotation normal
-    /// no.14 bit = Ram boot loader active
-    /// no.15 bit = Rom boot loader active
-    /// no.16 bit = Is event brain/ Is field control signal from serial
-    /// (RESEARCH NEEDED)
-    pub flags_3: u16,
-    pub unknown: u16,
+    /// Unique ID for the Brain.
+    pub ssn: u32,
+    pub boot_flags: u32,
+    pub system_flags: u32,
     pub golden_version: Version,
     pub nxp_version: Option<Version>,
 }
 impl Decode for SystemDetails {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let unique_id = u32::decode(&mut data)?;
-        let flags_1 = u16::decode(&mut data)?;
-        let flags_2 = u16::decode(&mut data)?;
-        let flags_3 = u16::decode(&mut data)?;
-        let unknown = u16::decode(&mut data)?;
-        let golden_version = Version::decode(&mut data)?;
-        let nxp_version = Option::<Version>::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let ssn = u32::decode(data)?;
+        let boot_flags = u32::decode(data)?;
+        let system_flags = u32::decode(data)?;
+        let golden_version = Version::decode(data)?;
+        let nxp_version = match Version::decode(data) {
+            Ok(version) => Some(version),
+            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) => return Err(e),
+        };
 
         Ok(Self {
-            unique_id,
-            flags_1,
-            flags_2,
-            flags_3,
-            unknown,
+            ssn,
+            boot_flags,
+            system_flags,
             golden_version,
             nxp_version,
         })
     }
 }
 
-pub type GetSystemFlagsPacket = Cdc2CommandPacket<0x56, 0x20, ()>;
-pub type GetSystemFlagsReplyPacket = Cdc2ReplyPacket<0x56, 0x20, SystemFlags>;
+pub type SystemFlagsPacket = Cdc2CommandPacket<USER_CDC, SYS_FLAGS, ()>;
+pub type SystemFlagsReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_FLAGS, SystemFlags>;
 
-pub type GetSystemStatusPacket = Cdc2CommandPacket<0x56, 0x22, ()>;
-pub type GetSystemStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x22, SystemStatus>;
+pub type SystemStatusPacket = Cdc2CommandPacket<USER_CDC, SYS_STATUS, ()>;
+pub type SystemStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_STATUS, SystemStatus>;
 
-pub type GetSystemVersionPacket = CdcCommandPacket<0xA4, ()>;
-pub type GetSystemVersionReplyPacket = CdcReplyPacket<0xA4, GetSystemVersionReplyPayload>;
+pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
+pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct GetSystemVersionReplyPayload {
+pub struct SystemVersionReplyPayload {
     pub version: Version,
     pub product_type: ProductType,
     pub flags: ProductFlags,
 }
-impl Decode for GetSystemVersionReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let version = Version::decode(&mut data)?;
-        let product_type = ProductType::decode(&mut data)?;
-        let flags = ProductFlags::from_bits_truncate(u8::decode(&mut data)?);
+impl Decode for SystemVersionReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let version = Version::decode(data)?;
+        let product_type = ProductType::decode(data)?;
+        let flags = ProductFlags::from_bits_truncate(u8::decode(data)?);
 
         Ok(Self {
             version,
@@ -215,45 +215,262 @@ impl Decode for GetSystemVersionReplyPayload {
     }
 }
 
-pub type Query1Packet = CdcCommandPacket<0x21, ()>;
-pub type Query1ReplyPacket = CdcReplyPacket<0x21, Query1ReplyPayload>;
+pub type Query1Packet = CdcCommandPacket<QUERY_1, ()>;
+pub type Query1ReplyPacket = CdcReplyPacket<QUERY_1, Query1ReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Query1ReplyPayload {
-    pub unknown_1: [u8; 4],
-    /// bytes 0-3 unknown
-    pub joystick_flag_1: u8,
-    pub joystick_flag_2: u8,
-    /// Theorized to be version related, unsure.
-    pub brain_flag_1: u8,
-    pub brain_flag_2: u8,
-    pub unknown_2: [u8; 2], // bytes 8 and 9 unknown
-    pub bootload_flag_1: u8,
-    pub bootload_flag_2: u8,
+    pub version_1: u32,
+    pub version_2: u32,
+
+    /// 0xFF = QSPI, 0 = NOT sdcard, other = sdcard (returns devcfg.MULTIBOOT_ADDR)
+    pub boot_source: u8,
+
+    /// Number of times this packet has been replied to.
+    pub count: u8,
 }
 
 impl Decode for Query1ReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-
-        let unknown_1 = <[u8; 4]>::decode(&mut data)?;
-        let joystick_flag_1 = u8::decode(&mut data)?;
-        let joystick_flag_2 = u8::decode(&mut data)?;
-        let brain_flag_1 = u8::decode(&mut data)?;
-        let brain_flag_2 = u8::decode(&mut data)?;
-        let unknown_2 = <[u8; 2]>::decode(&mut data)?;
-        let bootload_flag_1 = u8::decode(&mut data)?;
-        let bootload_flag_2 = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let version_1 = u32::decode(data)?;
+        let version_2 = u32::decode(data)?;
+        let boot_source = u8::decode(data)?;
+        let count = u8::decode(data)?;
 
         Ok(Self {
-            unknown_1,
-            joystick_flag_1,
-            joystick_flag_2,
-            brain_flag_1,
-            brain_flag_2,
-            unknown_2,
-            bootload_flag_1,
-            bootload_flag_2,
+            version_1,
+            version_2,
+            boot_source,
+            count,
         })
     }
 }
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogEntry {
+    /// (RESEARCH NEEDED)
+    pub code: u8,
+
+    /// The subtype under the description (RESEARCH NEEDED)
+    pub log_type: u8,
+
+    /// The type of the log message (RESEARCH NEEDED)
+    pub description: u8,
+
+    /// (RESEARCH NEEDED)
+    pub spare: u8,
+
+    /// How long (in milliseconds) after the brain powered on
+    pub time: u32,
+}
+impl Decode for LogEntry {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let code = u8::decode(data)?;
+        let log_type = u8::decode(data)?;
+        let description = u8::decode(data)?;
+        let spare = u8::decode(data)?;
+        let time = u32::decode(data)?;
+
+        Ok(Self {
+            code,
+            log_type,
+            description,
+            spare,
+            time,
+        })
+    }
+}
+
+pub type LogStatusPacket = Cdc2CommandPacket<USER_CDC, LOG_STATUS, ()>;
+pub type LogStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_STATUS, LogStatusReplyPayload>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogStatusReplyPayload {
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_1: u8,
+
+    /// Total number of recorded event logs.
+    pub count: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_2: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_3: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_4: u32,
+}
+impl Decode for LogStatusReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let reserved = u8::decode(data)?;
+        let count = u32::decode(data)?;
+        let reserved_2 = u32::decode(data)?;
+        let reserved_3 = u32::decode(data)?;
+        let reserved_4 = u32::decode(data)?;
+
+        Ok(Self {
+            reserved_1: reserved,
+            count,
+            reserved_2,
+            reserved_3,
+            reserved_4,
+        })
+    }
+}
+
+/// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].
+pub type LogReadPacket = Cdc2CommandPacket<USER_CDC, LOG_READ, LogReadPayload>;
+pub type LogReadReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_READ, LogReadReplyPayload>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogReadPayload {
+    pub offset: u32,
+    pub count: u32,
+}
+impl Encode for LogReadPayload {
+    fn size(&self) -> usize {
+        8
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.offset.encode(data);
+        self.count.encode(&mut data[4..]);
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct LogReadReplyPayload {
+    /// Size of each log item in bytes.
+    pub log_size: u8,
+    /// The offset number used in this packet.
+    pub offset: u32,
+    /// Number of elements in the following array.
+    pub count: u16,
+    pub entries: Vec<LogEntry>,
+}
+impl Decode for LogReadReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let log_size = u8::decode(data)?;
+        let offset = u32::decode(data)?;
+        let count = u16::decode(data)?;
+        let entries = Vec::decode_with_len(data, count as _)?;
+
+        Ok(Self {
+            log_size,
+            offset,
+            count,
+            entries,
+        })
+    }
+}
+
+pub type KeyValueLoadPacket = Cdc2CommandPacket<USER_CDC, SYS_KV_LOAD, FixedString<31>>;
+pub type KeyValueLoadReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_LOAD, FixedString<255>>;
+
+pub type KeyValueSavePacket = Cdc2CommandPacket<USER_CDC, SYS_KV_SAVE, KeyValueSavePayload>;
+pub type KeyValueSaveReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_SAVE, ()>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct KeyValueSavePayload {
+    pub key: FixedString<31>,
+    pub value: FixedString<255>,
+}
+impl Encode for KeyValueSavePayload {
+    fn size(&self) -> usize {
+        self.key.size() + self.value.size()
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.key.as_ref().to_string().encode(data);
+        self.value
+            .as_ref()
+            .to_string()
+            .encode(&mut data[self.key.size()..]);
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Slot {
+    /// The number in the file icon: 'USER???x.bmp'.
+    pub icon_number: u16,
+    pub name_length: u8,
+    pub name: String,
+}
+impl Decode for Slot {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let icon_number = u16::decode(data)?;
+        let name_length = u8::decode(data)?;
+        let name = String::decode_with_len(data, (name_length - 1) as _)?;
+
+        Ok(Self {
+            icon_number,
+            name_length,
+            name,
+        })
+    }
+}
+
+pub type ProgramStatusPacket = Cdc2CommandPacket<USER_CDC, FILE_USER_STAT, ProgramStatusPayload>;
+pub type ProgramStatusReplyPacket =
+    Cdc2ReplyPacket<USER_CDC, FILE_USER_STAT, ProgramStatusReplyPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProgramStatusPayload {
+    pub vendor: FileVendor,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
+    /// The bin file name.
+    pub file_name: FixedString<23>,
+}
+impl Encode for ProgramStatusPayload {
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.reserved;
+
+        self.file_name.encode(&mut data[2..]);
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ProgramStatusReplyPayload {
+    /// A zero-based slot number.
+    pub slot: u8,
+
+    /// A zero-based slot number, always same as Slot.
+    pub requested_slot: u8,
+}
+
+pub type ProgramSlot1To4InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, ()>;
+pub type ProgramSlot1To4InfoReplyPacket =
+    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, SlotInfoPayload>;
+pub type ProgramSlot5To8InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, ()>;
+pub type ProgramSlot5To8InfoReplyPacket =
+    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, SlotInfoPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SlotInfoPayload {
+    /// Bit Mask.
+    ///
+    /// `flags & 2^(x - 1)` = Is slot x used
+    pub flags: u8,
+
+    /// Individual Slot Data
+    pub slots: [Slot; 4],
+}
+
+impl Decode for SlotInfoPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let flags = u8::decode(data)?;
+        let slots = <[Slot; 4]>::decode(data)?;
+
+        Ok(Self { flags, slots })
+    }
+}
+
+pub type ProgramControlPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
+pub type ProgramControlReplyPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;

@@ -1,5 +1,12 @@
-use super::cdc2::{Cdc2CommandPacket, Cdc2ReplyPacket};
-use crate::decode::{Decode, DecodeError, SizedDecode};
+use super::{
+    cdc::cmds::USER_CDC,
+    cdc2::{
+        ecmds::{DEV_STATUS, FDT_STATUS, RADIO_STATUS},
+        Cdc2CommandPacket, Cdc2ReplyPacket,
+    },
+};
+
+use crate::decode::{Decode, DecodeError, DecodeWithLength};
 
 // This is copied from vex-sdk
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -36,7 +43,7 @@ pub enum DeviceType {
     UndefinedSensor = 255,
 }
 impl Decode for DeviceType {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let value = u8::decode(data)?;
         Ok(match value {
             0 => DeviceType::NoSensor,
@@ -73,7 +80,7 @@ impl Decode for DeviceType {
                     value,
                     expected: &[
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
-                        29, 30, 0x40, 0x46, 0x47, 128, 129, 255,
+                        29, 30, 64, 70, 71, 128, 129, 255,
                     ],
                 })
             }
@@ -96,14 +103,14 @@ pub struct DeviceStatus {
     pub boot_version: u16,
 }
 impl Decode for DeviceStatus {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let port = u8::decode(&mut data)?;
-        let device_type = DeviceType::decode(&mut data)?;
-        let status = u8::decode(&mut data)?;
-        let beta_version = u8::decode(&mut data)?;
-        let version = u16::decode(&mut data)?;
-        let boot_version = u16::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let port = u8::decode(data)?;
+        let device_type = DeviceType::decode(data)?;
+        let status = u8::decode(data)?;
+        let beta_version = u8::decode(data)?;
+        let version = u16::decode(data)?;
+        let boot_version = u16::decode(data)?;
+
         Ok(Self {
             port,
             device_type,
@@ -115,20 +122,102 @@ impl Decode for DeviceStatus {
     }
 }
 
-pub type GetDeviceStatusPacket = Cdc2CommandPacket<0x56, 0x21, ()>;
-pub type GetDeviceStatusReplyPacket = Cdc2ReplyPacket<0x56, 0x21, GetDeviceStatusReplyPayload>;
+pub type DeviceStatusPacket = Cdc2CommandPacket<USER_CDC, DEV_STATUS, ()>;
+pub type DeviceStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, DEV_STATUS, DeviceStatusReplyPayload>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct GetDeviceStatusReplyPayload {
+pub struct DeviceStatusReplyPayload {
     /// Number of elements in the following array.
     pub count: u8,
     pub devices: Vec<DeviceStatus>,
 }
-impl Decode for GetDeviceStatusReplyPayload {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let count = u8::decode(&mut data)?;
-        let devices = Vec::sized_decode(&mut data, count as _)?;
+impl Decode for DeviceStatusReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let count = u8::decode(data)?;
+        let devices = Vec::decode_with_len(data, count as _)?;
         Ok(Self { count, devices })
     }
 }
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FdtStatus {
+    pub count: u8,
+    pub files: Vec<Fdt>,
+}
+impl Decode for FdtStatus {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let count = u8::decode(data)?;
+        let entries = Vec::decode_with_len(data, count as _)?;
+        
+        Ok(Self {
+            count,
+            files: entries,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Fdt {
+    pub index: u8,
+    pub fdt_type: u8,
+    pub status: u8,
+    pub beta_version: u8,
+    pub version: u16,
+    pub boot_version: u16,
+}
+impl Decode for Fdt {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let index = u8::decode(data)?;
+        let fdt_type = u8::decode(data)?;
+        let status = u8::decode(data)?;
+        let beta_version = u8::decode(data)?;
+        let version = u16::decode(data)?;
+        let boot_version = u16::decode(data)?;
+
+        Ok(Self {
+            index,
+            fdt_type,
+            status,
+            beta_version,
+            version,
+            boot_version,
+        })
+    }
+}
+
+pub type FdtStatusPacket = Cdc2CommandPacket<USER_CDC, FDT_STATUS, ()>;
+pub type FdtStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, FDT_STATUS, FdtStatus>;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct RadioStatus {
+    /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
+    pub device: u8,
+    /// From 0 to 100
+    pub quality: u16,
+    /// Probably RSSI (UNCONFIRMED)
+    pub strength: i16,
+    /// 5 = download, 31 = pit, 245 = bluetooth
+    pub channel: u8,
+    /// Latency between controller and brain (UNCONFIRMED)
+    pub timeslot: u8,
+}
+impl Decode for RadioStatus {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let device = u8::decode(data)?;
+        let quality = u16::decode(data)?;
+        let strength = i16::decode(data)?;
+        let channel = u8::decode(data)?;
+        let timeslot = u8::decode(data)?;
+
+        Ok(Self {
+            device,
+            quality,
+            strength,
+            channel,
+            timeslot,
+        })
+    }
+}
+
+pub type RadioStatusPacket = Cdc2CommandPacket<USER_CDC, RADIO_STATUS, ()>;
+pub type RadioStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, RADIO_STATUS, RadioStatus>;

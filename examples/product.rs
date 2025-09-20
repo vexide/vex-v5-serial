@@ -6,7 +6,7 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::system::{GetSystemVersionPacket, GetSystemVersionReplyPacket},
+    packets::system::{SystemVersionPacket, SystemVersionReplyPacket},
 };
 
 #[tokio::main]
@@ -26,10 +26,10 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
-        .packet_handshake::<GetSystemVersionReplyPacket>(
+        .handshake::<SystemVersionReplyPacket>(
             Duration::from_millis(700),
             5,
-            GetSystemVersionPacket::new(()),
+            SystemVersionPacket::new(()),
         )
         .await?;
 

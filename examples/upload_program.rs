@@ -6,12 +6,8 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::{
-        file::FileExitAction,
-        radio::{
-            RadioChannel, SelectRadioChannelPacket, SelectRadioChannelPayload,
-            SelectRadioChannelReplyPacket,
-        },
+    packets::file::{
+        FileControlGroup, FileControlPacket, FileControlReplyPacket, FileExitAction, RadioChannel,
     },
 };
 
@@ -39,17 +35,20 @@ async fn main() -> Result<(), SerialError> {
         })
     };
 
+    // Swap radio to download channel.
+    //
+    // This is a very naive approach to doing this for demonstration purposes.
+    // `cargo-v5` has a more advanced polling-based implementation which is faster
+    // and can be found here::
+    // <https://github.com/vexide/cargo-v5/blob/main/src/connection.rs#L61>
     connection
-        .packet_handshake::<SelectRadioChannelReplyPacket>(
+        .handshake::<FileControlReplyPacket>(
             Duration::from_millis(500),
             10,
-            SelectRadioChannelPacket::new(SelectRadioChannelPayload {
-                channel: RadioChannel::Pit,
-            }),
+            FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
         .await?
-        .try_into_inner()
-        .unwrap();
+        .payload?;
 
     // Upload program file
     connection
@@ -60,11 +59,11 @@ async fn main() -> Result<(), SerialError> {
             program_type: "vexide".to_string(),
             slot: 4,
             data: ProgramData::Monolith(program_data),
-            compress_program: true,
+            compress: true,
             after_upload: FileExitAction::RunProgram,
             ini_callback: Some(callback_generator("INI")),
-            lib_callback: Some(callback_generator("Lib")),
-            bin_callback: Some(callback_generator("Bin")),
+            lib_callback: Some(callback_generator("LIB")),
+            bin_callback: Some(callback_generator("BIN")),
         })
         .await?;
 

@@ -1,12 +1,13 @@
 use std::fmt;
 
 use crate::decode::{Decode, DecodeError};
-use crate::encode::{Encode, EncodeError};
+use crate::encode::Encode;
 
 /// Variable-width u16 type.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VarU16(u16);
+
 impl VarU16 {
     /// Creates a new variable length u16.
     ///
@@ -35,30 +36,33 @@ impl VarU16 {
         first > (u8::MAX >> 1) as _
     }
 }
-impl Encode for VarU16 {
-    fn encode(&self) -> Result<Vec<u8>, EncodeError> {
-        if self.0 > (u16::MAX >> 1) {
-            return Err(EncodeError::VarShortTooLarge);
-        }
 
+impl Encode for VarU16 {
+    fn size(&self) -> usize {
         if self.0 > (u8::MAX >> 1) as _ {
-            let first = (self.0 >> 8) as u8 | 0x80;
-            let last = (self.0 & u8::MAX as u16) as u8;
-            Ok([first, last].to_vec())
+            2
         } else {
-            let val = self.0 as u8;
-            Ok(vec![val])
+            1
+        }
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        if self.0 > (u8::MAX >> 1) as _ {
+            data[0] = (self.0 >> 8) as u8 | 0x80;
+            data[1] = (self.0 & u8::MAX as u16) as u8;
+        } else {
+            data[0] = self.0 as u8;
         }
     }
 }
+
 impl Decode for VarU16 {
-    fn decode(data: impl IntoIterator<Item = u8>) -> Result<Self, DecodeError> {
-        let mut data = data.into_iter();
-        let first = u8::decode(&mut data)?;
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let first = u8::decode(data)?;
         let wide = first & (1 << 7) != 0;
 
         if wide {
-            let last = u8::decode(&mut data)?;
+            let last = u8::decode(data)?;
             let both = [first & u8::MAX >> 1, last];
             Ok(Self(u16::from_be_bytes(both)))
         } else {
@@ -90,21 +94,29 @@ mod tests {
     fn wide() {
         // A value that will be encoded as a wide variable length u16.
         const VAL: u16 = 0xF00;
-        const ENCODED: [u8; 2] = [0x8f, 0x00];
+        const EXPECTED_ENCODING: [u8; 2] = [0x8f, 0x00];
 
-        let var = super::VarU16::new(VAL);
-        assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
-        assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
+        let mut buf = [0; 2];
+
+        let var = VarU16::new(VAL);
+        var.encode(&mut buf);
+        
+        assert_eq!(EXPECTED_ENCODING, buf);
+        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
     }
 
     #[test]
     fn thin() {
         // A value that will be encoded as a thin variable length u16.
         const VAL: u16 = 0x0F;
-        const ENCODED: [u8; 1] = [0x0F];
+        const EXPECTED_ENCODING: [u8; 1] = [0x0F];
 
-        let var = super::VarU16::new(VAL);
-        assert_eq!(ENCODED.to_vec(), var.encode().unwrap());
-        assert_eq!(VAL, VarU16::decode(ENCODED).unwrap().into_inner())
+        let mut buf = [0; 1];
+
+        let var = VarU16::new(VAL);
+        var.encode(&mut buf);
+
+        assert_eq!(EXPECTED_ENCODING, buf);
+        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
     }
 }
