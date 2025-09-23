@@ -1,15 +1,12 @@
-//! Factory Control
+//! Factory control packets.
 
-use super::{
+use crate::{
     cdc::cmds::USER_CDC,
     cdc2::{
         ecmds::{FACTORY_CHAL, FACTORY_EBL, FACTORY_RESP, FACTORY_STATUS},
         Cdc2CommandPacket, Cdc2ReplyPacket,
     },
-};
-use crate::{
-    decode::{Decode, DecodeError},
-    packets::cdc::CdcReplyPacket,
+    Decode, DecodeError,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -26,7 +23,7 @@ impl Decode for FactoryStatus {
 }
 
 pub type FactoryChallengePacket = Cdc2CommandPacket<USER_CDC, FACTORY_CHAL, ()>;
-pub type FactoryChallengeReplyPacket = CdcReplyPacket<USER_CDC, [u8; 16]>;
+pub type FactoryChallengeReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_CHAL, [u8; 16]>;
 
 pub type FactoryResponsePacket = Cdc2CommandPacket<USER_CDC, FACTORY_RESP, [u8; 16]>;
 pub type FactoryResponseReplyPacket = Cdc2ReplyPacket<USER_CDC, FACTORY_RESP, ()>;

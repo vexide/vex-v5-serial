@@ -1,0 +1,19 @@
+[package]
+name = "vex-cdc"
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+description = "Implementation of the VEX Robotics CDC communication protocol in Rust."
+repository = "https://github.com/vexide/vex-v5-serial"
+authors = [
+    "vexide",
+    "Gavin Niederman <gavinniederman@gmail.com>",
+    "Tropical"
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crc = "3.0.0"
+thiserror = "2"
+bitflags = "2.5.0"

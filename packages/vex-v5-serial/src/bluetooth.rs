@@ -14,11 +14,9 @@ use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
-use crate::connection::trim_packets;
-use crate::decode::{Decode, DecodeError};
-use crate::encode::Encode;
-use crate::packets::cdc2::Cdc2Ack;
-use crate::string::FixedStringSizeError;
+use crate::trim_packets;
+
+use vex_cdc::{cdc2::Cdc2Ack, Decode, DecodeError, Encode, FixedStringSizeError};
 
 use super::{CheckHeader, Connection, ConnectionType, RawPacket};
 

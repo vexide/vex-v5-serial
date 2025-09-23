@@ -1,14 +1,15 @@
+//! Simple CDC packets.
+
 use crate::{
-    connection,
     decode::{Decode, DecodeError},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
+    version::Version,
 };
 
-use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
+use super::{COMMAND_HEADER, REPLY_HEADER};
 
-/// Known CDC Command Identifiers
-#[allow(unused)]
+/// CDC packet opcodes.
 pub mod cmds {
     pub const ACK: u8 = 0x33;
     pub const QUERY_1: u8 = 0x21;
@@ -30,6 +31,9 @@ pub mod cmds {
     pub const BRAIN_NAME_GET: u8 = 0x44;
 }
 
+use bitflags::bitflags;
+use cmds::{QUERY_1, SYSTEM_VERSION};
+
 /// CDC (Simple) Command Packet
 ///
 /// Encodes a simple device-bound message over the protocol containing
@@ -41,7 +45,7 @@ pub struct CdcCommandPacket<const CMD: u8, P: Encode> {
 
 impl<const CMD: u8, P: Encode> CdcCommandPacket<CMD, P> {
     /// Header used for device-bound VEX CDC packets.
-    pub const HEADER: [u8; 4] = DEVICE_BOUND_HEADER;
+    pub const HEADER: [u8; 4] = COMMAND_HEADER;
 
     /// Creates a new device-bound packet with a given generic payload type.
     pub fn new(payload: P) -> Self {
@@ -94,7 +98,7 @@ pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
 
 impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
     /// Header used for host-bound VEX CDC packets.
-    pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
+    pub const HEADER: [u8; 2] = REPLY_HEADER;
 }
 
 impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
@@ -121,26 +125,88 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
     }
 }
 
-impl<const CMD: u8, P: Decode> connection::CheckHeader for CdcReplyPacket<CMD, P> {
-    fn has_valid_header(data: &[u8]) -> bool {
-        let Some(data) = data.get(0..3) else {
-            return false;
-        };
+pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
+pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
 
-        data[0..2] == Self::HEADER && data[2] == CMD
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct SystemVersionReplyPayload {
+    pub version: Version,
+    pub product_type: ProductType,
+    pub flags: ProductFlags,
+}
+impl Decode for SystemVersionReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let version = Version::decode(data)?;
+        let product_type = ProductType::decode(data)?;
+        let flags = ProductFlags::from_bits_truncate(u8::decode(data)?);
+
+        Ok(Self {
+            version,
+            product_type,
+            flags,
+        })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::connection::CheckHeader;
-    use crate::packets::file::FileDataReadReplyPacket;
+pub type Query1Packet = CdcCommandPacket<QUERY_1, ()>;
+pub type Query1ReplyPacket = CdcReplyPacket<QUERY_1, Query1ReplyPayload>;
 
-    #[test]
-    fn has_valid_header_success() {
-        let data: &[u8] = &[
-            0xaa, 0x55, 0x56, 0x7, 0x14, 0xd4, 0xff, 0xff, 0xff, 0xca, 0x3d,
-        ];
-        assert!(FileDataReadReplyPacket::has_valid_header(data));
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct Query1ReplyPayload {
+    pub version_1: u32,
+    pub version_2: u32,
+
+    /// 0xFF = QSPI, 0 = NOT sdcard, other = sdcard (returns devcfg.MULTIBOOT_ADDR)
+    pub boot_source: u8,
+
+    /// Number of times this packet has been replied to.
+    pub count: u8,
+}
+
+impl Decode for Query1ReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let version_1 = u32::decode(data)?;
+        let version_2 = u32::decode(data)?;
+        let boot_source = u8::decode(data)?;
+        let count = u8::decode(data)?;
+
+        Ok(Self {
+            version_1,
+            version_2,
+            boot_source,
+            count,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u16)]
+pub enum ProductType {
+    Brain = 0x10,
+    Controller = 0x11,
+}
+impl Decode for ProductType {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let data = <[u8; 2]>::decode(data)?;
+
+        match data[1] {
+            0x10 => Ok(Self::Brain),
+            0x11 => Ok(Self::Controller),
+            v => Err(DecodeError::UnexpectedValue {
+                value: v,
+                expected: &[0x10, 0x11],
+            }),
+        }
+    }
+}
+
+bitflags! {
+    #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+    pub struct ProductFlags: u8 {
+        /// Bit 1 is set when the controller is connected over a cable to the V5 Brain
+        const CONNECTED_CABLE = 1 << 0; // From testing, this appears to be how it works.
+
+        /// Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
+        const CONNECTED_WIRELESS = 1 << 1;
     }
 }

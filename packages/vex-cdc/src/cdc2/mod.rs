@@ -1,19 +1,22 @@
-use std::fmt::Debug;
+//! Extended CDC packets.
 
+use core::fmt::Debug;
 use thiserror::Error;
 
 use crate::{
-    connection,
     crc::VEX_CRC16,
+    decode::{Decode, DecodeError},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
+    COMMAND_HEADER, REPLY_HEADER,
 };
 
-use super::{DEVICE_BOUND_HEADER, HOST_BOUND_HEADER};
-use crate::decode::{Decode, DecodeError};
+pub mod controller;
+pub mod factory;
+pub mod file;
+pub mod system;
 
-/// Known CDC2 Command Identifiers
-#[allow(unused)]
+/// CDC2 packet opcodes.
 pub mod ecmds {
     // internal filesystem operations
     pub const FILE_CTRL: u8 = 0x10;
@@ -33,7 +36,7 @@ pub mod ecmds {
     pub const FILE_CLEANUP: u8 = 0x1E;
     pub const FILE_FORMAT: u8 = 0x1F;
 
-    // system and device stuff
+    // system
     pub const SYS_FLAGS: u8 = 0x20;
     pub const DEV_STATUS: u8 = 0x21;
     pub const SYS_STATUS: u8 = 0x22;
@@ -50,14 +53,21 @@ pub mod ecmds {
     pub const SYS_DASH_DIS: u8 = 0x2D;
     pub const SYS_KV_LOAD: u8 = 0x2E;
     pub const SYS_KV_SAVE: u8 = 0x2F;
+
+    // catalog
     pub const SYS_C_INFO_14: u8 = 0x31;
     pub const SYS_C_INFO_58: u8 = 0x32;
 
-    // controller only!
-    pub const CON_COMP_CTRL: u8 = 0xC1;
+    // controller - only works over wired a controller connection
+    pub const CON_RADIO_INFO: u8 = 0x35;
     pub const CON_VER_FLASH: u8 = 0x39;
     pub const CON_RADIO_MODE: u8 = 0x41;
+    pub const CON_VER_EXPECT: u8 = 0x49;
+    pub const CON_FLASH_ERASE: u8 = 0x3B;
+    pub const CON_FLASH_WRITE: u8 = 0x3C;
+    pub const CON_FLASH_VALIDATE: u8 = 0x3E;
     pub const CON_RADIO_FORCE: u8 = 0x3F;
+    pub const CON_COMP_CTRL: u8 = 0xC1;
 
     // be careful!!
     pub const FACTORY_STATUS: u8 = 0xF1;
@@ -188,7 +198,7 @@ pub struct Cdc2CommandPacket<const CMD: u8, const EXT_CMD: u8, P: Encode> {
 }
 
 impl<P: Encode, const CMD: u8, const EXT_CMD: u8> Cdc2CommandPacket<CMD, EXT_CMD, P> {
-    pub const HEADER: [u8; 4] = DEVICE_BOUND_HEADER;
+    pub const HEADER: [u8; 4] = COMMAND_HEADER;
 
     /// Creates a new device-bound packet with a given generic payload type.
     pub fn new(payload: P) -> Self {
@@ -238,7 +248,7 @@ pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: Decode> {
 }
 
 impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Cdc2ReplyPacket<CMD, EXT_CMD, P> {
-    pub const HEADER: [u8; 2] = HOST_BOUND_HEADER;
+    pub const HEADER: [u8; 2] = REPLY_HEADER;
 
     pub fn ack(&self) -> Cdc2Ack {
         *self.payload.as_ref().err().unwrap_or(&Cdc2Ack::Ack)
@@ -251,8 +261,8 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
             return Err(DecodeError::InvalidHeader);
         }
 
-        let id = u8::decode(data)?;
-        if id != CMD {
+        let cmd = u8::decode(data)?;
+        if cmd != CMD {
             return Err(DecodeError::InvalidHeader);
         }
 
@@ -276,53 +286,5 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
             payload,
             crc,
         })
-    }
-}
-
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode> connection::CheckHeader
-    for Cdc2ReplyPacket<CMD, EXT_CMD, P>
-{
-    fn has_valid_header(mut data: &[u8]) -> bool {
-        let data = &mut data;
-
-        if <[u8; 2] as Decode>::decode(data)
-            .map(|header| header != HOST_BOUND_HEADER)
-            .unwrap_or(true)
-        {
-            return false;
-        }
-
-        if u8::decode(data).map(|id| id != CMD).unwrap_or(true) {
-            return false;
-        }
-
-        let payload_size = VarU16::decode(data);
-        if payload_size.is_err() {
-            return false;
-        }
-
-        if u8::decode(data)
-            .map(|ext_cmd| ext_cmd != EXT_CMD)
-            .unwrap_or(true)
-        {
-            return false;
-        }
-
-        true
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::connection::CheckHeader;
-    use crate::packets::device::DeviceStatusReplyPacket;
-
-    #[test]
-    fn has_valid_header_success() {
-        let data: &[u8] = &[
-            0xaa, 0x55, 0x56, 0x15, 0x21, 0x76, 0x2, 0x16, 0xc, 0, 0xb, 0, 0x40, 0x1, 0x40, 0x17,
-            0xe, 0, 0x19, 0x1, 0x40, 0x6, 0x40, 0x23, 0x87,
-        ];
-        assert!(DeviceStatusReplyPacket::has_valid_header(data));
     }
 }

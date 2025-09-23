@@ -1,12 +1,8 @@
-use crate::{
-    connection::{Connection, ConnectionType, bluetooth, serial},
-    decode::{Decode, DecodeError},
-    encode::Encode,
-    packets::cdc2::Cdc2Ack, string::FixedStringSizeError,
-};
+use crate::{bluetooth, serial, Connection, ConnectionType};
 use futures::{try_join, TryFutureExt};
 use std::time::Duration;
 use thiserror::Error;
+use vex_cdc::{cdc2::Cdc2Ack, Decode, DecodeError, Encode, FixedStringSizeError};
 
 use super::{bluetooth::BluetoothError, serial::SerialError, CheckHeader};
 

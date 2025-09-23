@@ -1,3 +1,4 @@
+/// Simplifies encoding data with the [`Encode`] trait.
 pub struct MessageEncoder<'a> {
     data: &'a mut [u8],
     pos: usize,
@@ -90,7 +91,7 @@ impl<const N: usize> Encode for [u8; N] {
     }
 }
 
-impl Encode for Vec<u8> {
+impl Encode for alloc::vec::Vec<u8> {
     fn size(&self) -> usize {
         self.len()
     }

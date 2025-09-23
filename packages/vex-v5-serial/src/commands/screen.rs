@@ -2,17 +2,18 @@ use std::time::Duration;
 
 use log::info;
 
-use crate::{
-    connection::Connection,
-    packets::{
+use crate::Connection;
+
+use vex_cdc::{
+    cdc2::{
         file::{FileTransferTarget, FileVendor},
-        screen::{
+        system::{
             DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket,
             DashTouchPacket, DashTouchPayload, DashTouchReplyPacket, ScreenCapturePacket,
             ScreenCapturePayload, ScreenCaptureReplyPacket,
         },
     },
-    string::FixedString,
+    FixedString,
 };
 
 use super::{file::DownloadFile, Command};
