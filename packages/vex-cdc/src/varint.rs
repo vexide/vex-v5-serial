@@ -1,12 +1,14 @@
-use std::fmt;
+use core::fmt;
 
 use crate::decode::{Decode, DecodeError};
 use crate::encode::Encode;
 
-/// Variable-width u16 type.
+/// Variable-width `u16`.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct VarU16(u16);
+pub struct VarU16 {
+    inner: u16,
+}
 
 impl VarU16 {
     /// Creates a new variable length u16.
@@ -21,14 +23,14 @@ impl VarU16 {
     /// Creates a new variable length u16.
     pub const fn try_new(value: u16) -> Result<Self, VarU16SizeError> {
         if value > (u16::MAX >> 1) {
-            Err(VarU16SizeError(value))
+            Err(VarU16SizeError { value })
         } else {
-            Ok(Self(value))
+            Ok(Self { inner: value })
         }
     }
 
     pub fn into_inner(self) -> u16 {
-        self.0
+        self.inner
     }
 
     /// Check if the variable length u16 will be wide from the first byte.
@@ -39,7 +41,7 @@ impl VarU16 {
 
 impl Encode for VarU16 {
     fn size(&self) -> usize {
-        if self.0 > (u8::MAX >> 1) as _ {
+        if self.inner > (u8::MAX >> 1) as _ {
             2
         } else {
             1
@@ -47,11 +49,11 @@ impl Encode for VarU16 {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        if self.0 > (u8::MAX >> 1) as _ {
-            data[0] = (self.0 >> 8) as u8 | 0x80;
-            data[1] = (self.0 & u8::MAX as u16) as u8;
+        if self.inner > (u8::MAX >> 1) as _ {
+            data[0] = (self.inner >> 8) as u8 | 0x80;
+            data[1] = (self.inner & u8::MAX as u16) as u8;
         } else {
-            data[0] = self.0 as u8;
+            data[0] = self.inner as u8;
         }
     }
 }
@@ -61,26 +63,35 @@ impl Decode for VarU16 {
         let first = u8::decode(data)?;
         let wide = first & (1 << 7) != 0;
 
-        if wide {
-            let last = u8::decode(data)?;
-            let both = [first & u8::MAX >> 1, last];
-            Ok(Self(u16::from_be_bytes(both)))
-        } else {
-            Ok(Self(first as u16))
-        }
+        Ok(Self {
+            inner: if wide {
+                let last = u8::decode(data)?;
+                let both = [first & u8::MAX >> 1, last];
+                u16::from_be_bytes(both)
+            } else {
+                first as u16
+            },
+        })
     }
 }
 
+/// Returned when a [`VarU16`] cannot fit the specified value.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct VarU16SizeError(u16);
+pub struct VarU16SizeError {
+    pub value: u16,
+}
 
 impl fmt::Display for VarU16SizeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "value {} cannot fit in a variable-length u16", self.0)
+        write!(
+            f,
+            "value {} cannot fit in a variable-length u16",
+            self.value
+        )
     }
 }
 
-impl std::error::Error for VarU16SizeError {
+impl core::error::Error for VarU16SizeError {
     fn description(&self) -> &str {
         "value too large for variable-length u16"
     }
@@ -100,9 +111,14 @@ mod tests {
 
         let var = VarU16::new(VAL);
         var.encode(&mut buf);
-        
+
         assert_eq!(EXPECTED_ENCODING, buf);
-        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
+        assert_eq!(
+            VAL,
+            VarU16::decode(&mut EXPECTED_ENCODING.as_slice())
+                .unwrap()
+                .into_inner()
+        )
     }
 
     #[test]
@@ -117,6 +133,11 @@ mod tests {
         var.encode(&mut buf);
 
         assert_eq!(EXPECTED_ENCODING, buf);
-        assert_eq!(VAL, VarU16::decode(&mut EXPECTED_ENCODING.as_slice()).unwrap().into_inner())
+        assert_eq!(
+            VAL,
+            VarU16::decode(&mut EXPECTED_ENCODING.as_slice())
+                .unwrap()
+                .into_inner()
+        )
     }
 }

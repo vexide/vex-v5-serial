@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::connection::Connection;
+use crate::Connection;
 
 pub mod file;
 #[cfg(feature = "screen-command")]

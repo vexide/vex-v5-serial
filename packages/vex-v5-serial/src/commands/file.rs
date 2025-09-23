@@ -9,11 +9,11 @@ use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "bluetooth")]
-use crate::connection::bluetooth::BluetoothConnection;
-use crate::{
-    connection::{Connection, ConnectionType},
-    crc::VEX_CRC32,
-    packets::file::{
+use crate::bluetooth::BluetoothConnection;
+use crate::{Connection, ConnectionType};
+
+use vex_cdc::{
+    cdc2::file::{
         ExtensionType, FileDataReadPacket, FileDataReadPayload, FileDataReadReplyPacket,
         FileDataWritePacket, FileDataWritePayload, FileDataWriteReplyPacket, FileExitAction,
         FileInitOption, FileLinkPacket, FileLinkPayload, FileLinkReplyPacket, FileMetadata,
@@ -21,8 +21,7 @@ use crate::{
         FileTransferInitializePayload, FileTransferInitializeReplyPacket, FileTransferOperation,
         FileTransferTarget, FileVendor,
     },
-    string::FixedString,
-    version::Version,
+    FixedString, Version, VEX_CRC32,
 };
 
 use super::Command;
@@ -268,10 +267,7 @@ impl Command for UploadFile<'_> {
             .await?
             .payload?;
 
-        debug!(
-            "Successfully uploaded file: {}",
-            self.file_name.into_inner()
-        );
+        debug!("Successfully uploaded file: {}", self.file_name);
         Ok(())
     }
 }

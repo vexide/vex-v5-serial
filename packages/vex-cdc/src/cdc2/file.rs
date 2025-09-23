@@ -1,23 +1,20 @@
-//! Filesystem Access
+//! Internal filesystem access packets.
 
-use std::str;
+use core::str;
 
-use super::{
-    cdc::cmds::USER_CDC,
-    cdc::CdcReplyPacket,
+use alloc::vec::Vec;
+
+use crate::{
+    cdc::{cmds::USER_CDC, CdcReplyPacket},
     cdc2::{
         ecmds::{
             FILE_CLEANUP, FILE_CTRL, FILE_DIR, FILE_DIR_ENTRY, FILE_ERASE, FILE_EXIT, FILE_FORMAT,
-            FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO, FILE_WRITE,
+            FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO,
+            FILE_USER_STAT, FILE_WRITE,
         },
         Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket,
     },
-};
-use crate::{
-    decode::{Decode, DecodeError, DecodeWithLength},
-    encode::Encode,
-    string::FixedString,
-    version::Version,
+    Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -146,8 +143,7 @@ impl Encode for FileMetadata {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        let extension = self.extension.as_ref();
-        data[..extension.len()].copy_from_slice(extension.as_bytes());
+        data[..self.extension.len()].copy_from_slice(self.extension.as_bytes());
         data[3] = self.extension_type as _;
         self.timestamp.encode(&mut data[4..]);
         self.version.encode(&mut data[8..]);
@@ -159,7 +155,7 @@ impl Decode for FileMetadata {
         Ok(Self {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
-                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?)?.to_string())
+                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?)?)
             },
             extension_type: Decode::decode(data).unwrap(),
             timestamp: i32::decode(data)?,
@@ -439,7 +435,7 @@ pub struct DirectoryEntryReplyPayload {
     pub crc: u32,
 
     pub metadata: Option<FileMetadata>,
-    pub file_name: String,
+    pub file_name: FixedString<23>,
 }
 
 impl Decode for Option<DirectoryEntryReplyPayload> {
@@ -466,7 +462,7 @@ impl Decode for DirectoryEntryReplyPayload {
             Some(FileMetadata::decode(data)?)
         };
 
-        let file_name = FixedString::<23>::decode(data)?.into_inner();
+        let file_name = FixedString::<23>::decode(data)?;
 
         Ok(Self {
             file_index,
@@ -631,7 +627,7 @@ pub struct FileCleanUpReplyPayload {
 impl Decode for FileCleanUpReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {
-            count: Decode::decode(data)?
+            count: Decode::decode(data)?,
         })
     }
 }
@@ -710,3 +706,37 @@ pub enum RadioChannel {
 
 pub type FileControlPacket = Cdc2CommandPacket<USER_CDC, FILE_CTRL, FileControlGroup>;
 pub type FileControlReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_CTRL, ()>;
+
+pub type ProgramStatusPacket = Cdc2CommandPacket<USER_CDC, FILE_USER_STAT, ProgramStatusPayload>;
+pub type ProgramStatusReplyPacket =
+    Cdc2ReplyPacket<USER_CDC, FILE_USER_STAT, ProgramStatusReplyPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ProgramStatusPayload {
+    pub vendor: FileVendor,
+    /// Unused as of VEXos 1.1.5
+    pub reserved: u8,
+    /// The bin file name.
+    pub file_name: FixedString<23>,
+}
+impl Encode for ProgramStatusPayload {
+    fn size(&self) -> usize {
+        2 + self.file_name.size()
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.vendor as _;
+        data[1] = self.reserved;
+
+        self.file_name.encode(&mut data[2..]);
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ProgramStatusReplyPayload {
+    /// A zero-based slot number.
+    pub slot: u8,
+
+    /// A zero-based slot number, always same as Slot.
+    pub requested_slot: u8,
+}

@@ -1,7 +1,6 @@
-use std::{mem::MaybeUninit, str::Utf8Error};
+use alloc::vec::Vec;
+use core::{mem::MaybeUninit, str::Utf8Error};
 use thiserror::Error;
-
-use crate::string::FixedStringSizeError;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum DecodeError {
@@ -16,9 +15,6 @@ pub enum DecodeError {
 
     #[error("String ran past expected nul terminator")]
     UnterminatedString,
-
-    #[error(transparent)]
-    FixedStringSizeError(#[from] FixedStringSizeError),
 
     #[error("String contained invalid UTF-8: {0}")]
     InvalidStringContents(#[from] Utf8Error),
@@ -77,6 +73,6 @@ impl<const N: usize, T: Decode> Decode for [T; N] {
             arr[i] = MaybeUninit::new(T::decode(data)?);
         }
 
-        Ok(unsafe { std::mem::transmute_copy::<_, [T; N]>(&arr) })
+        Ok(unsafe { core::mem::transmute_copy::<_, [T; N]>(&arr) })
     }
 }

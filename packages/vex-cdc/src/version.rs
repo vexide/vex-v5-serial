@@ -1,11 +1,24 @@
 use crate::decode::{Decode, DecodeError};
 use crate::encode::Encode;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// A VEXos firmware version.
+///
+/// This type represents a version identifier for VEXos firmware. VEXos is
+/// versioned using a slightly modified [semantic versioning] scheme.
+///
+/// [semantic versioning]: https://semver.org/
+///
+/// This type implements `PartialOrd`, meaning it can be compared to other
+/// instances of itself.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Version {
+    /// The major version
     pub major: u8,
+    /// The minor version
     pub minor: u8,
+    /// The build version
     pub build: u8,
+    /// The beta version
     pub beta: u8,
 }
 

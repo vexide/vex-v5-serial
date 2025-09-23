@@ -1,14 +1,17 @@
-use super::{
+//! Controller packets.
+
+use alloc::{
+    string::{String, ToString},
+    vec,
+};
+
+use crate::{
     cdc::cmds::{CON_CDC, USER_CDC},
     cdc2::{
         ecmds::{CON_COMP_CTRL, USER_READ},
         Cdc2CommandPacket, Cdc2ReplyPacket,
     },
-};
-use crate::{
-    decode::{Decode, DecodeError},
-    encode::Encode,
-    string::FixedString,
+    Decode, DecodeError, Encode, FixedString,
 };
 
 pub type UserDataPacket = Cdc2CommandPacket<USER_CDC, USER_READ, UserDataPayload>;
@@ -66,7 +69,7 @@ impl Decode for UserDataReplyPayload {
                     utf8.push(byte);
                 }
 
-                std::str::from_utf8(&utf8)?.to_string()
+                core::str::from_utf8(&utf8)?.to_string()
             })
         } else {
             None

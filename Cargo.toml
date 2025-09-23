@@ -1,48 +1,13 @@
-[package]
-name = "vex-v5-serial"
-version = "0.3.3"
-edition = "2021"
-license = "MIT"
-description = "A library for communicating with VEX V5 Brains"
-repository = "https://github.com/vexide/vex-v5-serial"
-authors = [
-    "vexide",
-    "Gavin Niederman <gavinniederman@gmail.com>",
-    "Tropical"
+[workspace]
+members = [
+    "./packages/vex-v5-serial",
+    "./packages/vex-cdc",
 ]
+resolver = "3"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-# We depend on this because for some reason it fixes an issue with tokio-serial.
-crc = "3.0.0"
-thiserror = "1.0.37"
-bitflags = "2.5.0"
-log = "0.4.21"
-flate2 = { version = "1.0.30", optional = true }
-serde = { version = "1.0.203", optional = true, features = ["derive"] }
-serde_ini = { version = "0.2.0", optional = true }
-serde_bytes = { version = "0.11.15", optional = true }
-uuid = { version = "1.8.0", optional = true }
-serialport = { version = "4.5.0", optional = true, features = ["usbportinfo-interface"] }
-tokio = { version = "1.23.0", features = ["full"], optional = true }
-tokio-serial = { version = "5.4.4", default-features = false, optional = true }
-image = { version = "0.25.1", optional = true }
-btleplug = { version = "0.11.5", optional = true }
-tokio-stream = { version = "0.1.11", optional = true }
-futures = { version = "0.3.30", optional = true }
-
-[dev-dependencies]
-simplelog = "0.12.2"
-rustyline = "14.0.0"
-
-[features]
-default = ["serial", "bluetooth", "screen-command"]
-serial = ["connection", "dep:tokio", "dep:tokio-serial", "dep:serialport"]
-bluetooth = ["connection", "dep:btleplug", "dep:futures", "dep:tokio", "dep:tokio-stream", "dep:uuid"]
-connection = ["dep:serde_ini", "dep:serde", "dep:flate2"]
-screen-command = ["dep:image"]
-serde_bytes = ["dep:serde_bytes"]
+[workspace.dependencies]
+vex-v5-serial = { version = "0.3.3", path = "packages/vex-v5-serial" }
+vex-cdc = { version = "0.0.1", path = "packages/vex-cdc" }
 
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
 [patch.crates-io]

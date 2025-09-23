@@ -1,16 +1,21 @@
-//! Implements functions and structures for interacting with vex devices.
+//! Crate for interacting with the Vex V5 Robot brain. Not affiliated with Innovation First Inc.
+
+pub use vex_cdc as protocol;
 
 use std::{future::Future, time::Instant};
 
 use log::{error, trace, warn};
 use std::time::Duration;
 
-use crate::{
-    commands::Command,
-    decode::{Decode, DecodeError},
-    encode::Encode,
-    packets::cdc2::Cdc2Ack, string::FixedStringSizeError,
+use vex_cdc::{
+    cdc::CdcReplyPacket,
+    cdc2::{Cdc2Ack, Cdc2ReplyPacket},
+    Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
 };
+
+pub mod commands;
+
+use crate::commands::Command;
 
 #[cfg(feature = "bluetooth")]
 pub mod bluetooth;
@@ -23,11 +28,52 @@ pub trait CheckHeader {
     fn has_valid_header(data: &[u8]) -> bool;
 }
 
+impl<const CMD: u8, const EXT_CMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+    fn has_valid_header(mut data: &[u8]) -> bool {
+        let data = &mut data;
+
+        if <[u8; 2] as Decode>::decode(data)
+            .map(|header| header != Self::HEADER)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+
+        if u8::decode(data).map(|id| id != CMD).unwrap_or(true) {
+            return false;
+        }
+
+        let payload_size = VarU16::decode(data);
+        if payload_size.is_err() {
+            return false;
+        }
+
+        if u8::decode(data)
+            .map(|ext_cmd| ext_cmd != EXT_CMD)
+            .unwrap_or(true)
+        {
+            return false;
+        }
+
+        true
+    }
+}
+
+impl<const CMD: u8, P: Decode> CheckHeader for CdcReplyPacket<CMD, P> {
+    fn has_valid_header(data: &[u8]) -> bool {
+        let Some(data) = data.get(0..3) else {
+            return false;
+        };
+
+        data[0..2] == Self::HEADER && data[2] == CMD
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawPacket {
-    bytes: Vec<u8>,
-    used: bool,
-    timestamp: Instant,
+    pub bytes: Vec<u8>,
+    pub used: bool,
+    pub timestamp: Instant,
 }
 impl RawPacket {
     pub fn new(bytes: Vec<u8>) -> Self {

@@ -10,18 +10,15 @@ use tokio::{
     time::sleep,
 };
 use tokio_serial::SerialStream;
-
-use super::{CheckHeader, Connection, ConnectionType};
-use crate::{
-    connection::{RawPacket, trim_packets},
-    decode::{Decode, DecodeError},
-    encode::Encode,
-    packets::{
-        HOST_BOUND_HEADER, cdc2::Cdc2Ack, controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket}
+use vex_cdc::{
+    cdc2::{
+        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
+        Cdc2Ack,
     },
-    string::{FixedString, FixedStringSizeError},
-    varint::VarU16,
+    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16, REPLY_HEADER,
 };
+
+use crate::{trim_packets, CheckHeader, Connection, ConnectionType, RawPacket};
 
 /// The USB venddor ID for VEX devices
 pub const VEX_USB_VID: u16 = 0x2888;
@@ -346,7 +343,7 @@ impl SerialDevice {
 /// Decodes a [`HostBoundPacket`]'s header sequence.
 fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
     let header = Decode::decode(&mut data)?;
-    if header != HOST_BOUND_HEADER {
+    if header != REPLY_HEADER {
         return Err(DecodeError::InvalidHeader);
     }
     Ok(header)
@@ -576,19 +573,19 @@ pub enum SerialError {
 
     #[error("Packet decoding error: {0}")]
     DecodeError(#[from] DecodeError),
-    
+
     #[error("Packet timeout")]
     Timeout,
-    
+
     #[error("NACK received: {0:?}")]
     Nack(#[from] Cdc2Ack),
-    
+
     #[error("Serialport Error")]
     SerialportError(#[from] tokio_serial::Error),
-    
+
     #[error("Could not infer serial port types")]
     CouldntInferTypes,
-    
+
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
 }
