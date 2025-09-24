@@ -3,17 +3,15 @@ use std::time::Duration;
 use log::{error, info};
 use tokio::time::sleep;
 use vex_v5_serial::{
-    connection::{
-        serial::{self, SerialError},
-        Connection,
-    },
-    protocol::cdc2::{
-        controller::{
+    Connection,
+    protocol::{
+        cdc::{ProductType, SystemVersionPacket, SystemVersionReplyPacket},
+        cdc2::controller::{
             CompetitionControlPacket, CompetitionControlPayload, CompetitionControlReplyPacket,
             MatchMode,
         },
-        system::{SystemVersionPacket, SystemVersionReplyPacket},
     },
+    serial::{self, SerialError},
 };
 
 #[tokio::main]
@@ -41,11 +39,11 @@ async fn main() -> Result<(), SerialError> {
         .await?;
 
     match response.payload.product_type {
-        vex_v5_serial::packets::system::ProductType::Brain => {
+        ProductType::Brain => {
             error!("You must be connected to the Brain over controller to use field control");
             return Ok(());
         }
-        vex_v5_serial::packets::system::ProductType::Controller => {}
+        ProductType::Controller => {}
     }
 
     info!("Setting match mode to auto");

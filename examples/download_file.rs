@@ -2,16 +2,16 @@ use std::{str::FromStr, time::Duration};
 
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use vex_v5_serial::{
+    Connection,
     commands::file::DownloadFile,
-    connection::{
-        serial::{self, SerialError},
-        Connection,
+    protocol::{
+        FixedString,
+        cdc2::file::{
+            FileControlGroup, FileControlPacket, FileControlReplyPacket, FileTransferTarget,
+            FileVendor, RadioChannel,
+        },
     },
-    packets::file::{
-        FileControlGroup, FileControlPacket, FileControlReplyPacket, FileTransferTarget,
-        FileVendor, RadioChannel,
-    },
-    string::FixedString,
+    serial::{self, SerialError},
 };
 
 #[tokio::main]

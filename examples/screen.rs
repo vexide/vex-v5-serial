@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use vex_v5_serial::{
-    connection::{
-        serial::{self, SerialError},
-        Connection,
+    Connection,
+    protocol::cdc2::system::{
+        DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket,
     },
-    packets::screen::{DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket},
+    serial::{self, SerialError},
 };
 
 #[tokio::main]

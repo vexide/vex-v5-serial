@@ -2,11 +2,9 @@ use std::time::Duration;
 
 use log::info;
 use vex_v5_serial::{
-    connection::{
-        serial::{self, SerialError},
-        Connection,
-    },
-    packets::device::{DeviceStatusPacket, DeviceStatusReplyPacket},
+    Connection,
+    protocol::cdc2::system::{DeviceStatusPacket, DeviceStatusReplyPacket},
+    serial::{self, SerialError},
 };
 
 #[tokio::main]

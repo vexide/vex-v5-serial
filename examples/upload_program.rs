@@ -1,14 +1,12 @@
 use std::time::Duration;
 
 use vex_v5_serial::{
+    Connection,
     commands::file::{ProgramData, UploadProgram},
-    connection::{
-        serial::{self, SerialError},
-        Connection,
-    },
     protocol::cdc2::file::{
         FileControlGroup, FileControlPacket, FileControlReplyPacket, FileExitAction, RadioChannel,
     },
+    serial::{self, SerialError},
 };
 
 #[tokio::main]

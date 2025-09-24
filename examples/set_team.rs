@@ -1,12 +1,16 @@
 use std::time::Duration;
 
-use vex_v5_serial::connection::serial::SerialError;
-use vex_v5_serial::connection::{serial, Connection};
-use vex_v5_serial::protocol::cdc2::system::{
-    KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
-    KeyValueSaveReplyPacket,
+use vex_v5_serial::{
+    Connection,
+    serial::{self, SerialError},
+    protocol::{
+        cdc2::system::{
+            KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
+            KeyValueSaveReplyPacket,
+        },
+        FixedString,
+    },
 };
-use vex_v5_serial::protocol::FixedString;
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {

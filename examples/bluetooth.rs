@@ -2,11 +2,9 @@ use std::time::Duration;
 
 use rustyline::DefaultEditor;
 use vex_v5_serial::{
-    connection::{
-        bluetooth::{self, BluetoothError},
-        Connection,
-    },
-    packets::screen::{DashScreen, DashSelectPacket, DashSelectPayload},
+    bluetooth::{self, BluetoothError},
+    Connection,
+    protocol::cdc2::system::{DashScreen, DashSelectPacket, DashSelectPayload},
 };
 
 #[tokio::main]

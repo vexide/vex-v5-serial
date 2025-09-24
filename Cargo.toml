@@ -1,14 +1,23 @@
+[package]
+name = "examples"
+edition = "2024"
+version = "0.0.1"
+
 [workspace]
-members = [
-    "./packages/vex-v5-serial",
-    "./packages/vex-cdc",
-]
+members = ["./packages/vex-v5-serial", "./packages/vex-cdc"]
 resolver = "3"
 
 [workspace.dependencies]
 vex-v5-serial = { version = "0.3.3", path = "packages/vex-v5-serial" }
 vex-cdc = { version = "0.0.1", path = "packages/vex-cdc" }
 
+[dev-dependencies]
+vex-v5-serial = { workspace = true }
+log = "0.4.28"
+tokio = { version = "1.47.1", features = ["full"] }
+simplelog = "0.12.2"
+rustyline = "14.0.0"
+
 # We do this so that tokio-serial uses the latest, fixed version of mio-serial
 [patch.crates-io]
-mio-serial = { git = "https://github.com/berkowski/mio-serial.git" }
+mio-serial = { git = "https://github.com/berkowski/mio-serial.git", rev = "a71c0bd095df89b0ff7a2fd538faaa878ae69466" }
