@@ -6,7 +6,7 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::file::{
+    protocol::cdc2::file::{
         FileControlGroup, FileControlPacket, FileControlReplyPacket, FileExitAction, RadioChannel,
     },
 };

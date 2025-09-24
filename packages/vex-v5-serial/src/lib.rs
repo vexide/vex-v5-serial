@@ -196,4 +196,30 @@ impl ConnectionType {
     pub fn is_bluetooth(&self) -> bool {
         matches!(self, ConnectionType::Bluetooth)
     }
+
+    pub(crate) fn max_chunk_size(&self, window_size: u16) -> u16 {
+        const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
+
+        #[cfg(feature = "bluetooth")]
+        {
+            use crate::bluetooth::BluetoothConnection;
+
+            if self.is_bluetooth() {
+                let max_chunk_size =
+                    (BluetoothConnection::MAX_PACKET_SIZE as u16).min(window_size / 2) - 14;
+                max_chunk_size - (max_chunk_size % 4)
+            } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+                window_size
+            } else {
+                USER_PROGRAM_CHUNK_SIZE
+            }
+        }
+
+        #[cfg(not(feature = "bluetooth"))]
+        if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
+            window_size
+        } else {
+            USER_PROGRAM_CHUNK_SIZE
+        }
+    }
 }

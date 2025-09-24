@@ -7,7 +7,7 @@ use vex_v5_serial::{
         serial::{self, SerialError},
         Connection,
     },
-    packets::{
+    protocol::cdc2::{
         controller::{
             CompetitionControlPacket, CompetitionControlPayload, CompetitionControlReplyPacket,
             MatchMode,

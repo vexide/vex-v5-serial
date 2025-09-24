@@ -5,40 +5,43 @@ edition = "2021"
 license = "MIT"
 description = "A library for communicating with VEX V5 Brains"
 repository = "https://github.com/vexide/vex-v5-serial"
-authors = [
-    "vexide",
-    "Gavin Niederman <gavinniederman@gmail.com>",
-    "Tropical"
-]
+authors = ["vexide", "Gavin Niederman <gavinniederman@gmail.com>", "Tropical"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # We depend on this because for some reason it fixes an issue with tokio-serial.
 vex-cdc = { workspace = true }
-log = "0.4.21"
+log = "0.4.28"
 thiserror = "2"
-flate2 = { version = "1.0.30", optional = true }
-serde = { version = "1.0.203", optional = true, features = ["derive"] }
-serde_ini = { version = "0.2.0", optional = true }
-serde_bytes = { version = "0.11.15", optional = true }
-uuid = { version = "1.8.0", optional = true }
-serialport = { version = "4.5.0", optional = true, features = ["usbportinfo-interface"] }
-tokio = { version = "1.23.0", features = ["full"], optional = true }
+flate2 = "1.1.2"
+
+tokio = { version = "1.23.0", features = [
+    "io-util",
+    "macros",
+], optional = true }
 tokio-serial = { version = "5.4.4", default-features = false, optional = true }
-image = { version = "0.25.1", optional = true }
+tokio-stream = { version = "0.1.11", default-features = false, optional = true }
+serialport = { version = "4.5.0", optional = true, features = [
+    "usbportinfo-interface",
+] }
 btleplug = { version = "0.11.5", optional = true }
-tokio-stream = { version = "0.1.11", optional = true }
-futures = { version = "0.3.30", optional = true }
+futures = { version = "0.3.30", default-features = false, optional = true }
+uuid = { version = "1.8.0", default-features = false, optional = true}
+image = { version = "0.25.1", default-features = false, optional = true }
 
 [dev-dependencies]
 simplelog = "0.12.2"
 rustyline = "14.0.0"
 
 [features]
-default = ["serial", "bluetooth", "screen-command"]
-serial = ["connection", "dep:tokio", "dep:tokio-serial", "dep:serialport"]
-bluetooth = ["connection", "dep:btleplug", "dep:futures", "dep:tokio", "dep:tokio-stream", "dep:uuid"]
-connection = ["dep:serde_ini", "dep:serde", "dep:flate2"]
+default = ["serial", "bluetooth"]
+serial = ["dep:tokio", "dep:tokio-serial", "dep:serialport"]
+bluetooth = [
+    "dep:tokio",
+    "dep:tokio-stream",
+    "dep:btleplug",
+    "dep:futures",
+    "dep:uuid",
+]
 screen-command = ["dep:image"]
-serde_bytes = ["dep:serde_bytes"]

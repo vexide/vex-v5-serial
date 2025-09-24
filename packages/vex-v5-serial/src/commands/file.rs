@@ -6,10 +6,7 @@ use std::{
 
 use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
-use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "bluetooth")]
-use crate::bluetooth::BluetoothConnection;
 use crate::{Connection, ConnectionType};
 
 use vex_cdc::{
@@ -26,7 +23,7 @@ use vex_cdc::{
 
 use super::Command;
 
-/// The epoch of the serial protocols timestamps
+/// The epoch of the serial protocol's timestamps.
 pub const J2000_EPOCH: u32 = 946684800;
 
 pub fn j2000_timestamp() -> i32 {
@@ -39,7 +36,6 @@ pub fn j2000_timestamp() -> i32 {
 
 pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
 pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;
-const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
 pub struct DownloadFile {
     pub file_name: FixedString<23>,
@@ -86,13 +82,7 @@ impl Command for DownloadFile {
             .await?;
         let transfer_response = transfer_response.payload?;
 
-        let max_chunk_size = if transfer_response.window_size > 0
-            && transfer_response.window_size <= USER_PROGRAM_CHUNK_SIZE
-        {
-            transfer_response.window_size
-        } else {
-            USER_PROGRAM_CHUNK_SIZE
-        };
+        let max_chunk_size = connection.connection_type().max_chunk_size(transfer_response.window_size);
 
         let mut data = Vec::with_capacity(transfer_response.file_size as usize);
         let mut offset = 0;
@@ -132,27 +122,6 @@ impl Command for DownloadFile {
     }
 }
 
-#[cfg(feature = "bluetooth")]
-fn max_chunk_size(con_type: ConnectionType, window_size: u16) -> u16 {
-    if con_type.is_bluetooth() {
-        let max_chunk_size =
-            (BluetoothConnection::MAX_PACKET_SIZE as u16).min(window_size / 2) - 14;
-        max_chunk_size - (max_chunk_size % 4)
-    } else if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
-        window_size
-    } else {
-        USER_PROGRAM_CHUNK_SIZE
-    }
-}
-#[cfg(not(feature = "bluetooth"))]
-fn max_chunk_size(_con_type: ConnectionType, window_size: u16) -> u16 {
-    if window_size > 0 && window_size <= USER_PROGRAM_CHUNK_SIZE {
-        window_size
-    } else {
-        USER_PROGRAM_CHUNK_SIZE
-    }
-}
-
 pub struct LinkedFile {
     pub file_name: FixedString<23>,
     pub vendor: FileVendor,
@@ -162,7 +131,7 @@ pub struct UploadFile<'a> {
     pub file_name: FixedString<23>,
     pub metadata: FileMetadata,
     pub vendor: FileVendor,
-    pub data: Vec<u8>,
+    pub data: &'a [u8],
     pub target: FileTransferTarget,
     pub load_address: u32,
     pub linked_file: Option<LinkedFile>,
@@ -217,8 +186,7 @@ impl Command for UploadFile<'_> {
         let window_size = transfer_response.window_size;
 
         // The maximum packet size is 244 bytes for bluetooth
-        let max_chunk_size = max_chunk_size(connection.connection_type(), window_size);
-
+        let max_chunk_size = connection.connection_type().max_chunk_size(window_size);
         debug!("max_chunk_size: {}", max_chunk_size);
 
         let mut offset = 0;
@@ -272,38 +240,13 @@ impl Command for UploadFile<'_> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum ProgramData {
-    #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
     Monolith(Vec<u8>),
     HotCold {
-        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
         hot: Option<Vec<u8>>,
-
-        #[cfg_attr(feature = "serde_bytes", serde(with = "serde_bytes"))]
         cold: Option<Vec<u8>>,
     },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Program {
-    pub name: String,
-    pub slot: u8,
-    pub icon: String,
-    pub iconalt: String,
-    pub description: String,
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Project {
-    // version: String,
-    pub ide: String,
-    // file: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProgramIniConfig {
-    pub project: Project,
-    pub program: Program,
 }
 
 pub struct UploadProgram<'a> {
@@ -341,18 +284,21 @@ impl Command for UploadProgram<'_> {
 
         debug!("Uploading program ini file");
 
-        let ini = ProgramIniConfig {
-            program: Program {
-                description: self.description,
-                icon: self.icon,
-                iconalt: String::new(),
-                slot: self.slot - 1,
-                name: self.name,
-            },
-            project: Project {
-                ide: self.program_type,
-            },
-        };
+        let ini = format!(
+            "[project]
+ide={}
+[program]
+name={}
+slot={}
+icon={}
+iconalt=
+description={}",
+            self.program_type,
+            self.name,
+            self.slot - 1,
+            self.icon,
+            self.program_type
+        );
 
         connection
             .execute_command(UploadFile {
@@ -369,7 +315,7 @@ impl Command for UploadProgram<'_> {
                     },
                 },
                 vendor: FileVendor::User,
-                data: serde_ini::to_vec(&ini).unwrap(),
+                data: ini.as_bytes(),
                 target: FileTransferTarget::Qspi,
                 load_address: USER_PROGRAM_LOAD_ADDR,
                 linked_file: None,
@@ -413,7 +359,7 @@ impl Command for UploadProgram<'_> {
                         },
                     },
                     vendor: FileVendor::User,
-                    data: library_data,
+                    data: &library_data,
                     target: FileTransferTarget::Qspi,
                     load_address: PROS_HOT_BIN_LOAD_ADDR,
                     linked_file: None,
@@ -464,7 +410,7 @@ impl Command for UploadProgram<'_> {
                         },
                     },
                     vendor: FileVendor::User,
-                    data: program_data,
+                    data: &program_data,
                     target: FileTransferTarget::Qspi,
                     load_address: USER_PROGRAM_LOAD_ADDR,
                     linked_file,

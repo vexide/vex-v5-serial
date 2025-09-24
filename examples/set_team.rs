@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use vex_v5_serial::connection::serial::SerialError;
 use vex_v5_serial::connection::{serial, Connection};
-use vex_v5_serial::packets::system::{
+use vex_v5_serial::protocol::cdc2::system::{
     KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
     KeyValueSaveReplyPacket,
 };
-use vex_v5_serial::string::FixedString;
+use vex_v5_serial::protocol::FixedString;
 
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
