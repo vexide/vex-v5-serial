@@ -10,6 +10,9 @@ use crate::{
 use super::{COMMAND_HEADER, REPLY_HEADER};
 
 /// CDC packet opcodes.
+///
+/// These are the byte values identifying the different CDC commands.
+/// This module is non-exhaustive.
 pub mod cmds {
     pub const ACK: u8 = 0x33;
     pub const QUERY_1: u8 = 0x21;
@@ -34,10 +37,13 @@ pub mod cmds {
 use bitflags::bitflags;
 use cmds::{QUERY_1, SYSTEM_VERSION};
 
-/// CDC (Simple) Command Packet
+/// CDC (Simple) command packet.
 ///
-/// Encodes a simple device-bound message over the protocol containing
-/// a command identifier and a payload.
+/// A device-bound message containing a command identifier and an encoded payload.
+/// Each packet begins with a 4-byte [`COMMAND_HEADER`], followed by the opcode,
+/// and then an optional length-prefixed payload.
+///
+/// The payload type `P` must implement [`Encode`].
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcCommandPacket<const CMD: u8, P: Encode> {
     payload: P,
@@ -82,9 +88,13 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
     }
 }
 
-/// CDC (Simple) Command Reply Packet
+/// CDC (Simple) reply packet.
 ///
-/// Encodes a reply payload to a [`CdcCommandPacket`] for a given ID.
+/// A host-bound packet sent in response to a [`CdcCommandPacket`].  
+/// Each reply consists of a 2-byte [`REPLY_HEADER`], the echoed command ID,
+/// a variable-width length field, and the decoded payload.
+///
+/// The payload type `P` must implement [`Decode`].
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
     /// Packet Payload Size

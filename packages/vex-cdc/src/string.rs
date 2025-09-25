@@ -18,12 +18,29 @@ use crate::{
     encode::Encode,
 };
 
-/// A string with a maximum size of `bytes.len() <= N`.
+/// A UTF-8 string with a fixed maximum capacity of `N` bytes.
+///
+/// `FixedString<N>` stores string data inline, backed by a `[u8; N]` buffer.
+/// Unlike [`String`], its capacity is fixed at compile time. The actual
+/// string length may be smaller than `N`, but may never exceed it.
+///
+/// # Invariants
+/// 
+/// - Contents are always valid UTF-8.
+/// - The inner string must satisfy `bytes.len() <= N`.
+/// - All bytes past the end of the string are zeroed.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
 pub struct FixedString<const N: usize>([u8; N]);
 
 impl<const N: usize> FixedString<N> {
-    /// Create a new [`FixedString`], failing if `s` exceeds the string's maximum size of `N` bytes.
+    /// Creates a new [`FixedString`] from the given string slice.
+    ///
+    /// Fails if the input string is larger than the fixed capacity `N`.
+    ///
+    /// # Errors
+    /// 
+    /// Returns [`FixedStringSizeError`] if the string’s UTF-8 byte length
+    /// exceeds `N`.
     pub fn new(s: impl AsRef<str>) -> Result<Self, FixedStringSizeError> {
         let size = s.as_ref().as_bytes().len();
 
@@ -38,10 +55,18 @@ impl<const N: usize> FixedString<N> {
         Ok(unsafe { Self::new_unchecked(s) })
     }
 
-    /// # Safety
+    /// Creates a new [`FixedString`] without checking the size.
     ///
-    /// Caller must ensure that `s` is valid UTF-8 in the span of `0..N`. As a rule-of-thumb,
-    /// the caller is recommended to ensure `s.as_bytes().len() <= N`.
+    /// If the input string is longer than `N` bytes, it will be truncated
+    /// to fit into the buffer.
+    ///
+    /// # Safety
+    /// 
+    /// The caller must ensure that `s` is valid UTF-8 and that truncation
+    /// does not violate invariants of how the string is later used.
+    ///
+    /// Normally you should prefer [`FixedString::new`], which enforces the
+    /// size bound at runtime.
     pub unsafe fn new_unchecked(s: impl AsRef<str>) -> Self {
         let s = s.as_ref();
         let bytes = s.as_bytes();
@@ -54,18 +79,18 @@ impl<const N: usize> FixedString<N> {
     }
 
     /// Extracts a string slice containing this string's contents.
-    pub const fn as_str(&self) -> &str {
-        // SAFETY: `self.0` is guaranteed to be valid UTF-8 for at least `N` bytes.
-        unsafe { str::from_utf8_unchecked(core::slice::from_raw_parts(self.0.as_ptr(), N)) }
+    pub fn as_str(&self) -> &str {
+        let len = self.0.iter().position(|&b| b == 0).unwrap_or(N);
+
+        // SAFETY: Construction guarantees valid UTF-8 up to `len`.
+        unsafe { str::from_utf8_unchecked(&self.0[..len]) }
     }
 
-
     /// Converts a `FixedString` into a mutable string slice.
-    pub const fn as_mut_str(&mut self) -> &mut str {
-        // SAFETY: `self.0` is guaranteed to be valid UTF-8 for at least `N` bytes.
-        unsafe {
-            str::from_utf8_unchecked_mut(core::slice::from_raw_parts_mut(self.0.as_mut_ptr(), N))
-        }
+    pub fn as_mut_str(&mut self) -> &mut str {
+        let len = self.0.iter().position(|&b| b == 0).unwrap_or(N);
+
+        unsafe { str::from_utf8_unchecked_mut(&mut self.0[..len]) }
     }
 }
 
