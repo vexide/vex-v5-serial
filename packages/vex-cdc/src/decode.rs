@@ -2,8 +2,33 @@ use alloc::vec::Vec;
 use core::{mem::MaybeUninit, str::Utf8Error};
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, Eq)]
-pub enum DecodeError {
+#[derive(Debug, Error, PartialEq, Eq)]
+pub struct DecodeError {
+    kind: DecodeErrorKind,
+    type_name: &'static str,
+}
+
+impl DecodeError {
+    pub fn new<T>(kind: DecodeErrorKind) -> Self {
+        Self {
+            kind,
+            type_name: core::any::type_name::<T>(),
+        }
+    }
+
+    pub const fn kind(&self) -> DecodeErrorKind {
+        self.kind
+    }
+}
+
+impl core::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Failed to decode {}: {}", self.type_name, self.kind)
+    }
+}
+
+#[derive(Error, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DecodeErrorKind {
     #[error("Packet was too short.")]
     UnexpectedEnd,
 
@@ -92,7 +117,7 @@ macro_rules! impl_decode_for_primitive {
         $(
             impl Decode for $t {
                 fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-                    let bytes = data.get(..size_of::<Self>()).ok_or_else(|| DecodeError::UnexpectedEnd)?;
+                    let bytes = data.get(..size_of::<Self>()).ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
                     *data = &data[size_of::<Self>()..];
                     Ok(Self::from_le_bytes(bytes.try_into().unwrap()))
                 }

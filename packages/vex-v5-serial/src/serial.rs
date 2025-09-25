@@ -11,11 +11,10 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
-    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16,
-    cdc2::{
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16, cdc2::{
         Cdc2Ack,
         controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
-    },
+    }
 };
 
 use crate::{CheckHeader, Connection, ConnectionType, RawPacket, trim_packets};
@@ -348,7 +347,7 @@ impl SerialDevice {
 fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
     let header = Decode::decode(&mut data)?;
     if header != REPLY_HEADER {
-        return Err(DecodeError::InvalidHeader);
+        return Err(DecodeError::new::<[u8; 2]>(DecodeErrorKind::InvalidHeader));
     }
     Ok(header)
 }

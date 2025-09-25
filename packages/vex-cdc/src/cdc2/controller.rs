@@ -69,7 +69,9 @@ impl Decode for UserDataReplyPayload {
                     utf8.push(byte);
                 }
 
-                core::str::from_utf8(&utf8)?.to_string()
+                core::str::from_utf8(&utf8)
+                    .map_err(|e| DecodeError::new::<Self>(e.into()))?
+                    .to_string()
             })
         } else {
             None

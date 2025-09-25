@@ -33,7 +33,7 @@ mod varint;
 mod version;
 
 pub use crc::{VEX_CRC16, VEX_CRC32};
-pub use decode::{Decode, DecodeError, DecodeWithLength};
+pub use decode::{Decode, DecodeError, DecodeErrorKind, DecodeWithLength};
 pub use encode::{Encode, MessageEncoder};
 pub use string::{FixedString, FixedStringSizeError};
 pub use varint::{VarU16, VarU16SizeError};
