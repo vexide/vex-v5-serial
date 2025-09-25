@@ -1,18 +1,36 @@
 /// Simplifies encoding data with the [`Encode`] trait.
+///
+/// `MessageEncoder` maintains an internal position within a mutable byte slice akin to
+/// std's `Cursor` type, allowing sequential writing of multiple encoded values without
+/// manually tracking offsets.
+///
+/// # Example
+/// 
+/// ```
+/// let mut buf = [0u8; 16];
+/// let mut enc = MessageEncoder::new(&mut buf);
+/// let value: u16 = 0x1234;
+/// enc.write(&value);
+/// assert_eq!(enc.position(), 2);
+/// ```
 pub struct MessageEncoder<'a> {
     data: &'a mut [u8],
     pos: usize,
 }
 
 impl<'a> MessageEncoder<'a> {
+    /// Creates a new encoder starting at position 0.
     pub const fn new(data: &'a mut [u8]) -> Self {
         Self { data, pos: 0 }
     }
 
+    /// Creates a new encoder starting at the given `pos`.
     pub const fn new_with_position(data: &'a mut [u8], pos: usize) -> Self {
         Self { data, pos }
     }
 
+    /// Encodes a value implementing [`Encode`] into the underlying buffer,
+    /// advancing the current position by `value.size()`.
     pub fn write<T: Encode>(&mut self, value: &T) {
         let data = &mut self.data[self.pos..];
 
@@ -20,17 +38,20 @@ impl<'a> MessageEncoder<'a> {
         self.pos += value.size();
     }
 
+    /// Sets the current write position.
     #[inline]
     pub const fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
 
+    /// Returns the current write position.
     #[inline]
     #[must_use]
     pub const fn position(&self) -> usize {
         self.pos
     }
 
+    /// Returns a reference to the underlying buffer.
     #[inline]
     #[must_use]
     pub const fn get_ref(&self) -> &[u8] {

@@ -1,7 +1,7 @@
 use crc::Crc;
 
 /// [CRC16 error-detecting algorithm](https://en.wikipedia.org/wiki/Cyclic_redundancy_check)
-/// used in CDC packets.
+/// used in CDC2 packets.
 pub const VEX_CRC16: Crc<u16> = Crc::<u16>::new(&crc::CRC_16_XMODEM);
 
 /// [CRC32 error-detecting algorithm](https://en.wikipedia.org/wiki/Cyclic_redundancy_check)
