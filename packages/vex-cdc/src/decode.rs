@@ -1,23 +1,29 @@
-use alloc::vec::Vec;
+use alloc::{vec::Vec};
 use core::{mem::MaybeUninit, str::Utf8Error};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum DecodeError {
-    #[error("Packet too short")]
+    #[error("Packet was too short.")]
     UnexpectedEnd,
 
-    #[error("Could not decode byte with unexpected value. Found {value:x}, expected one of: {expected:x?}")]
-    UnexpectedValue { value: u8, expected: &'static [u8] },
+    #[error(
+        "Could not decode {name} with unexpected byte. Found {value:x}, expected one of: {expected:x?}."
+    )]
+    UnexpectedByte {
+        name: &'static str,
+        value: u8,
+        expected: &'static [u8],
+    },
 
-    #[error("Invalid response header")]
+    #[error("Packet did not have a valid header sequence.")]
     InvalidHeader,
 
-    #[error("String ran past expected nul terminator")]
+    #[error("String ran past expected null terminator.")]
     UnterminatedString,
 
-    #[error("String contained invalid UTF-8: {0}")]
-    InvalidStringContents(#[from] Utf8Error),
+    #[error(transparent)]
+    Utf8Error(#[from] Utf8Error),
 }
 
 impl<T: Decode> DecodeWithLength for Vec<T> {
@@ -30,13 +36,46 @@ impl<T: Decode> DecodeWithLength for Vec<T> {
     }
 }
 
+/// A type that can be reconstructed (decoded) from a raw sequence of bytes.
+///
+/// Implementors of this trait define how to parse their binary representation
+/// from an input buffer. The input slice will be advanced by the number of bytes
+/// successfully consumed during decoding.
 pub trait Decode {
+    /// Attempts to decode `Self` from the beginning of the provided byte slice.
+    ///
+    /// On success, returns the decoded value and advances `data` by the number
+    /// of bytes consumed. On failure, returns a [`DecodeError`].
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DecodeError`] if the input is malformed or insufficient
+    /// to decode a complete value of this type.
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError>
     where
         Self: Sized;
 }
 
+/// A type that can be decoded from a sequence of bytes, given an indicator of
+/// the number of items contained within the type.
+///
+/// This is primarily intended for collection-like types (e.g. [`Vec`]) whose
+/// number of elements must be known before decoding can proceed. The caller
+/// provides `len` as the number of items expected to be decoded.
+///
+/// Like [`Decode`], the input slice will be advanced by the number of bytes
+/// successfully consumed.
 pub trait DecodeWithLength {
+    /// Attempts to decode `Self` from the provided byte slice, consuming exactly
+    /// `len` items.
+    ///
+    /// On success, returns the decoded value and advances `data` by the number
+    /// of bytes consumed. On failure, returns a [`DecodeError`].
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`DecodeError`] if the input is malformed or insufficient
+    /// to decode a complete value of this type.
     fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError>
     where
         Self: Sized;

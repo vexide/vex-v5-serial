@@ -23,6 +23,7 @@ use crate::{
 pub struct FixedString<const N: usize>([u8; N]);
 
 impl<const N: usize> FixedString<N> {
+    /// Create a new [`FixedString`], failing if `s` exceeds the string's maximum size of `N` bytes.
     pub fn new(s: impl AsRef<str>) -> Result<Self, FixedStringSizeError> {
         let size = s.as_ref().as_bytes().len();
 
@@ -52,11 +53,14 @@ impl<const N: usize> FixedString<N> {
         Self(buf)
     }
 
+    /// Extracts a string slice containing this string's contents.
     pub const fn as_str(&self) -> &str {
         // SAFETY: `self.0` is guaranteed to be valid UTF-8 for at least `N` bytes.
         unsafe { str::from_utf8_unchecked(core::slice::from_raw_parts(self.0.as_ptr(), N)) }
     }
 
+
+    /// Converts a `FixedString` into a mutable string slice.
     pub const fn as_mut_str(&mut self) -> &mut str {
         // SAFETY: `self.0` is guaranteed to be valid UTF-8 for at least `N` bytes.
         unsafe {

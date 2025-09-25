@@ -38,6 +38,7 @@ impl<'a> MessageEncoder<'a> {
     }
 }
 
+/// A type that can be encoded into a sequence of bytes.
 pub trait Encode {
     /// Returns the number of bytes this value will take when encoded.
     fn size(&self) -> usize;

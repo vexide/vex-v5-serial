@@ -79,7 +79,8 @@ impl Decode for FileVendor {
             64 => Ok(Self::VexVm),
             240 => Ok(Self::Vex),
             241 => Ok(Self::Undefined),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::UnexpectedByte {
+                name: "FileVendor",
                 value: v,
                 expected: &[
                     0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
@@ -120,7 +121,8 @@ impl Decode for ExtensionType {
             0x61 => Self::Vm,
             0x73 => Self::EncryptedBinary,
             unknown => {
-                return Err(DecodeError::UnexpectedValue {
+                return Err(DecodeError::UnexpectedByte {
+                    name: "ExtensionType",
                     value: unknown,
                     expected: &[0x0],
                 })
@@ -333,7 +335,8 @@ impl Decode for FileDataReadReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let ecmd = u8::decode(data)?;
         if ecmd != FILE_READ {
-            return Err(DecodeError::UnexpectedValue {
+            return Err(DecodeError::UnexpectedByte {
+                name: "ecmd",
                 value: ecmd,
                 expected: &[FILE_READ],
             });

@@ -109,7 +109,8 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
 
         let cmd = u8::decode(data)?;
         if cmd != CMD {
-            return Err(DecodeError::UnexpectedValue {
+            return Err(DecodeError::UnexpectedByte {
+                name: "cmd",
                 value: cmd,
                 expected: &[CMD],
             });
@@ -192,7 +193,8 @@ impl Decode for ProductType {
         match data[1] {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::UnexpectedByte {
+                name: "ProductType",
                 value: v,
                 expected: &[0x10, 0x11],
             }),

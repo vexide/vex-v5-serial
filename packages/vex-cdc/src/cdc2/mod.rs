@@ -4,11 +4,11 @@ use core::fmt::Debug;
 use thiserror::Error;
 
 use crate::{
+    COMMAND_HEADER, REPLY_HEADER,
     crc::VEX_CRC16,
     decode::{Decode, DecodeError},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
-    COMMAND_HEADER, REPLY_HEADER,
 };
 
 pub mod controller;
@@ -181,7 +181,8 @@ impl Decode for Cdc2Ack {
             0xDC => Ok(Self::NackFileStorageFull),
             0x00 => Ok(Self::Timeout),
             0x01 => Ok(Self::WriteError),
-            v => Err(DecodeError::UnexpectedValue {
+            v => Err(DecodeError::UnexpectedByte {
+                name: "Cdc2Ack",
                 value: v,
                 expected: &[
                     0x76, 0xFF, 0xCE, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9,
@@ -263,14 +264,22 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
 
         let cmd = u8::decode(data)?;
         if cmd != CMD {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::UnexpectedByte {
+                name: "cmd",
+                value: cmd,
+                expected: &[CMD],
+            });
         }
 
         let payload_size = VarU16::decode(data)?.into_inner();
 
         let ext_cmd = u8::decode(data)?;
         if ext_cmd != EXT_CMD {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::UnexpectedByte {
+                name: "ecmd",
+                value: ext_cmd,
+                expected: &[EXT_CMD],
+            });
         }
 
         let ack = Cdc2Ack::decode(data)?;

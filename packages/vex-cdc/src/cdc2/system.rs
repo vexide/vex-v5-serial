@@ -632,7 +632,8 @@ impl Decode for DeviceType {
             129 => DeviceType::GenericSerial,
             255 => DeviceType::UndefinedSensor,
             _ => {
-                return Err(DecodeError::UnexpectedValue {
+                return Err(DecodeError::UnexpectedByte {
+                    name: "DeviceType",
                     value,
                     expected: &[
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
