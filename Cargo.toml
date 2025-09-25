@@ -9,7 +9,7 @@ resolver = "3"
 
 [workspace.dependencies]
 vex-v5-serial = { version = "0.3.3", path = "packages/vex-v5-serial" }
-vex-cdc = { version = "0.0.3", path = "packages/vex-cdc" }
+vex-cdc = { version = "0.0.4", path = "packages/vex-cdc" }
 
 [dev-dependencies]
 vex-v5-serial = { workspace = true }
