@@ -1,6 +1,6 @@
 [package]
 name = "vex-cdc"
-version = "0.0.1"
+version = "0.0.3"
 edition = "2024"
 license = "MIT"
 description = "Implementation of the VEX Robotics CDC communication protocol in Rust."
