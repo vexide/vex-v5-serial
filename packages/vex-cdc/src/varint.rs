@@ -8,15 +8,15 @@ use crate::encode::Encode;
 /// `VarU16` encodes a 16-bit unsigned integer in a compact form, where the
 /// number of bytes required depends on the value being stored. Small values
 /// fit into a single byte, while larger values require two bytes.
-/// 
+///
 /// This encoding scheme reserves the most significant bit of the first
 /// byte as a flag, indicating the size of the type:
 ///
 /// - If `MSB` is `0`, the value fits in one byte.
 /// - If `MSB` is `1`, the value is stored across two bytes.
-/// 
+///
 /// # Invariants
-/// 
+///
 /// - Encoded values fit into 15 bits (`value <= u16::MAX >> 1`).
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -28,7 +28,7 @@ impl VarU16 {
     /// Creates a new [`VarU16`].
     ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the given value exceeds the maximum encodable range
     /// (`value > u16::MAX >> 1`).
     pub fn new(value: u16) -> Self {
@@ -38,7 +38,7 @@ impl VarU16 {
     /// Tries to create a new [`VarU16`].
     ///
     /// # Errors
-    /// 
+    ///
     /// Returns a [`VarU16SizeError`] if the given value exceeds the
     /// maximum encodable range (`value > u16::MAX >> 1`).
     pub const fn try_new(value: u16) -> Result<Self, VarU16SizeError> {

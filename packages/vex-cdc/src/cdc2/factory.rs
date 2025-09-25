@@ -1,12 +1,12 @@
 //! Factory control packets.
 
 use crate::{
+    Decode, DecodeError,
     cdc::cmds::USER_CDC,
     cdc2::{
-        ecmds::{FACTORY_CHAL, FACTORY_EBL, FACTORY_RESP, FACTORY_STATUS},
         Cdc2CommandPacket, Cdc2ReplyPacket,
+        ecmds::{FACTORY_CHAL, FACTORY_EBL, FACTORY_RESP, FACTORY_STATUS},
     },
-    Decode, DecodeError,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

@@ -44,6 +44,15 @@ use cmds::{QUERY_1, SYSTEM_VERSION};
 /// and then an optional length-prefixed payload.
 ///
 /// The payload type `P` must implement [`Encode`].
+///
+/// # Encoding
+///
+/// | Field     | Size   | Description |
+/// |-----------|--------|-------------|
+/// | `header`  | 4      | Must be [`COMMAND_HEADER`]. |
+/// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds) indicating the type of packet. |
+/// | `size`    | 1–2    | Size of `payload` encoded as a [`VarU16`]. |
+/// | `payload` | n      | Encoded payload. |
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcCommandPacket<const CMD: u8, P: Encode> {
     payload: P,
@@ -95,10 +104,19 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
 /// a variable-width length field, and the decoded payload.
 ///
 /// The payload type `P` must implement [`Decode`].
+///
+/// # Encoding
+///
+/// | Field     | Size   | Description |
+/// |-----------|--------|-------------|
+/// | `header`  | 2      | Must be [`REPLY_HEADER`]. |
+/// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds) indicating the type of command being replied to. |
+/// | `size`    | 1–2    | Size of `payload` encoded as a [`VarU16`]. |
+/// | `payload` | n      | Encoded payload. |
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
     /// Packet Payload Size
-    pub payload_size: u16,
+    pub size: u16,
 
     /// Packet Payload
     ///
@@ -130,7 +148,7 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
         let payload = P::decode(data)?;
 
         Ok(Self {
-            payload_size,
+            size: payload_size,
             payload,
         })
     }

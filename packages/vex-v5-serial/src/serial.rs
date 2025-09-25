@@ -11,14 +11,14 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
+    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16,
     cdc2::{
-        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
         Cdc2Ack,
+        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
     },
-    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16, REPLY_HEADER,
 };
 
-use crate::{trim_packets, CheckHeader, Connection, ConnectionType, RawPacket};
+use crate::{CheckHeader, Connection, ConnectionType, RawPacket, trim_packets};
 
 /// The USB venddor ID for VEX devices
 pub const VEX_USB_VID: u16 = 0x2888;
@@ -87,16 +87,20 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                         0 => {
                             debug!("Found a 'system' serial port over a Brain connection.");
                             vex_ports.push(VexSerialPort {
-                            port_info: port.clone(),
-                            port_type: VexSerialPortType::System,
-                        })},
-                        1 => warn!("Found a controller serial port over a Brain connection! Things are most likely broken."),
+                                port_info: port.clone(),
+                                port_type: VexSerialPortType::System,
+                            })
+                        }
+                        1 => warn!(
+                            "Found a controller serial port over a Brain connection! Things are most likely broken."
+                        ),
                         2 => {
                             debug!("Found a 'user' serial port over a Brain connection.");
                             vex_ports.push(VexSerialPort {
-                            port_info: port.clone(),
-                            port_type: VexSerialPortType::User,
-                        })},
+                                port_info: port.clone(),
+                                port_type: VexSerialPortType::User,
+                            })
+                        }
                         _ => warn!("Unknown location for V5 device: {}", location),
                     }
                 }

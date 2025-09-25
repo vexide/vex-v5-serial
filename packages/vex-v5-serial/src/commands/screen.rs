@@ -5,6 +5,7 @@ use log::info;
 use crate::Connection;
 
 use vex_cdc::{
+    FixedString,
     cdc2::{
         file::{FileTransferTarget, FileVendor},
         system::{
@@ -13,10 +14,9 @@ use vex_cdc::{
             ScreenCapturePayload, ScreenCaptureReplyPacket,
         },
     },
-    FixedString,
 };
 
-use super::{file::DownloadFile, Command};
+use super::{Command, file::DownloadFile};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ScreenCapture;

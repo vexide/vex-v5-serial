@@ -2,14 +2,14 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     Connection,
-    serial::{self, SerialError},
     protocol::{
+        FixedString,
         cdc2::system::{
             KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
             KeyValueSaveReplyPacket,
         },
-        FixedString,
     },
+    serial::{self, SerialError},
 };
 
 #[tokio::main]
@@ -39,7 +39,8 @@ async fn main() -> Result<(), SerialError> {
         .await?;
     connection
         .recv::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
-        .await.unwrap();
+        .await
+        .unwrap();
 
     connection
         .send(KeyValueLoadPacket::new(
@@ -48,7 +49,8 @@ async fn main() -> Result<(), SerialError> {
         .await?;
     let res = connection
         .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
-        .await.unwrap()
+        .await
+        .unwrap()
         .payload?;
 
     println!("{:?}", res);

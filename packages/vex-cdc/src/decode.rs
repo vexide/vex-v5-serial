@@ -1,4 +1,4 @@
-use alloc::{vec::Vec};
+use alloc::vec::Vec;
 use core::{mem::MaybeUninit, str::Utf8Error};
 use thiserror::Error;
 

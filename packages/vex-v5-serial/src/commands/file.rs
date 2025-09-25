@@ -10,6 +10,7 @@ use log::{debug, trace};
 use crate::{Connection, ConnectionType};
 
 use vex_cdc::{
+    FixedString, VEX_CRC32, Version,
     cdc2::file::{
         ExtensionType, FileDataReadPacket, FileDataReadPayload, FileDataReadReplyPacket,
         FileDataWritePacket, FileDataWritePayload, FileDataWriteReplyPacket, FileExitAction,
@@ -18,7 +19,6 @@ use vex_cdc::{
         FileTransferInitializePayload, FileTransferInitializeReplyPacket, FileTransferOperation,
         FileTransferTarget, FileVendor,
     },
-    FixedString, Version, VEX_CRC32,
 };
 
 use super::Command;
@@ -82,7 +82,9 @@ impl Command for DownloadFile {
             .await?;
         let transfer_response = transfer_response.payload?;
 
-        let max_chunk_size = connection.connection_type().max_chunk_size(transfer_response.window_size);
+        let max_chunk_size = connection
+            .connection_type()
+            .max_chunk_size(transfer_response.window_size);
 
         let mut data = Vec::with_capacity(transfer_response.file_size as usize);
         let mut offset = 0;

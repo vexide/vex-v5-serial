@@ -8,9 +8,9 @@ use log::{error, trace, warn};
 use std::time::Duration;
 
 use vex_cdc::{
+    Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
     cdc::CdcReplyPacket,
     cdc2::{Cdc2Ack, Cdc2ReplyPacket},
-    Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
 };
 
 pub mod commands;
@@ -28,7 +28,7 @@ pub trait CheckHeader {
     fn has_valid_header(data: &[u8]) -> bool;
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+impl<const CMD: u8, const ECMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<CMD, ECMD, P> {
     fn has_valid_header(mut data: &[u8]) -> bool {
         let data = &mut data;
 
@@ -49,7 +49,7 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacke
         }
 
         if u8::decode(data)
-            .map(|ext_cmd| ext_cmd != EXT_CMD)
+            .map(|ecmd| ecmd != ECMD)
             .unwrap_or(true)
         {
             return false;

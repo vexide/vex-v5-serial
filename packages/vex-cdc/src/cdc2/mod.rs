@@ -82,10 +82,14 @@ pub mod ecmds {
 }
 
 /// CDC2 Packet Acknowledgement Codes
+/// 
+/// Encoded as part of a [`Cdc2ReplyPacket`], this type sends either an acknowledgement ([`Cdc2Ack::Ack`])
+/// indicating that the command was successful or negative-acknowledgement ("NACK") if the command
+/// failed in some way.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 #[repr(u8)]
 pub enum Cdc2Ack {
-    /// Acknowledges that a packet has been received successfully.
+    /// Acknowledges that a command has been processed successfully.
     #[error("Packet was recieved successfully. (NACK 0x76)")]
     Ack = 0x76,
 
@@ -193,21 +197,51 @@ impl Decode for Cdc2Ack {
     }
 }
 
+/// CDC2 (Extended) Command Packet
+///
+/// This type encodes a host-to-device command packet used in the extended CDC2 protocol. The payload type `P`
+/// must implement [`Encode`].
+///
+/// All CDC2 commands have a corresponding [`Cdc2ReplyPacket`] from the device, even if the reply contains no
+/// payload. For example, a [`SystemFlagsPacket`] command corresponds to a [`SystemFlagsReplyPacket`] reply.
+/// See [`Cdc2ReplyPacket`] for more info on packet acknowledgement.
+/// 
+/// [`SystemFlagsPacket`]: system::SystemFlagsPacket
+/// [`SystemFlagsReplyPacket`]: system::SystemFlagsReplyPacket
+///
+/// # Encoding
+/// 
+/// This is an extension of the standard [`CdcCommandPacket`](crate::cdc::CdcCommandPacket) encoding that adds:
+/// 
+/// - An extended command opcode ([`ecmd`](ecmds)).
+/// - A CRC16 checksum covering the entire packet (including header).
+///
+/// | Field     | Size   | Description |
+/// |-----------|--------|-------------|
+/// | `header`  | 4      | Must be [`COMMAND_HEADER`]. |
+/// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds), typically [`USER_CDC`](crate::cdc::cmds::USER_CDC) (for a brain) or [`CON_CDC`](crate::cdc::cmds::CON_CDC) (for a controller). |
+/// | `ecmd`    | 1      | A [CDC2 extended command opcode](ecmds). |
+/// | `size`    | 1–2    | Number of remaining bytes in the packet (starting at `payload` through `crc16`), encoded as a [`VarU16`]. |
+/// | `payload` | n      | Encoded payload. |
+/// | `crc16`   | 2      | CRC16 checksum of the whole packet, computed with the [`VEX_CRC16`] algorithm. |
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Cdc2CommandPacket<const CMD: u8, const EXT_CMD: u8, P: Encode> {
+pub struct Cdc2CommandPacket<const CMD: u8, const ECMD: u8, P: Encode> {
     payload: P,
 }
 
-impl<P: Encode, const CMD: u8, const EXT_CMD: u8> Cdc2CommandPacket<CMD, EXT_CMD, P> {
+impl<P: Encode, const CMD: u8, const ECMD: u8> Cdc2CommandPacket<CMD, ECMD, P> {
     pub const HEADER: [u8; 4] = COMMAND_HEADER;
 
-    /// Creates a new device-bound packet with a given generic payload type.
+    /// Creates a new command packet with a payload.
+    ///
+    /// `payload` must implement the [`Encode`] trait.
     pub fn new(payload: P) -> Self {
         Self { payload }
     }
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<CMD, EXT_CMD, P> {
+impl<const CMD: u8, const ECMD: u8, P: Encode> Encode for Cdc2CommandPacket<CMD, ECMD, P> {
     fn size(&self) -> usize {
         let payload_size = self.payload.size();
 
@@ -221,7 +255,7 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
     fn encode(&self, data: &mut [u8]) {
         Self::HEADER.encode(data);
         data[4] = CMD;
-        data[5] = EXT_CMD;
+        data[5] = ECMD;
 
         let mut enc = MessageEncoder::new_with_position(data, 6);
 
@@ -231,24 +265,56 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Encode> Encode for Cdc2CommandPacket<C
 
         // The CRC16 checksum is of the whole encoded packet, meaning we need
         // to also include the header bytes.
-        let crc = VEX_CRC16.checksum(&enc.get_ref()[0..enc.position()]);
-        enc.write(&crc.to_be_bytes());
+        let crc16 = VEX_CRC16.checksum(&enc.get_ref()[0..enc.position()]);
+        enc.write(&crc16.to_be_bytes());
     }
 }
 
+/// CDC2 (Extended) Reply Packet
+///
+/// This type decodes a device-to-host reply packet used in the extended CDC2 protocol. The payload type `P` must
+/// implement [`Decode`].
+///
+/// All CDC2 replies are sent in response to a corresponding [`Cdc2CommandPacket`] from the host. For example,
+/// a [`SystemFlagsPacket`] command corresponds to a [`SystemFlagsReplyPacket`] reply.
+/// 
+/// [`SystemFlagsPacket`]: system::SystemFlagsPacket
+/// [`SystemFlagsReplyPacket`]: system::SystemFlagsReplyPacket
+/// 
+/// Reply packets encode an *acknowledgement code* in the form of a [`Cdc2Ack`], which will either acknowledge
+/// the command as valid and successful ([`Cdc2Ack::Ack`]) or return a negative acknowledgement if there was a
+/// problem processing or servicing the command.
+///
+/// # Encoding
+/// 
+/// This is an extension of the standard [`CdcReplyPacket`](crate::cdc::CdcReplyPacket) encoding that adds:
+/// 
+/// - An extended command opcode ([`ecmd`](ecmds)).
+/// - A packet acknowledgement code ([`Cdc2Ack`]).
+/// - A CRC16 checksum covering the entire packet (including header).
+///
+/// | Field     | Size   | Description |
+/// |-----------|--------|-------------|
+/// | `header`  | 2      | Must be [`REPLY_HEADER`]. |
+/// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds), typically [`USER_CDC`](crate::cdc::cmds::USER_CDC) (for a brain) or [`CON_CDC`](crate::cdc::cmds::CON_CDC) (for a controller). |
+/// | `size`    | 1–2    | Number of remaining bytes in the packet (starting at `ecmd` through `crc16`), encoded as a [`VarU16`]. |
+/// | `ecmd`    | 1      | A [CDC2 extended command opcode](ecmds). |
+/// | `ack`     | 1      | A [CDC2 packet acknowledgement code](Cdc2Ack). |
+/// | `payload` | n      | Encoded payload; potentially optional if a [NACK](Cdc2Ack) occurs |
+/// | `crc16`   | 2      | CRC16 checksum of the whole packet, computed with the [`VEX_CRC16`] algorithm. |
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Cdc2ReplyPacket<const CMD: u8, const EXT_CMD: u8, P: Decode> {
+pub struct Cdc2ReplyPacket<const CMD: u8, const ECMD: u8, P: Decode> {
     /// Total payload size. This includes the size taken by the ecmd, ack, and crc fields.
-    pub payload_size: u16,
+    pub size: u16,
 
     /// Payload. Only decoded if the packet is acknowledged.
     pub payload: Result<P, Cdc2Ack>,
 
     /// CRC16 calculated from the entire packet contents.
-    pub crc: u16,
+    pub crc16: u16,
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+impl<const CMD: u8, const ECMD: u8, P: Decode> Cdc2ReplyPacket<CMD, ECMD, P> {
     pub const HEADER: [u8; 2] = REPLY_HEADER;
 
     pub fn ack(&self) -> Cdc2Ack {
@@ -256,7 +322,7 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Cdc2ReplyPacket<CMD, EXT_CMD, 
     }
 }
 
-impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, EXT_CMD, P> {
+impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, ECMD, P> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         if <[u8; 2]>::decode(data)? != Self::HEADER {
             return Err(DecodeError::InvalidHeader);
@@ -271,14 +337,14 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
             });
         }
 
-        let payload_size = VarU16::decode(data)?.into_inner();
+        let size = VarU16::decode(data)?.into_inner();
 
-        let ext_cmd = u8::decode(data)?;
-        if ext_cmd != EXT_CMD {
+        let ecmd = u8::decode(data)?;
+        if ecmd != ECMD {
             return Err(DecodeError::UnexpectedByte {
                 name: "ecmd",
-                value: ext_cmd,
-                expected: &[EXT_CMD],
+                value: ECMD,
+                expected: &[ECMD],
             });
         }
 
@@ -288,12 +354,12 @@ impl<const CMD: u8, const EXT_CMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD
         } else {
             Err(ack)
         };
-        let crc = u16::decode(data)?;
+        let crc16 = u16::decode(data)?;
 
         Ok(Self {
-            payload_size,
+            size,
             payload,
-            crc,
+            crc16,
         })
     }
 }

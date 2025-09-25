@@ -25,7 +25,7 @@ use crate::{
 /// string length may be smaller than `N`, but may never exceed it.
 ///
 /// # Invariants
-/// 
+///
 /// - Contents are always valid UTF-8.
 /// - The inner string must satisfy `bytes.len() <= N`.
 /// - All bytes past the end of the string are zeroed.
@@ -38,7 +38,7 @@ impl<const N: usize> FixedString<N> {
     /// Fails if the input string is larger than the fixed capacity `N`.
     ///
     /// # Errors
-    /// 
+    ///
     /// Returns [`FixedStringSizeError`] if the string’s UTF-8 byte length
     /// exceeds `N`.
     pub fn new(s: impl AsRef<str>) -> Result<Self, FixedStringSizeError> {
@@ -61,7 +61,7 @@ impl<const N: usize> FixedString<N> {
     /// to fit into the buffer.
     ///
     /// # Safety
-    /// 
+    ///
     /// The caller must ensure that `s` is valid UTF-8 and that truncation
     /// does not violate invariants of how the string is later used.
     ///

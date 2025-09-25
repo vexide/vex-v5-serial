@@ -1,10 +1,10 @@
-use crate::{bluetooth, serial, Connection, ConnectionType};
-use futures::{try_join, TryFutureExt};
+use crate::{Connection, ConnectionType, bluetooth, serial};
+use futures::{TryFutureExt, try_join};
 use std::time::Duration;
 use thiserror::Error;
-use vex_cdc::{cdc2::Cdc2Ack, Decode, DecodeError, Encode, FixedStringSizeError};
+use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
 
-use super::{bluetooth::BluetoothError, serial::SerialError, CheckHeader};
+use super::{CheckHeader, bluetooth::BluetoothError, serial::SerialError};
 
 pub enum GenericConnection {
     Bluetooth(bluetooth::BluetoothConnection),

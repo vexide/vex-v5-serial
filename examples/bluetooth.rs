@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use rustyline::DefaultEditor;
 use vex_v5_serial::{
-    bluetooth::{self, BluetoothError},
     Connection,
+    bluetooth::{self, BluetoothError},
     protocol::cdc2::system::{DashScreen, DashSelectPacket, DashSelectPayload},
 };
 

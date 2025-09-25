@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::trim_packets;
 
-use vex_cdc::{cdc2::Cdc2Ack, Decode, DecodeError, Encode, FixedStringSizeError};
+use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
 
 use super::{CheckHeader, Connection, ConnectionType, RawPacket};
 

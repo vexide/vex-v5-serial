@@ -8,16 +8,16 @@ use alloc::{
 };
 
 use crate::{
+    Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
     cdc::cmds::USER_CDC,
     cdc2::{
+        Cdc2CommandPacket, Cdc2ReplyPacket,
         ecmds::{
             DEV_STATUS, FDT_STATUS, LOG_READ, LOG_STATUS, RADIO_STATUS, SYS_C_INFO_14,
             SYS_C_INFO_58, SYS_DASH_SEL, SYS_DASH_TOUCH, SYS_FLAGS, SYS_KV_LOAD, SYS_KV_SAVE,
             SYS_SCREEN_CAP, SYS_STATUS, SYS_USER_PROG,
         },
-        Cdc2CommandPacket, Cdc2ReplyPacket,
     },
-    Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
 };
 
 pub struct SystemFlags {
@@ -550,11 +550,7 @@ pub struct ScreenCapturePayload {
 }
 impl Encode for ScreenCapturePayload {
     fn size(&self) -> usize {
-        if self.layer.is_some() {
-            1
-        } else {
-            0
-        }
+        if self.layer.is_some() { 1 } else { 0 }
     }
 
     fn encode(&self, data: &mut [u8]) {
@@ -639,7 +635,7 @@ impl Decode for DeviceType {
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
                         29, 30, 64, 70, 71, 128, 129, 255,
                     ],
-                })
+                });
             }
         })
     }

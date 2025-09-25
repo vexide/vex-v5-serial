@@ -6,12 +6,12 @@ use alloc::{
 };
 
 use crate::{
+    Decode, DecodeError, Encode, FixedString,
     cdc::cmds::{CON_CDC, USER_CDC},
     cdc2::{
-        ecmds::{CON_COMP_CTRL, USER_READ},
         Cdc2CommandPacket, Cdc2ReplyPacket,
+        ecmds::{CON_COMP_CTRL, USER_READ},
     },
-    Decode, DecodeError, Encode, FixedString,
 };
 
 pub type UserDataPacket = Cdc2CommandPacket<USER_CDC, USER_READ, UserDataPayload>;

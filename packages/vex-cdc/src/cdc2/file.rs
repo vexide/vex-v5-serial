@@ -5,16 +5,16 @@ use core::str;
 use alloc::vec::Vec;
 
 use crate::{
-    cdc::{cmds::USER_CDC, CdcReplyPacket},
+    Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
+    cdc::{CdcReplyPacket, cmds::USER_CDC},
     cdc2::{
+        Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket,
         ecmds::{
             FILE_CLEANUP, FILE_CTRL, FILE_DIR, FILE_DIR_ENTRY, FILE_ERASE, FILE_EXIT, FILE_FORMAT,
             FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO,
             FILE_USER_STAT, FILE_WRITE,
         },
-        Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket,
     },
-    Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -105,7 +105,7 @@ pub enum ExtensionType {
     Binary = 0x0,
 
     /// A file which depends on a VM.
-    /// 
+    ///
     /// This is the file type used for VEXCode Python bin uploads, since they need the
     /// Python VM to function.
     Vm = 0x61,
@@ -125,7 +125,7 @@ impl Decode for ExtensionType {
                     name: "ExtensionType",
                     value: unknown,
                     expected: &[0x0],
-                })
+                });
             }
         })
     }
@@ -678,11 +678,7 @@ pub enum FileControlGroup {
 
 impl Encode for FileControlGroup {
     fn size(&self) -> usize {
-        if matches!(self, Self::Radio(_)) {
-            2
-        } else {
-            0
-        }
+        if matches!(self, Self::Radio(_)) { 2 } else { 0 }
     }
 
     fn encode(&self, data: &mut [u8]) {
