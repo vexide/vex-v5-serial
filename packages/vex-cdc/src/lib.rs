@@ -6,7 +6,7 @@
 //! and interact with VEX brains and other hardware over USB and bluetooth.
 //!
 //! Currently, most packets supported by the [V5 Brain] and [V5 Controller] are
-//! implemented, though the packets provided by this crate are not exhaustive.
+//! implemented, though the packets provided by this crate are non-exhaustive.
 //!
 //! [VEX Robotics]: https://www.vexrobotics.com/
 //! [V5 Brain]: https://www.vexrobotics.com/276-4810.html
