@@ -14,7 +14,7 @@ use crate::{
             FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO,
             FILE_USER_STAT, FILE_WRITE,
         },
-    },
+    }, decode::DecodeErrorKind,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -79,13 +79,13 @@ impl Decode for FileVendor {
             64 => Ok(Self::VexVm),
             240 => Ok(Self::Vex),
             241 => Ok(Self::Undefined),
-            v => Err(DecodeError::UnexpectedByte {
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "FileVendor",
                 value: v,
                 expected: &[
                     0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
                 ],
-            }),
+            })),
         }
     }
 }
@@ -121,11 +121,13 @@ impl Decode for ExtensionType {
             0x61 => Self::Vm,
             0x73 => Self::EncryptedBinary,
             unknown => {
-                return Err(DecodeError::UnexpectedByte {
-                    name: "ExtensionType",
-                    value: unknown,
-                    expected: &[0x0],
-                });
+                return Err(DecodeError::new::<Self>(
+                    DecodeErrorKind::UnexpectedByte {
+                        name: "ExtensionType",
+                        value: unknown,
+                        expected: &[0x0],
+                    }
+                ));
             }
         })
     }
@@ -157,7 +159,9 @@ impl Decode for FileMetadata {
         Ok(Self {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
-                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?)?)
+                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?).map_err(|e| {
+                    DecodeError::new::<Self>(e.into())
+                })?)
             },
             extension_type: Decode::decode(data).unwrap(),
             timestamp: i32::decode(data)?,
@@ -335,17 +339,17 @@ impl Decode for FileDataReadReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let ecmd = u8::decode(data)?;
         if ecmd != FILE_READ {
-            return Err(DecodeError::UnexpectedByte {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ecmd",
                 value: ecmd,
                 expected: &[FILE_READ],
-            });
+            }));
         }
 
         let contents = FileDataReadReplyContents::decode(
             &mut data
                 .get(..data.len() - 2)
-                .ok_or_else(|| DecodeError::UnexpectedEnd)?,
+                .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?,
         )?;
         *data = &data[data.len() - 2..];
 

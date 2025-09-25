@@ -18,6 +18,7 @@ use crate::{
             SYS_SCREEN_CAP, SYS_STATUS, SYS_USER_PROG,
         },
     },
+    decode::DecodeErrorKind,
 };
 
 pub struct SystemFlags {
@@ -104,7 +105,7 @@ impl Decode for SystemStatus {
 
         let details = match SystemDetails::decode(data) {
             Ok(details) => Some(details),
-            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) if e.kind() == DecodeErrorKind::UnexpectedEnd => None,
             Err(e) => return Err(e),
         };
 
@@ -136,7 +137,7 @@ impl Decode for SystemDetails {
         let golden_version = Version::decode(data)?;
         let nxp_version = match Version::decode(data) {
             Ok(version) => Some(version),
-            Err(DecodeError::UnexpectedEnd) => None,
+            Err(e) if e.kind() == DecodeErrorKind::UnexpectedEnd => None,
             Err(e) => return Err(e),
         };
 
@@ -628,14 +629,14 @@ impl Decode for DeviceType {
             129 => DeviceType::GenericSerial,
             255 => DeviceType::UndefinedSensor,
             _ => {
-                return Err(DecodeError::UnexpectedByte {
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                     name: "DeviceType",
                     value,
                     expected: &[
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
                         29, 30, 64, 70, 71, 128, 129, 255,
                     ],
-                });
+                }));
             }
         })
     }

@@ -14,7 +14,7 @@ use alloc::{
 };
 
 use crate::{
-    decode::{Decode, DecodeError, DecodeWithLength},
+    decode::{Decode, DecodeError, DecodeErrorKind, DecodeWithLength},
     encode::Encode,
 };
 
@@ -252,7 +252,9 @@ impl DecodeWithLength for String {
 
             if i == max_size {
                 if byte != 0 {
-                    return Err(DecodeError::UnterminatedString);
+                    return Err(DecodeError::new::<Self>(
+                        DecodeErrorKind::UnterminatedString,
+                    ));
                 }
                 break;
             }
@@ -263,9 +265,12 @@ impl DecodeWithLength for String {
             *string_byte = byte;
         }
 
-        let cstr =
-            CStr::from_bytes_until_nul(&utf8).map_err(|_| DecodeError::UnterminatedString)?;
+        let cstr = CStr::from_bytes_until_nul(&utf8)
+            .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::UnterminatedString))?;
 
-        Ok(cstr.to_str()?.to_owned())
+        Ok(cstr
+            .to_str()
+            .map_err(|e| DecodeError::new::<Self>(e.into()))?
+            .to_owned())
     }
 }

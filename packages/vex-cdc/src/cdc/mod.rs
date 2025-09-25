@@ -1,7 +1,7 @@
 //! Simple CDC packets.
 
 use crate::{
-    decode::{Decode, DecodeError},
+    decode::{Decode, DecodeError, DecodeErrorKind},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
     version::Version,
@@ -132,16 +132,16 @@ impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
 impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         if <[u8; 2]>::decode(data)? != Self::HEADER {
-            return Err(DecodeError::InvalidHeader);
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
 
         let cmd = u8::decode(data)?;
         if cmd != CMD {
-            return Err(DecodeError::UnexpectedByte {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "cmd",
                 value: cmd,
                 expected: &[CMD],
-            });
+            }));
         }
 
         let payload_size = VarU16::decode(data)?.into_inner();
@@ -221,11 +221,11 @@ impl Decode for ProductType {
         match data[1] {
             0x10 => Ok(Self::Brain),
             0x11 => Ok(Self::Controller),
-            v => Err(DecodeError::UnexpectedByte {
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
                 expected: &[0x10, 0x11],
-            }),
+            })),
         }
     }
 }
