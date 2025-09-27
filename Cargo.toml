@@ -9,7 +9,11 @@ resolver = "3"
 
 [workspace.dependencies]
 vex-v5-serial = { version = "0.4.0", path = "packages/vex-v5-serial" }
+<<<<<<< Updated upstream
 vex-cdc = { version = "0.0.4", path = "packages/vex-cdc" }
+=======
+vex-cdc = { version = "0.0.5", path = "packages/vex-cdc" }
+>>>>>>> Stashed changes
 
 [dev-dependencies]
 vex-v5-serial = { workspace = true }
