@@ -41,6 +41,14 @@ pub enum DecodeErrorKind {
         expected: &'static [u8],
     },
 
+    #[error(
+        "CRC16 checksum mismatch. Found {value:x}, expected {expected:x}."
+    )]
+    Checksum {
+        value: u16,
+        expected: u16,
+    },
+
     #[error("Packet did not have a valid header sequence.")]
     InvalidHeader,
 
