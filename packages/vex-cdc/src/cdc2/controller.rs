@@ -52,8 +52,8 @@ pub struct UserDataReplyPayload {
 }
 impl Decode for UserDataReplyPayload {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let data_len = data.len().saturating_sub(5);
         let channel = u8::decode(data)?;
+        let data_len = data.len();
 
         let read = if data_len > 0 {
             Some({

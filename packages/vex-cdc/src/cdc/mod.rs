@@ -144,8 +144,14 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
             }));
         }
 
+        
         let payload_size = VarU16::decode(data)?.into_inner();
-        let payload = P::decode(data)?;
+        let mut payload_data = data
+            .get(0..(payload_size as usize))
+            .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
+        *data = &data[(payload_size as usize)..];
+
+        let payload = P::decode(&mut payload_data)?;
 
         Ok(Self {
             size: payload_size,

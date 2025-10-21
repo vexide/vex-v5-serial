@@ -342,7 +342,7 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, E
         let payload_size = VarU16::decode(data)?;
         let payload_size_size = payload_size.size() as usize;
         let payload_size = payload_size.into_inner();
-        
+
         // Calculate the crc16 from the start of the packet up to the crc bytes.
         //
         // `payload_size` gives us the size of the payload including the CRC, and ecmd,
@@ -362,13 +362,18 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, E
         }
 
         let ack = Cdc2Ack::decode(data)?;
+        let mut payload_data = data
+            .get(0..(payload_size as usize) - 4)
+            .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
+
+        *data = &data[(payload_size as usize) - 4..];
         let payload = if ack == Cdc2Ack::Ack {
-            Ok(P::decode(data)?)
+            Ok(P::decode(&mut payload_data)?)
         } else {
             Err(ack)
         };
-        let crc16 = u16::decode(data)?;
 
+        let crc16 = u16::decode(data)?;
         if crc16 != expected_crc16 {
             return Err(DecodeError::new::<Self>(DecodeErrorKind::Checksum {
                 value: crc16,

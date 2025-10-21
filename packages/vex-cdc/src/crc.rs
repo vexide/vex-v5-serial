@@ -19,7 +19,6 @@ pub const VEX_CRC32: Crc<u32> = Crc::<u32>::new(&crc::Algorithm {
     width: 32,
 });
 
-
 #[inline]
 pub(crate) fn crc16<T>(buf: Option<&[u8]>) -> Result<u16, DecodeError> {
     Ok(VEX_CRC16
