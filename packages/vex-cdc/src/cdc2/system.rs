@@ -750,9 +750,9 @@ pub struct RadioStatus {
     pub quality: u16,
     /// Probably RSSI (UNCONFIRMED)
     pub strength: i16,
-    /// 5 = download, 31 = pit, 245 = bluetooth, 9 = reconnecting? 36 = ???, 17 = ???
+    /// 5 = download, 245 = bluetooth, 9 = reconnecting, anything else is generally a pit channel (there are a bunch)
     pub channel: u8,
-    /// Latency between controller and brain (UNCONFIRMED)
+    /// TDMA frame timeslot.
     pub timeslot: u8,
 }
 impl Decode for RadioStatus {
