@@ -39,7 +39,7 @@ async fn main() -> Result<(), SerialError> {
         .await?;
 
     match response.payload.product_type {
-        ProductType::Brain => {
+        ProductType::V5Brain | ProductType::ExpBrain => {
             error!("You must be connected to the Brain over controller to use field control");
             return Ok(());
         }
