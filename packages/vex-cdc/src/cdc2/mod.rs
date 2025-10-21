@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::{
     COMMAND_HEADER, REPLY_HEADER,
-    crc::VEX_CRC16,
+    crc::{VEX_CRC16, crc16},
     decode::{Decode, DecodeError, DecodeErrorKind},
     encode::{Encode, MessageEncoder},
     varint::VarU16,
@@ -82,7 +82,7 @@ pub mod ecmds {
 }
 
 /// CDC2 Packet Acknowledgement Codes
-/// 
+///
 /// Encoded as part of a [`Cdc2ReplyPacket`], this type sends either an acknowledgement ([`Cdc2Ack::Ack`])
 /// indicating that the command was successful or negative-acknowledgement ("NACK") if the command
 /// failed in some way.
@@ -185,16 +185,14 @@ impl Decode for Cdc2Ack {
             0xDC => Ok(Self::NackFileStorageFull),
             0x00 => Ok(Self::Timeout),
             0x01 => Ok(Self::WriteError),
-            v => Err(DecodeError::new::<Self>(
-                DecodeErrorKind::UnexpectedByte {
-                    name: "Cdc2Ack",
-                    value: v,
-                    expected: &[
-                        0x76, 0xFF, 0xCE, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9,
-                        0xDA, 0xDB, 0xDC, 0x00, 0x01,
-                    ],
-                }
-            )),
+            v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
+                name: "Cdc2Ack",
+                value: v,
+                expected: &[
+                    0x76, 0xFF, 0xCE, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9,
+                    0xDA, 0xDB, 0xDC, 0x00, 0x01,
+                ],
+            })),
         }
     }
 }
@@ -207,14 +205,14 @@ impl Decode for Cdc2Ack {
 /// All CDC2 commands have a corresponding [`Cdc2ReplyPacket`] from the device, even if the reply contains no
 /// payload. For example, a [`SystemFlagsPacket`] command corresponds to a [`SystemFlagsReplyPacket`] reply.
 /// See [`Cdc2ReplyPacket`] for more info on packet acknowledgement.
-/// 
+///
 /// [`SystemFlagsPacket`]: system::SystemFlagsPacket
 /// [`SystemFlagsReplyPacket`]: system::SystemFlagsReplyPacket
 ///
 /// # Encoding
-/// 
+///
 /// This is an extension of the standard [`CdcCommandPacket`](crate::cdc::CdcCommandPacket) encoding that adds:
-/// 
+///
 /// - An extended command opcode ([`ecmd`](ecmds)).
 /// - A CRC16 checksum covering the entire packet (including header).
 ///
@@ -279,18 +277,18 @@ impl<const CMD: u8, const ECMD: u8, P: Encode> Encode for Cdc2CommandPacket<CMD,
 ///
 /// All CDC2 replies are sent in response to a corresponding [`Cdc2CommandPacket`] from the host. For example,
 /// a [`SystemFlagsPacket`] command corresponds to a [`SystemFlagsReplyPacket`] reply.
-/// 
+///
 /// [`SystemFlagsPacket`]: system::SystemFlagsPacket
 /// [`SystemFlagsReplyPacket`]: system::SystemFlagsReplyPacket
-/// 
+///
 /// Reply packets encode an *acknowledgement code* in the form of a [`Cdc2Ack`], which will either acknowledge
 /// the command as valid and successful ([`Cdc2Ack::Ack`]) or return a negative acknowledgement if there was a
 /// problem processing or servicing the command.
 ///
 /// # Encoding
-/// 
+///
 /// This is an extension of the standard [`CdcReplyPacket`](crate::cdc::CdcReplyPacket) encoding that adds:
-/// 
+///
 /// - An extended command opcode ([`ecmd`](ecmds)).
 /// - A packet acknowledgement code ([`Cdc2Ack`]).
 /// - A CRC16 checksum covering the entire packet (including header).
@@ -326,6 +324,8 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> Cdc2ReplyPacket<CMD, ECMD, P> {
 
 impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, ECMD, P> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let original_data = *data;
+
         if <[u8; 2]>::decode(data)? != Self::HEADER {
             return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
         }
@@ -339,13 +339,24 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, E
             }));
         }
 
-        let size = VarU16::decode(data)?.into_inner();
+        let payload_size = VarU16::decode(data)?;
+        let payload_size_size = payload_size.size() as usize;
+        let payload_size = payload_size.into_inner();
+        
+        // Calculate the crc16 from the start of the packet up to the crc bytes.
+        //
+        // `payload_size` gives us the size of the payload including the CRC, and ecmd,
+        // so the checksum range is effectively:
+        // sizeof(header) + sizeof(cmd) + sizeof(payload_size) + payload_size - 2
+        // which is 2 + 1 + (either 2 or 1) + payload_size - 2
+        let expected_crc16 =
+            crc16::<Self>(original_data.get(0..((payload_size as usize) + payload_size_size + 1)))?;
 
         let ecmd = u8::decode(data)?;
         if ecmd != ECMD {
             return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ecmd",
-                value: ECMD,
+                value: ecmd,
                 expected: &[ECMD],
             }));
         }
@@ -358,8 +369,15 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, E
         };
         let crc16 = u16::decode(data)?;
 
+        if crc16 != expected_crc16 {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::Checksum {
+                value: crc16,
+                expected: expected_crc16,
+            }));
+        }
+
         Ok(Self {
-            size,
+            size: payload_size,
             payload,
             crc16,
         })
