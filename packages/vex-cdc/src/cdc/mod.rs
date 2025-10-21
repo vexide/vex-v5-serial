@@ -145,7 +145,12 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
         }
 
         let payload_size = VarU16::decode(data)?.into_inner();
-        let payload = P::decode(data)?;
+        let mut payload_data = data
+            .get(0..(payload_size as usize))
+            .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
+        *data = &data[(payload_size as usize)..];
+
+        let payload = P::decode(&mut payload_data)?;
 
         Ok(Self {
             size: payload_size,
@@ -211,7 +216,8 @@ impl Decode for Query1ReplyPayload {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProductType {
-    Brain = 0x10,
+    V5Brain = 0x10,
+    ExpBrain = 0x60,
     Controller = 0x11,
 }
 impl Decode for ProductType {
@@ -219,12 +225,13 @@ impl Decode for ProductType {
         let data = <[u8; 2]>::decode(data)?;
 
         match data[1] {
-            0x10 => Ok(Self::Brain),
+            0x10 => Ok(Self::V5Brain),
+            0x60 => Ok(Self::ExpBrain),
             0x11 => Ok(Self::Controller),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
-                expected: &[0x10, 0x11],
+                expected: &[0x10, 0x11, 0x60],
             })),
         }
     }

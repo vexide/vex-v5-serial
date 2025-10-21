@@ -14,7 +14,8 @@ use crate::{
             FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO,
             FILE_USER_STAT, FILE_WRITE,
         },
-    }, decode::DecodeErrorKind,
+    },
+    decode::DecodeErrorKind,
 };
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -121,13 +122,11 @@ impl Decode for ExtensionType {
             0x61 => Self::Vm,
             0x73 => Self::EncryptedBinary,
             unknown => {
-                return Err(DecodeError::new::<Self>(
-                    DecodeErrorKind::UnexpectedByte {
-                        name: "ExtensionType",
-                        value: unknown,
-                        expected: &[0x0],
-                    }
-                ));
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
+                    name: "ExtensionType",
+                    value: unknown,
+                    expected: &[0x0],
+                }));
             }
         })
     }
@@ -159,9 +158,10 @@ impl Decode for FileMetadata {
         Ok(Self {
             // SAFETY: length is guaranteed to be less than 4.
             extension: unsafe {
-                FixedString::new_unchecked(str::from_utf8(&<[u8; 3]>::decode(data)?).map_err(|e| {
-                    DecodeError::new::<Self>(e.into())
-                })?)
+                FixedString::new_unchecked(
+                    str::from_utf8(&<[u8; 3]>::decode(data)?)
+                        .map_err(|e| DecodeError::new::<Self>(e.into()))?,
+                )
             },
             extension_type: Decode::decode(data).unwrap(),
             timestamp: i32::decode(data)?,
@@ -414,7 +414,7 @@ impl Encode for DirectoryFileCountPayload {
 
 pub type DirectoryEntryPacket = Cdc2CommandPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryPayload>;
 pub type DirectoryEntryReplyPacket =
-    Cdc2ReplyPacket<USER_CDC, FILE_DIR_ENTRY, Option<DirectoryEntryReplyPayload>>;
+    Cdc2ReplyPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryReplyPayload>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DirectoryEntryPayload {
@@ -443,16 +443,6 @@ pub struct DirectoryEntryReplyPayload {
 
     pub metadata: Option<FileMetadata>,
     pub file_name: FixedString<23>,
-}
-
-impl Decode for Option<DirectoryEntryReplyPayload> {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        Ok(if data.len() == 3 {
-            None
-        } else {
-            Some(Decode::decode(data)?)
-        })
-    }
 }
 
 impl Decode for DirectoryEntryReplyPayload {

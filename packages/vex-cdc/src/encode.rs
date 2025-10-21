@@ -5,7 +5,7 @@
 /// manually tracking offsets.
 ///
 /// # Example
-/// 
+///
 /// ```
 /// let mut buf = [0u8; 16];
 /// let mut enc = MessageEncoder::new(&mut buf);

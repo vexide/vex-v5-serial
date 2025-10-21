@@ -48,10 +48,7 @@ impl<const CMD: u8, const ECMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<C
             return false;
         }
 
-        if u8::decode(data)
-            .map(|ecmd| ecmd != ECMD)
-            .unwrap_or(true)
-        {
+        if u8::decode(data).map(|ecmd| ecmd != ECMD).unwrap_or(true) {
             return false;
         }
 
