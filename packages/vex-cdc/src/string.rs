@@ -183,7 +183,7 @@ impl<const N: usize> Encode for FixedString<N> {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        let data_len = self.0.len();
+        let data_len = self.len();
 
         data[..data_len].copy_from_slice(self.as_bytes());
         data[data_len + 1] = 0; // Null terminator
