@@ -11,10 +11,12 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16, cdc2::{
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER,
+    VarU16,
+    cdc2::{
         Cdc2Ack,
         controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
-    }
+    },
 };
 
 use crate::{CheckHeader, Connection, ConnectionType, RawPacket, trim_packets};
