@@ -1,7 +1,7 @@
 use std::{
     io::Write,
     str::FromStr,
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use flate2::{Compression, GzBuilder};
@@ -24,14 +24,15 @@ use vex_cdc::{
 use super::Command;
 
 /// The epoch of the serial protocol's timestamps.
-pub const J2000_EPOCH: u32 = 946684800;
+pub const J2000_EPOCH: u64 = 946684800;
 
 pub fn j2000_timestamp() -> i32 {
-    (SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
+    let unix_timestamp_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
-        .as_millis()
-        - J2000_EPOCH as u128) as i32
+        .as_secs();
+
+    (unix_timestamp_secs - J2000_EPOCH) as i32
 }
 
 pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
