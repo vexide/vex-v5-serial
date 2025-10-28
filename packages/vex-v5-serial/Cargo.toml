@@ -1,6 +1,6 @@
 [package]
 name = "vex-v5-serial"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 license = "MIT"
 description = "A library for communicating with VEX V5 Brains."
