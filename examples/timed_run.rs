@@ -43,7 +43,7 @@ async fn main() -> Result<(), SerialError> {
             error!("You must be connected to the Brain over controller to use field control");
             return Ok(());
         }
-        ProductType::Controller => {}
+        _ => {}
     }
 
     info!("Setting match mode to auto");
