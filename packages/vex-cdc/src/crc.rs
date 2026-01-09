@@ -20,7 +20,7 @@ pub const VEX_CRC32: Crc<u32> = Crc::<u32>::new(&crc::Algorithm {
 });
 
 #[inline]
-pub(crate) fn crc16<T>(buf: Option<&[u8]>) -> Result<u16, DecodeError> {
+pub(crate) fn decode_crc16<T>(buf: Option<&[u8]>) -> Result<u16, DecodeError> {
     Ok(VEX_CRC16
         .checksum(buf.ok_or_else(|| DecodeError::new::<T>(DecodeErrorKind::UnexpectedEnd))?)
         .to_be())

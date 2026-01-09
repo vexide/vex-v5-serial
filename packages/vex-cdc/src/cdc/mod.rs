@@ -2,7 +2,7 @@
 
 use crate::{
     decode::{Decode, DecodeError, DecodeErrorKind},
-    encode::{Encode},
+    encode::Encode,
     varint::VarU16,
     version::Version,
 };
@@ -84,7 +84,7 @@ pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<()
     if <[u8; 2]>::decode(data)? != R::HEADER {
         return Err(DecodeError::new::<R>(DecodeErrorKind::InvalidHeader));
     }
-    
+
     let cmd = u8::decode(data)?;
     if cmd != R::CMD {
         return Err(DecodeError::new::<R>(DecodeErrorKind::UnexpectedByte {
@@ -93,9 +93,11 @@ pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<()
             expected: &[R::CMD],
         }));
     }
-    
+
     let payload_size = VarU16::decode(data)?.into_inner();
-    *data = &data[(payload_size as usize)..];
+    *data = data
+        .get((payload_size as usize)..)
+        .ok_or_else(|| DecodeError::new::<R>(DecodeErrorKind::UnexpectedEnd))?;
 
     Ok(())
 }
@@ -251,23 +253,25 @@ impl Decode for ProductType {
         let data = <[u8; 2]>::decode(data)?;
 
         match data[1] {
-            0x10 => Ok(Self:: V5Brain),
-            0x11 => Ok(Self:: V5Controller),
-            0x14 => Ok(Self:: V5EventBrain),
-            0x16 => Ok(Self:: ExpBrainVariant),
-            0x17 => Ok(Self:: ExpControllerVariant),
-            0x18 => Ok(Self:: GpsSensor),
-            0x20 => Ok(Self:: Iq2Brain),
-            0x21 => Ok(Self:: Iq2Controller),
-            0x60 => Ok(Self:: ExpBrain),
-            0x61 => Ok(Self:: ExpController),
-            0x70 => Ok(Self:: Aim),
-            0x80 => Ok(Self:: AiVision),
-            0x90 => Ok(Self:: CteWorkcellArm),
+            0x10 => Ok(Self::V5Brain),
+            0x11 => Ok(Self::V5Controller),
+            0x14 => Ok(Self::V5EventBrain),
+            0x16 => Ok(Self::ExpBrainVariant),
+            0x17 => Ok(Self::ExpControllerVariant),
+            0x18 => Ok(Self::GpsSensor),
+            0x20 => Ok(Self::Iq2Brain),
+            0x21 => Ok(Self::Iq2Controller),
+            0x60 => Ok(Self::ExpBrain),
+            0x61 => Ok(Self::ExpController),
+            0x70 => Ok(Self::Aim),
+            0x80 => Ok(Self::AiVision),
+            0x90 => Ok(Self::CteWorkcellArm),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
-                expected: &[0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90],
+                expected: &[
+                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90,
+                ],
             })),
         }
     }

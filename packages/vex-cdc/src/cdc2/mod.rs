@@ -4,11 +4,10 @@ use core::fmt::Debug;
 use thiserror::Error;
 
 use crate::{
-    COMMAND_HEADER, REPLY_HEADER,
     cdc::{CdcCommand, CdcReply},
-    crc::{VEX_CRC16, crc16},
+    crc::{VEX_CRC16, decode_crc16},
     decode::{Decode, DecodeError, DecodeErrorKind},
-    encode::{Encode, MessageEncoder},
+    encode::{Encode},
     varint::VarU16,
 };
 
@@ -48,6 +47,47 @@ pub trait Cdc2Command: CdcCommand {
     const ECMD: u8;
 }
 
+pub(crate) fn cdc2_command_size(payload_size: usize) -> usize {
+    let frame_size = 8 + if payload_size > (u8::MAX >> 1) as _ {
+        2
+    } else {
+        1
+    };
+
+    frame_size + payload_size
+}
+
+pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
+    packet: &C,
+    data: &mut [u8],
+    payload_fn: impl FnOnce(&mut [u8]) -> Result<(), DecodeError>,
+) -> Result<(), DecodeError> {
+    C::HEADER.encode(data);
+    data[4] = C::CMD;
+    data[5] = C::ECMD;
+
+    let command_size = packet.size();
+    let frame_size = 8 + if (command_size - 6) > ((u8::MAX >> 1) as usize) {
+        2
+    } else {
+        1
+    };
+    let payload_size = command_size - frame_size;
+
+    VarU16::new(payload_size as u16).encode(data);
+
+    // Encode payload
+    payload_fn(&mut data[(frame_size - 2)..(command_size - 2)])?;
+
+    // The CRC16 checksum is of the whole encoded packet, meaning we need
+    // to also include the header bytes.
+    VEX_CRC16
+        .checksum(&data[0..(command_size - 2)])
+        .encode(&mut data[(command_size - 2)..]);
+
+    Ok(())
+}
+
 /// CDC2 (Extended) Reply Packet
 ///
 /// This type decodes a device-to-host reply packet used in the extended CDC2 protocol. The payload type `P` must
@@ -82,6 +122,69 @@ pub trait Cdc2Command: CdcCommand {
 /// | `crc16`   | 2      | CRC16 checksum of the whole packet, computed with the [`VEX_CRC16`] algorithm. |
 pub trait Cdc2Reply: CdcReply {
     const ECMD: u8;
+}
+
+pub(crate) fn decode_cdc2_reply<R: Cdc2Reply, P: Decode>(
+    data: &mut &[u8],
+) -> Result<Result<P, Cdc2Ack>, DecodeError> {
+    let original_data = *data;
+
+    if <[u8; 2]>::decode(data)? != R::HEADER {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::InvalidHeader));
+    }
+
+    let cmd = u8::decode(data)?;
+    if cmd != R::CMD {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::UnexpectedByte {
+            name: "cmd",
+            value: cmd,
+            expected: &[R::CMD],
+        }));
+    }
+
+    let payload_size = VarU16::decode(data)?;
+    let payload_size_size = payload_size.size() as usize;
+    let payload_size = payload_size.into_inner();
+
+    // Calculate the crc16 from the start of the packet up to the crc bytes.
+    //
+    // `payload_size` gives us the size of the payload including the CRC, and ecmd,
+    // so the checksum range is effectively:
+    // sizeof(header) + sizeof(cmd) + sizeof(payload_size) + payload_size - 2
+    // which is 2 + 1 + (either 2 or 1) + payload_size - 2
+    let expected_crc16 =
+        decode_crc16::<R>(original_data.get(0..((payload_size as usize) + payload_size_size + 1)))?;
+
+    let ecmd = u8::decode(data)?;
+    if ecmd != R::ECMD {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::UnexpectedByte {
+            name: "ecmd",
+            value: ecmd,
+            expected: &[R::ECMD],
+        }));
+    }
+
+    let ack = Cdc2Ack::decode(data)?;
+    let mut payload_data = data
+        .get(0..(payload_size as usize) - 4)
+        .ok_or_else(|| DecodeError::new::<R>(DecodeErrorKind::UnexpectedEnd))?;
+
+    *data = &data[(payload_size as usize) - 4..];
+    let payload = if ack == Cdc2Ack::Ack {
+        Ok(P::decode(&mut payload_data)?)
+    } else {
+        Err(ack)
+    };
+
+    let crc16 = u16::decode(data)?;
+    if crc16 != expected_crc16 {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::Checksum {
+            value: crc16,
+            expected: expected_crc16,
+        }));
+    }
+
+    Ok(payload)
 }
 
 /// CDC2 packet opcodes.
@@ -264,99 +367,3 @@ impl Decode for Cdc2Ack {
         }
     }
 }
-
-// impl<const CMD: u8, const ECMD: u8, P: Encode> Encode for Cdc2CommandPacket<CMD, ECMD, P> {
-//     fn size(&self) -> usize {
-//         let payload_size = self.payload.size();
-
-//         8 + if payload_size > (u8::MAX >> 1) as _ {
-//             2
-//         } else {
-//             1
-//         } + payload_size
-//     }
-
-//     fn encode(&self, data: &mut [u8]) {
-//         Self::HEADER.encode(data);
-//         data[4] = CMD;
-//         data[5] = ECMD;
-
-//         let mut enc = MessageEncoder::new_with_position(data, 6);
-
-//         // Push the payload size and encoded bytes
-//         enc.write(&VarU16::new(self.payload.size() as u16));
-//         enc.write(&self.payload);
-
-//         // The CRC16 checksum is of the whole encoded packet, meaning we need
-//         // to also include the header bytes.
-//         let crc16 = VEX_CRC16.checksum(&enc.get_ref()[0..enc.position()]);
-//         enc.write(&crc16.to_be_bytes());
-//     }
-// }
-
-// impl<const CMD: u8, const ECMD: u8, P: Decode> Decode for Cdc2ReplyPacket<CMD, ECMD, P> {
-//     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-//         let original_data = *data;
-
-//         if <[u8; 2]>::decode(data)? != Self::HEADER {
-//             return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
-//         }
-
-//         let cmd = u8::decode(data)?;
-//         if cmd != CMD {
-//             return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
-//                 name: "cmd",
-//                 value: cmd,
-//                 expected: &[CMD],
-//             }));
-//         }
-
-//         let payload_size = VarU16::decode(data)?;
-//         let payload_size_size = payload_size.size() as usize;
-//         let payload_size = payload_size.into_inner();
-
-//         // Calculate the crc16 from the start of the packet up to the crc bytes.
-//         //
-//         // `payload_size` gives us the size of the payload including the CRC, and ecmd,
-//         // so the checksum range is effectively:
-//         // sizeof(header) + sizeof(cmd) + sizeof(payload_size) + payload_size - 2
-//         // which is 2 + 1 + (either 2 or 1) + payload_size - 2
-//         let expected_crc16 =
-//             crc16::<Self>(original_data.get(0..((payload_size as usize) + payload_size_size + 1)))?;
-
-//         let ecmd = u8::decode(data)?;
-//         if ecmd != ECMD {
-//             return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
-//                 name: "ecmd",
-//                 value: ecmd,
-//                 expected: &[ECMD],
-//             }));
-//         }
-
-//         let ack = Cdc2Ack::decode(data)?;
-//         let mut payload_data = data
-//             .get(0..(payload_size as usize) - 4)
-//             .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
-
-//         *data = &data[(payload_size as usize) - 4..];
-//         let payload = if ack == Cdc2Ack::Ack {
-//             Ok(P::decode(&mut payload_data)?)
-//         } else {
-//             Err(ack)
-//         };
-
-//         let crc16 = u16::decode(data)?;
-//         if crc16 != expected_crc16 {
-//             return Err(DecodeError::new::<Self>(DecodeErrorKind::Checksum {
-//                 value: crc16,
-//                 expected: expected_crc16,
-//             }));
-//         }
-
-//         Ok(Self {
-//             size: payload_size,
-//             payload,
-//             crc16,
-//         })
-//     }
-// }
