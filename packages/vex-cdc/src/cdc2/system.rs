@@ -743,21 +743,57 @@ pub type FdtStatusPacket = Cdc2CommandPacket<USER_CDC, FDT_STATUS, ()>;
 pub type FdtStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, FDT_STATUS, FdtStatus>;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ConnectionDeviceType {
+    NoConnection = 0,
+    V5ControllerBluetooth = 2,
+    V5ControllerVEXNet = 4,
+    //speculated
+    EXPControllerBluetooth = 6,
+    //On a brain, a computer. On a controller, a brain.
+    Host = 7,
+}
+impl Decode for ConnectionDeviceType {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let value = u8::decode(data)?;
+        Ok(match value {
+            0 => ConnectionDeviceType::NoConnection,
+            2 => ConnectionDeviceType::V5ControllerBluetooth,
+            4 => ConnectionDeviceType::V5ControllerVEXNet,
+            6 => ConnectionDeviceType::EXPControllerBluetooth,
+            7 => ConnectionDeviceType::Host,
+            _ => {
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
+                    name: "DeviceType",
+                    value,
+                    expected: &[
+                        0,2,4,6,7,
+                    ],
+                }));
+            }
+        })
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct RadioStatus {
     /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
-    pub device: u8,
+    pub device: ConnectionDeviceType,
     /// From 0 to 100
     pub quality: u16,
     /// Probably RSSI (UNCONFIRMED)
     pub strength: i16,
-    /// 5 = download, 245 = bluetooth, 9 = reconnecting, anything else is generally a pit channel (there are a bunch)
+    /// Vexnet3: 5 = download, 9 = reconnecting, anything lower than 53 is pit, else comp (there are a bunch)
+    /// Bluetooth: MTU (typically around 240-250)
     pub channel: u8,
-    /// TDMA frame timeslot.
+    /// Vexnet3: TDMA frame timeslot.
+    /// Bluetooth: INT
     pub timeslot: u8,
 }
 impl Decode for RadioStatus {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let device = u8::decode(data)?;
+        let device = ConnectionDeviceType::decode(data)?;
         let quality = u16::decode(data)?;
         let strength = i16::decode(data)?;
         let channel = u8::decode(data)?;

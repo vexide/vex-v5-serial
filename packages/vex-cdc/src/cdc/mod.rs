@@ -216,9 +216,28 @@ impl Decode for Query1ReplyPayload {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProductType {
+    /* V5 */
     V5Brain = 0x10,
-    ExpBrain = 0x60,
     Controller = 0x11,
+    V5EBrain = 0x14, //field controller
+    /* Unobserved EXP Variant? */
+    ExPBrainVariant = 0x16,
+    ExPControllerVariant = 0x17,
+
+    GpsSensor = 0x18,
+
+    /* IQ2 */
+    IQ2Brain = 0x20,
+    IQ2Controller = 0x21,
+
+    /* Normal EXP */
+    ExpBrain = 0x60,
+    ExpController = 0x61,
+
+    AIM = 0x70,
+    
+    AIVision = 0x80,
+    WorkcellArm = 0x90,
 }
 impl Decode for ProductType {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
