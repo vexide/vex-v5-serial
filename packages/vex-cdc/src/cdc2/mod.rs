@@ -60,8 +60,8 @@ pub(crate) fn cdc2_command_size(payload_size: usize) -> usize {
 pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
     packet: &C,
     data: &mut [u8],
-    payload_fn: impl FnOnce(&mut [u8]) -> Result<(), DecodeError>,
-) -> Result<(), DecodeError> {
+    payload_fn: impl FnOnce(&mut [u8]),
+) {
     C::HEADER.encode(data);
     data[4] = C::CMD;
     data[5] = C::ECMD;
@@ -77,15 +77,13 @@ pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
     VarU16::new(payload_size as u16).encode(data);
 
     // Encode payload
-    payload_fn(&mut data[(frame_size - 2)..(command_size - 2)])?;
+    payload_fn(&mut data[(frame_size - 2)..(command_size - 2)]);
 
     // The CRC16 checksum is of the whole encoded packet, meaning we need
     // to also include the header bytes.
     VEX_CRC16
         .checksum(&data[0..(command_size - 2)])
         .encode(&mut data[(command_size - 2)..]);
-
-    Ok(())
 }
 
 /// CDC2 (Extended) Reply Packet

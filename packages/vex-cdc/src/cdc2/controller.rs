@@ -7,50 +7,60 @@ use alloc::{
 
 use crate::{
     Decode, DecodeError, Encode, FixedString,
-    cdc::cmds::{CON_CDC, USER_CDC},
+    cdc::{CdcCommand, CdcReply, cmds},
     cdc2::{
-        Cdc2CommandPacket, Cdc2ReplyPacket,
-        ecmds::{CON_COMP_CTRL, USER_READ},
+        Cdc2Ack, Cdc2Command, Cdc2Reply, cdc2_command_size, decode_cdc2_reply, ecmds,
+        frame_cdc2_command,
     },
 };
 
-pub type UserDataPacket = Cdc2CommandPacket<USER_CDC, USER_READ, UserDataPayload>;
-pub type UserDataReplyPacket = Cdc2ReplyPacket<USER_CDC, USER_READ, UserDataReplyPayload>;
+// MARK: UserDataPacket
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UserDataPayload {
+pub struct UserDataPacket {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,
 
     /// Write (stdin) bytes.
     pub write: Option<FixedString<224>>,
 }
-impl Encode for UserDataPayload {
+impl Encode for UserDataPacket {
     fn size(&self) -> usize {
-        2 + self.write.as_ref().map(|write| write.size()).unwrap_or(0)
+        cdc2_command_size(2 + self.write.as_ref().map(|write| write.size()).unwrap_or(0))
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.channel;
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.channel;
 
-        if let Some(write) = &self.write {
-            data[1] = write.size() as u8;
-            write.encode(&mut data[2..]);
-        } else {
-            data[1] = 0;
-        }
+            if let Some(write) = &self.write {
+                data[1] = write.size() as u8;
+                write.encode(&mut data[2..]);
+            } else {
+                data[1] = 0;
+            }
+        })
     }
 }
 
+impl CdcCommand for UserDataPacket {
+    const CMD: u8 = cmds::USER_CDC;
+    type Reply = Result<UserDataReplyPacket, Cdc2Ack>;
+}
+
+impl Cdc2Command for UserDataPacket {
+    const ECMD: u8 = ecmds::USER_READ;
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct UserDataReplyPayload {
+pub struct UserDataReplyPacket {
     /// stdio channel is 1, other channels unknown.
     pub channel: u8,
 
     /// Bytes read from stdout.
     pub data: Option<String>,
 }
-impl Decode for UserDataReplyPayload {
+impl Decode for UserDataReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let channel = u8::decode(data)?;
         let data_len = data.len();
@@ -84,31 +94,79 @@ impl Decode for UserDataReplyPayload {
     }
 }
 
-pub type CompetitionControlPacket =
-    Cdc2CommandPacket<CON_CDC, CON_COMP_CTRL, CompetitionControlPayload>;
-pub type CompetitionControlReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_COMP_CTRL, ()>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum MatchMode {
-    Driver = 8,
-    Auto = 10,
-    Disabled = 11,
+impl Decode for Result<UserDataReplyPacket, Cdc2Ack> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        decode_cdc2_reply::<Self, UserDataReplyPacket>(data)
+    }
 }
 
+impl CdcReply for Result<UserDataReplyPacket, Cdc2Ack> {
+    const CMD: u8 = cmds::USER_CDC;
+    type Command = UserDataPacket;
+}
+
+impl Cdc2Reply for Result<UserDataReplyPacket, Cdc2Ack> {
+    const ECMD: u8 = ecmds::USER_READ;
+}
+
+// MARK: CompetitionControlPacket
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CompetitionControlPayload {
-    pub match_mode: MatchMode,
+pub struct CompetitionControlPacket {
+    pub mode: CompetitionMode,
+
     /// Time in seconds that should be displayed on the controller
-    pub match_time: u32,
+    pub time: u32,
 }
-impl Encode for CompetitionControlPayload {
+
+impl Encode for CompetitionControlPacket {
     fn size(&self) -> usize {
-        5
+        cdc2_command_size(5)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.match_mode as u8;
-        self.match_time.encode(&mut data[1..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.mode as u8;
+            self.time.encode(&mut data[1..]);
+        })
     }
+}
+
+impl CdcCommand for CompetitionControlPacket {
+    type Reply = Result<CompetitionControlReplyPacket, Cdc2Ack>;
+    const CMD: u8 = cmds::CON_CDC;
+}
+impl Cdc2Command for CompetitionControlPacket {
+    const ECMD: u8 = ecmds::CON_COMP_CTRL;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompetitionControlReplyPacket {}
+
+impl Decode for CompetitionControlReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+impl Decode for Result<CompetitionControlReplyPacket, Cdc2Ack> {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        decode_cdc2_reply::<Self, CompetitionControlReplyPacket>(data)
+    }
+}
+
+impl CdcReply for Result<CompetitionControlReplyPacket, Cdc2Ack> {
+    const CMD: u8 = cmds::CON_CDC;
+    type Command = CompetitionControlPacket;
+}
+impl Cdc2Reply for Result<CompetitionControlReplyPacket, Cdc2Ack> {
+    const ECMD: u8 = ecmds::CON_COMP_CTRL;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CompetitionMode {
+    Driver = 8,
+    Auto = 10,
+    Disabled = 11,
 }
