@@ -15,12 +15,15 @@ use bitflags::bitflags;
 /// These are the byte values identifying the different CDC commands.
 /// This module is non-exhaustive.
 pub mod cmds {
-    pub const ACK: u8 = 0x33;
     pub const QUERY_1: u8 = 0x21;
+    pub const EEPROM_ERASE: u8 = 0x31;
+    pub const ACK: u8 = 0x33;
+    pub const BRAIN_NAME_GET: u8 = 0x44;
+    pub const CON_RUMBLE: u8 = 0x47;
+    pub const CON_DASHBOARD_VIEW: u8 = 0x50;
     pub const USER_CDC: u8 = 0x56;
     pub const CON_CDC: u8 = 0x58;
-    pub const SYSTEM_VERSION: u8 = 0xA4;
-    pub const EEPROM_ERASE: u8 = 0x31;
+    pub const PARTNER_CON_CDC: u8 = 0x59; //user inter-controller. Unclear if valid outside.
     pub const USER_ENTER: u8 = 0x60;
     pub const USER_CATALOG: u8 = 0x61;
     pub const FLASH_ERASE: u8 = 0x63;
@@ -32,7 +35,14 @@ pub mod cmds {
     pub const COMPONENT_GET: u8 = 0x69;
     pub const USER_SLOT_GET: u8 = 0x78;
     pub const USER_SLOT_SET: u8 = 0x79;
-    pub const BRAIN_NAME_GET: u8 = 0x44;
+    pub const CON_RADIO_RESET: u8 = 0x90;
+    pub const CON_RADIO_PORT_RX: u8 = 0x91;
+    pub const CON_RADIO_TYPE: u8 = 0x92; //identical functionality to ecmd 0x42
+    pub const SYSTEM_VERSION: u8 = 0xA4;
+    pub const CON_RADIO_CONFIGURE: u8 = 0x9B; //set loc/remote SSNs, boot w/ JS/USR/DAT
+    pub const CON_RADIO_PORT_TX: u8 = 0xB0; //16 byte only
+    pub const CON_RADIO_PATCH_FW_BUF: u8 = 0xB2;
+    pub const CON_RADIO_FULL_FW_BUF: u8 = 0xB3;
 }
 
 /// Starting byte sequence for all device-bound CDC packets.
