@@ -134,3 +134,46 @@ pub enum CompetitionMode {
     Autonomous = 10,
     Disabled = 11,
 }
+
+// MARK: ConfigureRadio
+
+
+cdc2_pair!(
+    ConfigureRadioPacket => ConfigureRadioReplyPacket,
+    cmds::CON_CDC,
+    ecmds::CON_RADIO_CONFIGURE
+);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfigureRadioPacket {
+    //7 is the only value anything of importance uses.
+    //(the radio doesn't even _seem to care_ if you request otherwise)
+    pub con_types: u8,
+    pub chan_type: u8,
+    pub chan_num: u8,
+    pub remote_ssn: u32,
+    pub local_ssn: u32,
+}
+
+impl Encode for ConfigureRadioPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(3 + 4 + 4)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.con_types;
+        data[1] = self.chan_type;
+        data[2] = self.chan_num;
+        self.remote_ssn.encode(&mut data[3..]);
+        self.local_ssn.encode(&mut data[7..]);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfigureRadioReplyPacket {}
+
+impl Decode for ConfigureRadioReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
