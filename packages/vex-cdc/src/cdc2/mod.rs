@@ -232,6 +232,7 @@ pub mod ecmds {
     pub const CON_RADIO_CONFIGURE: u8 = 0x24;
     pub const CON_RADIO_INFO: u8 = 0x35;
     pub const CON_VER_FLASH: u8 = 0x39;
+    pub const CON_GET_STATUS_PKT: u8 = 0x3A; //returns the same raw data as is sent to brain
     pub const CON_FLASH_ERASE: u8 = 0x3B;
     pub const CON_FLASH_WRITE: u8 = 0x3C;
     pub const CON_FLASH_VALIDATE: u8 = 0x3E;
@@ -271,6 +272,11 @@ pub enum Cdc2Ack {
     /// A general negative-acknowledgement (NACK) that is sometimes received.
     #[error("V5 device sent back a general negative-acknowledgement. (NACK 0xFF)")]
     Nack = 0xFF,
+
+    // This is a sort-of hack. We can safely treat this byte as an ACK but it's the opcode
+    // of a smartport packet that's been wrapped in very minimal CDC framing.
+    #[error("Controller Smartfield status recieved succesfully. (Packet Opcode 0xA7)")]
+    ControllerCompStatus = 0xA7,
 
     /// Returned by the brain when a CDC2 packet's CRC Checksum does not validate.
     #[error("Packet CRC checksum did not validate. (NACK 0xCE)")]
@@ -358,6 +364,7 @@ impl Decode for Cdc2Ack {
             0xDA => Ok(Self::NackMaxUserFiles),
             0xDB => Ok(Self::NackFileAlreadyExists),
             0xDC => Ok(Self::NackFileStorageFull),
+            0xA7 => Ok(Self::ControllerCompStatus),
             0x00 => Ok(Self::Timeout),
             0x01 => Ok(Self::WriteError),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
