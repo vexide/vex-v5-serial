@@ -6,15 +6,92 @@ use alloc::{
 };
 
 use crate::{
-    Decode, DecodeError, Encode, FixedString,
-    cdc::cmds::{CON_CDC, USER_CDC},
-    cdc2::{
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, cdc::cmds::{CON_CDC, USER_CDC}, cdc2::{
         Cdc2CommandPacket, Cdc2ReplyPacket,
-        ecmds::{CON_COMP_CTRL, USER_READ, CON_RADIO_CONFIGURE},
-    },
+        ecmds::{
+            CON_COMP_CTRL, CON_COMP_GET_SMARTFIELD, CON_GET_STATUS_PKT, CON_RADIO_CONFIGURE,
+            CON_RADIO_CONTYPE, USER_READ,
+        },
+    }
 };
 
-pub type ConfigureRadioPacket = Cdc2CommandPacket<CON_CDC,CON_RADIO_CONFIGURE,ConfigureRadioPayload>;
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ControllerRadioType {
+    VEXNet3 = 0x1,
+    Bluetooth = 0x2,
+}
+impl Decode for ControllerRadioType {
+     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let value = u8::decode(data)?;
+        Ok(match value {
+            1 => ControllerRadioType::VEXNet3,
+            2 => ControllerRadioType::Bluetooth,
+            _ => {
+                return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
+                    name: "ControllerRadioType",
+                    value,
+                    expected: &[
+                        1,2
+                    ],
+                }));
+            }
+        })
+    }
+}
+
+pub type GetSmartfieldDataPacket = Cdc2CommandPacket<CON_CDC, CON_COMP_GET_SMARTFIELD, ()>;
+pub type GetSmartfieldDataReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_COMP_GET_SMARTFIELD, GetSmartfieldDataReplyPayload>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct GetSmartfieldDataReplyPayload {
+    pub rssi: u8,                      //0x1
+    pub ctrl_status: u16,              //0x2-3
+    pub rad_status: u16,               //0x4-5
+    pub field_status: u8,              //0x6
+    pub timer: u8,                     //0x7
+    pub brain_bat: u8,                 //0x8
+    pub primary_bat: u8,               //0x9
+    pub partner_bat: u8,               //0xA
+    pub brain_bat_lvl: u8,             //0xB why is this separate from the cap?
+    pub primary_buttons: u16,          //0xC-D bitfield
+    pub running_slot: u8,              //0xE dashboard mode is slot 0x11, drive is high up somewhere
+    pub rad_type: ControllerRadioType, //0xF
+    pub rad_chan: u8,                  //0x10
+    pub rad_slot: u8,                  //0x11,
+    pub team_number: FixedString<8>,   //0x12+
+    pub device_flags: u8,              //0x1c
+    pub radio_quality: u8,             //0x1d
+                                       //smartport CRC omitted
+}
+
+impl Decode for GetSmartfieldDataReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let x = Self {
+            rssi: u8::decode(data)?,
+            ctrl_status: u16::decode(data)?,
+            rad_status: u16::decode(data)?,
+            field_status: u8::decode(data)?,
+            timer: u8::decode(data)?,
+            brain_bat: u8::decode(data)?,
+            primary_bat: u8::decode(data)?,
+            partner_bat: u8::decode(data)?,
+            brain_bat_lvl: u8::decode(data)?,
+            primary_buttons: u16::decode(data)?,
+            running_slot: u8::decode(data)?,
+            rad_type: ControllerRadioType::decode(data)?,
+            rad_chan: u8::decode(data)?,
+            rad_slot: u8::decode(data)?,
+            team_number: FixedString::<8>::decode(data)?,
+            device_flags: data[2],
+            radio_quality: data[3]
+        };
+        Ok(x)
+    }
+}
+
+pub type ConfigureRadioPacket =
+    Cdc2CommandPacket<CON_CDC, CON_RADIO_CONFIGURE, ConfigureRadioPayload>;
 pub type ConfigureRadioReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_RADIO_CONFIGURE, ()>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -24,13 +101,13 @@ pub struct ConfigureRadioPayload {
     pub con_types: u8,
     pub chan_type: u8,
     pub chan_num: u8,
-    pub remote_ssn : u32,
-    pub local_ssn :u32,
+    pub remote_ssn: u32,
+    pub local_ssn: u32,
 }
 
 impl Encode for ConfigureRadioPayload {
     fn size(&self) -> usize {
-        3+4+4
+        3 + 4 + 4
     }
 
     fn encode(&self, data: &mut [u8]) {
@@ -39,6 +116,23 @@ impl Encode for ConfigureRadioPayload {
         data[2] = self.chan_num;
         self.remote_ssn.encode(&mut data[3..]);
         self.local_ssn.encode(&mut data[7..]);
+    }
+}
+
+pub type ChangeRadioTypePacket =
+    Cdc2CommandPacket<CON_CDC, CON_RADIO_CONTYPE, ChangeRadioTypePayload>;
+pub type ChangeRadioTypeReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_RADIO_CONTYPE, ()>;
+
+pub struct ChangeRadioTypePayload {
+    pub rad_type: ControllerRadioType,
+}
+
+impl Encode for ChangeRadioTypePayload {
+    fn size(&self) -> usize {
+        1
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.rad_type as u8;
     }
 }
 
