@@ -10,9 +10,37 @@ use crate::{
     cdc::cmds::{CON_CDC, USER_CDC},
     cdc2::{
         Cdc2CommandPacket, Cdc2ReplyPacket,
-        ecmds::{CON_COMP_CTRL, USER_READ},
+        ecmds::{CON_COMP_CTRL, USER_READ, CON_RADIO_CONFIGURE},
     },
 };
+
+pub type ConfigureRadioPacket = Cdc2CommandPacket<CON_CDC,CON_RADIO_CONFIGURE,ConfigureRadioPayload>;
+pub type ConfigureRadioReplyPacket = Cdc2ReplyPacket<CON_CDC, CON_RADIO_CONFIGURE, ()>;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ConfigureRadioPayload {
+    //7 is the only value anything of importance uses.
+    //(the radio doesn't even _seem to care_ if you request otherwise)
+    pub con_types: u8,
+    pub chan_type: u8,
+    pub chan_num: u8,
+    pub remote_ssn : u32,
+    pub local_ssn :u32,
+}
+
+impl Encode for ConfigureRadioPayload {
+    fn size(&self) -> usize {
+        3+4+4
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.con_types;
+        data[1] = self.chan_type;
+        data[2] = self.chan_num;
+        self.remote_ssn.encode(&mut data[3..]);
+        self.local_ssn.encode(&mut data[7..]);
+    }
+}
 
 pub type UserDataPacket = Cdc2CommandPacket<USER_CDC, USER_READ, UserDataPayload>;
 pub type UserDataReplyPacket = Cdc2ReplyPacket<USER_CDC, USER_READ, UserDataReplyPayload>;
