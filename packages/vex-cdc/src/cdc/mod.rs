@@ -25,6 +25,7 @@ pub mod cmds {
     pub const CON_CDC: u8 = 0x58;
     pub const PARTNER_CON_CDC: u8 = 0x59; //user inter-controller. Unclear if valid outside.
     pub const USER_ENTER: u8 = 0x60;
+    pub const CON_PUPPET_INPUT: u8 = 0x60;
     pub const USER_CATALOG: u8 = 0x61;
     pub const FLASH_ERASE: u8 = 0x63;
     pub const FLASH_WRITE: u8 = 0x64;
@@ -408,4 +409,116 @@ impl Decode for ControllerRumbleReplyPacket {
 impl CdcReply for ControllerRumbleReplyPacket {
     const CMD: u8 = cmds::CON_BACKLIGHT;
     type Command = ControllerRumblePacket;
+}
+
+// MARK: ControllerPuppet
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerPuppetPacket {
+    pub mode: ControllerPuppetMode,
+    //Data only read if mode = 0x20 Write Inputs
+    pub primary: ControllerPuppetState,
+    //Data only read if mode = 0x20 Write Inputs
+    pub partner: ControllerPuppetState,
+}
+
+impl Encode for ControllerPuppetPacket {
+    fn size(&self) -> usize {
+        6 + 1 + 2 * 10
+    }
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+        data[5] = 1;
+
+        data[6] = self.mode as u8;
+        self.primary.encode(&mut data[7..]);
+        self.partner.encode(&mut data[17..]);
+    }
+}
+
+impl CdcCommand for ControllerPuppetPacket {
+    const CMD: u8 = cmds::CON_PUPPET_INPUT;
+    type Reply = ControllerPuppetReplyPacket;
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerPuppetReplyPacket {
+    pub primary: ControllerPuppetState,
+    pub partner: ControllerPuppetState,
+}
+
+impl Decode for ControllerPuppetReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        _ = decode_cdc_reply_frame::<Self>(data)?;
+
+        Ok(Self {
+            primary: ControllerPuppetState::decode(data)?,
+            partner: ControllerPuppetState::decode(data)?,
+        })
+    }
+}
+
+impl CdcReply for ControllerPuppetReplyPacket {
+    const CMD: u8 = cmds::CON_PUPPET_INPUT;
+    type Command = ControllerPuppetPacket;
+}
+
+// While the read mode of this packet "works" (ish, there are unknowns)
+// the write mode can't really have its functionality determined. Writing inputs doesn't seem
+// to prevent the system from immediately overwriting them on the next tick. There's probably an
+// as-yet unknown setup mechanism for this.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ControllerPuppetMode {
+    WriteInputs = 0x20,
+    ReadInputs = 0x21,
+    ResetUnknown = 0x22,
+}
+
+// the data per-controller is in this same layout for both primary and partner in both the puppet
+// cmd and reply so it's been broken out.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub struct ControllerPuppetState {
+    pub axis_1: u8,
+    pub axis_2: u8,
+    pub axis_3: u8,
+    pub axis_4: u8,
+    pub unknown_1: u8, //these are probably the left/right wheel Axes that
+    pub unknown_2: u8, //went unused in final, since they're not surfaced in A0
+    pub battery_level: u8,
+    pub buttons: u16,
+    pub battery_capacity: u8,
+}
+
+impl Encode for ControllerPuppetState {
+    fn size(&self) -> usize {
+        10
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.axis_1;
+        data[1] = self.axis_2;
+        data[2] = self.axis_3;
+        data[3] = self.axis_4;
+        data[4] = self.unknown_1;
+        data[5] = self.unknown_2;
+        data[6] = self.battery_level;
+        self.buttons.encode(&mut data[7..]);
+        data[9] = self.battery_capacity;
+    }
+}
+impl Decode for ControllerPuppetState {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            axis_1: u8::decode(data)?,
+            axis_2: u8::decode(data)?,
+            axis_3: u8::decode(data)?,
+            axis_4: u8::decode(data)?,
+            unknown_1: u8::decode(data)?,
+            unknown_2: u8::decode(data)?,
+            battery_level: u8::decode(data)?,
+            buttons: u16::decode(data)?,
+            battery_capacity: u8::decode(data)?,
+        })
+    }
 }

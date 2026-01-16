@@ -229,6 +229,7 @@ pub mod ecmds {
     pub const SYS_C_INFO_58: u8 = 0x32;
 
     // controller - only works over wired a controller connection
+    pub const CON_RADIO_INIT_MODE: u8 = 0x20; //reinitializes radio as VN or BTll
     pub const CON_RADIO_CONFIGURE: u8 = 0x24;
     pub const CON_RADIO_INFO: u8 = 0x35;
     pub const CON_VER_FLASH: u8 = 0x39;
