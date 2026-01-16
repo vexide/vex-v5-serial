@@ -69,9 +69,11 @@ pub mod ecmds {
     pub const CON_RADIO_FORCE: u8 = 0x3F;
     pub const CON_RADIO_MODE: u8 = 0x41; //changes channel type
     pub const CON_RADIO_CONTYPE: u8 = 0x42; //changes between Vexnet & Bluetooth
+    pub const CON_RADIO_BACKLIGHT: u8 = 0x44;
     pub const CON_BRAINNAME: u8 = 0x45; //max sz 0x10
     pub const CON_TEAMNUMBER: u8 = 0x46; //max sz 8
     pub const CON_VER_EXPECT: u8 = 0x49;
+    pub const CON_SET_SLOT: u8 = 0x72;
     pub const CON_COMP_CTRL: u8 = 0xC1;
     pub const CON_COMP_GET_SMARTFIELD: u8 = 0xC2; //returns the same raw data as is sent to smart field control
 

@@ -18,6 +18,7 @@ pub mod cmds {
     pub const EEPROM_ERASE: u8 = 0x31;
     pub const ACK: u8 = 0x33;
     pub const BRAIN_NAME_GET: u8 = 0x44;
+    pub const CON_BACKLIGHT: u8 = 0x44;
     pub const CON_RUMBLE: u8 = 0x47;
     pub const CON_DASHBOARD_VIEW: u8 = 0x50;
     pub const USER_CDC: u8 = 0x56;
@@ -45,7 +46,7 @@ pub mod cmds {
 }
 
 use bitflags::bitflags;
-use cmds::{QUERY_1, SYSTEM_VERSION};
+use cmds::{QUERY_1, SYSTEM_VERSION, CON_RUMBLE, CON_BACKLIGHT};
 
 /// CDC (Simple) command packet.
 ///
@@ -168,6 +169,40 @@ impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
         })
     }
 }
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ControllerBacklightMode {
+    //turns the system backlight control back on, UI ticks again
+    ReenableSystemControl = 0,
+    //other options all freeze the UI
+    White = 1,
+    Red = 2,
+    Off = 3,
+}
+
+impl Encode for ControllerBacklightMode {
+    fn size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = match self {
+            Self::ReenableSystemControl => 0,
+            Self::White => 1,
+            Self::Red => 2,
+            Self::Off => 3,
+            _ => 0,
+        };
+    }
+}
+
+pub type ControllerBacklightPacket = CdcCommandPacket<CON_BACKLIGHT,ControllerBacklightMode>;
+pub type ControllerBacklightReplyPacket = CdcReplyPacket<CON_BACKLIGHT,()>;
+
+//1 -> turn rumble on (500 seconds). 0 -> turn rumble off
+pub type ControllerRumblePacket = CdcCommandPacket<CON_RUMBLE,u8>;
+pub type ControllerRumbleReplyPacket = CdcReplyPacket<CON_RUMBLE,()>;
 
 pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
 pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
