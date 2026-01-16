@@ -25,6 +25,7 @@ pub mod cmds {
     pub const CON_CDC: u8 = 0x58;
     pub const PARTNER_CON_CDC: u8 = 0x59; //user inter-controller. Unclear if valid outside.
     pub const USER_ENTER: u8 = 0x60;
+    pub const CON_PUPPET_INPUT: u8 = 0x60;
     pub const USER_CATALOG: u8 = 0x61;
     pub const FLASH_ERASE: u8 = 0x63;
     pub const FLASH_WRITE: u8 = 0x64;
@@ -46,7 +47,7 @@ pub mod cmds {
 }
 
 use bitflags::bitflags;
-use cmds::{QUERY_1, SYSTEM_VERSION, CON_RUMBLE, CON_BACKLIGHT};
+use cmds::{CON_BACKLIGHT, CON_RUMBLE, QUERY_1, SYSTEM_VERSION, CON_PUPPET_INPUT};
 
 /// CDC (Simple) command packet.
 ///
@@ -192,17 +193,115 @@ impl Encode for ControllerBacklightMode {
             Self::White => 1,
             Self::Red => 2,
             Self::Off => 3,
-            _ => 0,
         };
     }
 }
 
-pub type ControllerBacklightPacket = CdcCommandPacket<CON_BACKLIGHT,ControllerBacklightMode>;
-pub type ControllerBacklightReplyPacket = CdcReplyPacket<CON_BACKLIGHT,()>;
+// While the read mode of this packet "works" (ish, there are unknowns)
+// the write mode can't really have its functionality determined. Writing inputs doesn't seem
+// to prevent the system from immediately overwriting them on the next tick. There's probably an 
+// as-yet unknown setup mechanism for this.
+pub type ControllerPuppetPacket = CdcCommandPacket<CON_PUPPET_INPUT, ControllerPuppetPayload>;
+pub type ControllerPuppetReplyPacket = CdcReplyPacket<CON_PUPPET_INPUT, ControllerPuppetReplyPayload>;
+
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ControllerPuppetMode {
+    WriteInputs = 0x20,
+    ReadInputs = 0x21,
+    ResetUnknown = 0x22,
+}
+
+//the data per-controller is in this same layout
+//for both primary and partner in both the puppet cmd and reply
+//so it's been broken out.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub struct ControllerPuppetControllerState {
+    pub axis1: u8,
+    pub axis2: u8,
+    pub axis3: u8,
+    pub axis4: u8,
+    pub unk1: u8, //these are probably the left/right wheel Axes that
+    pub unk2: u8, //went unused in final, since they're not surfaced in A0
+    pub bat_lvl: u8,
+    pub buttons: u16,
+    pub bat_cap: u8,
+}
+
+impl Encode for ControllerPuppetControllerState {
+    fn size(&self) -> usize {
+        10
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.axis1;
+        data[1] = self.axis2;
+        data[2] = self.axis3;
+        data[3] = self.axis4;
+        data[4] = self.unk1;
+        data[5] = self.unk2;
+        data[6] = self.bat_lvl;
+        self.buttons.encode(&mut data[7..]);
+        data[9] = self.bat_cap;
+    }
+}
+impl Decode for ControllerPuppetControllerState {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            axis1: u8::decode(data)?,
+            axis2: u8::decode(data)?,
+            axis3: u8::decode(data)?,
+            axis4: u8::decode(data)?,
+            unk1: u8::decode(data)?,
+            unk2: u8::decode(data)?,
+            bat_lvl: u8::decode(data)?,
+            buttons: u16::decode(data)?,
+            bat_cap: u8::decode(data)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerPuppetPayload {
+    pub mode: ControllerPuppetMode,
+    //Data only read if mode = 0x20 Write Inputs
+    pub primary: ControllerPuppetControllerState,
+    //Data only read if mode = 0x20 Write Inputs
+    pub partner: ControllerPuppetControllerState,
+}
+
+impl Encode for ControllerPuppetPayload {
+    fn size(&self) -> usize {
+        1 + 2 * 10
+    }
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = self.mode as u8;
+        self.primary.encode(&mut data[1..]);
+        self.partner.encode(&mut data[11..]);
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerPuppetReplyPayload {
+    pub primary: ControllerPuppetControllerState,
+    pub partner: ControllerPuppetControllerState,
+}
+
+impl Decode for ControllerPuppetReplyPayload {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            primary: ControllerPuppetControllerState::decode(data)?,
+            partner: ControllerPuppetControllerState::decode(data)?,
+        })
+    }
+}
+
+pub type ControllerBacklightPacket = CdcCommandPacket<CON_BACKLIGHT, ControllerBacklightMode>;
+pub type ControllerBacklightReplyPacket = CdcReplyPacket<CON_BACKLIGHT, ()>;
 
 //1 -> turn rumble on (500 seconds). 0 -> turn rumble off
-pub type ControllerRumblePacket = CdcCommandPacket<CON_RUMBLE,u8>;
-pub type ControllerRumbleReplyPacket = CdcReplyPacket<CON_RUMBLE,()>;
+pub type ControllerRumblePacket = CdcCommandPacket<CON_RUMBLE, u8>;
+pub type ControllerRumbleReplyPacket = CdcReplyPacket<CON_RUMBLE, ()>;
 
 pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
 pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
@@ -280,7 +379,7 @@ pub enum ProductType {
     ExpController = 0x61,
 
     AIM = 0x70,
-    
+
     AIVision = 0x80,
     WorkcellArm = 0x90,
 }
