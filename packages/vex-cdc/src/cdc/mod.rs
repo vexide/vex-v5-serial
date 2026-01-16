@@ -7,7 +7,6 @@ use crate::{
     version::Version,
 };
 
-use alloc::vec::Vec;
 use bitflags::bitflags;
 
 /// CDC packet opcodes.
@@ -19,6 +18,7 @@ pub mod cmds {
     pub const EEPROM_ERASE: u8 = 0x31;
     pub const ACK: u8 = 0x33;
     pub const BRAIN_NAME_GET: u8 = 0x44;
+    pub const CON_BACKLIGHT: u8 = 0x44;
     pub const CON_RUMBLE: u8 = 0x47;
     pub const CON_DASHBOARD_VIEW: u8 = 0x50;
     pub const USER_CDC: u8 = 0x56;
@@ -46,7 +46,7 @@ pub mod cmds {
 }
 
 /// Starting byte sequence for all device-bound CDC packets.
-/// 
+///
 /// The fourth (0x47) byte may change depending on the intended device target, for example a
 /// controller may internally use 0x4e.
 pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
@@ -289,7 +289,8 @@ impl Decode for ProductType {
                 name: "ProductType",
                 value: v,
                 expected: &[
-                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90, 0xA1,
+                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90,
+                    0xA1,
                 ],
             })),
         }
@@ -305,4 +306,106 @@ bitflags! {
         /// Bit 2 is set when the controller is connected over VEXLink to the V5 Brain.
         const CONNECTED_WIRELESS = 1 << 1;
     }
+}
+
+// MARK: ControllerBacklight
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerBacklightPacket {
+    pub mode: ControllerBacklightMode,
+}
+
+impl Encode for ControllerBacklightPacket {
+    fn size(&self) -> usize {
+        7
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+        data[5] = 1;
+        self.mode.encode(&mut data[6..]);
+    }
+}
+
+impl CdcCommand for ControllerBacklightPacket {
+    const CMD: u8 = cmds::CON_BACKLIGHT;
+    type Reply = ControllerBacklightReplyPacket;
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerBacklightReplyPacket {}
+
+impl Decode for ControllerBacklightReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        _ = decode_cdc_reply_frame::<Self>(data)?;
+        Ok(Self {})
+    }
+}
+
+impl CdcReply for ControllerBacklightReplyPacket {
+    const CMD: u8 = cmds::CON_BACKLIGHT;
+    type Command = ControllerBacklightPacket;
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ControllerBacklightMode {
+    //turns the system backlight control back on, UI ticks again
+    ReenableSystemControl = 0,
+    //other options all freeze the UI
+    White = 1,
+    Red = 2,
+    Off = 3,
+}
+
+impl Encode for ControllerBacklightMode {
+    fn size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        data[0] = *self as u8;
+    }
+}
+
+// MARK: ControllerRumble
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerRumblePacket {
+    /// 1 -> turn rumble on (500 seconds). 0 -> turn rumble off
+    pub rumble: u8,
+}
+
+impl Encode for ControllerRumblePacket {
+    fn size(&self) -> usize {
+        7
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+        data[5] = 1;
+        self.rumble.encode(&mut data[6..]);
+    }
+}
+
+impl CdcCommand for ControllerRumblePacket {
+    const CMD: u8 = cmds::CON_RUMBLE;
+    type Reply = ControllerRumbleReplyPacket;
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ControllerRumbleReplyPacket {}
+
+impl Decode for ControllerRumbleReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        _ = decode_cdc_reply_frame::<Self>(data)?;
+        Ok(Self {})
+    }
+}
+
+impl CdcReply for ControllerRumbleReplyPacket {
+    const CMD: u8 = cmds::CON_BACKLIGHT;
+    type Command = ControllerRumblePacket;
 }
