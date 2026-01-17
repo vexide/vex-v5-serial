@@ -576,7 +576,6 @@ cdc2_pair!(
 );
 
 /// Run a binary file on the brain or stop the program running on the brain.
-/// Run a binary file on the brain or stop the program running on the brain.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileLoadActionPacket {
     pub vendor: FileVendor,
