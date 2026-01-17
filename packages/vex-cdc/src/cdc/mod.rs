@@ -170,7 +170,7 @@ impl Encode for SystemAlivePacket {
 
 impl CdcCommand for SystemAlivePacket {
     const CMD: u8 = cmds::QUERY_1;
-    type Reply = SystemVersionReplyPacket;
+    type Reply = SystemAliveReplyPacket;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
