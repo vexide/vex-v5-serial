@@ -2,10 +2,7 @@
 
 use core::u8;
 
-use alloc::{
-    string::{String},
-    vec::Vec,
-};
+use alloc::{string::String, vec::Vec};
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
@@ -1037,18 +1034,18 @@ pub enum RadioConnectionDevice {
     //On a brain, a computer. On a controller, a brain.
     Host = 7,
 }
-impl Decode for RadioConnectionDevice {
+impl Decode for Option<RadioConnectionDevice> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let value = u8::decode(data)?;
         Ok(match value {
-            0 => RadioConnectionDevice::None,
-            2 => RadioConnectionDevice::V5ControllerBluetooth,
-            4 => RadioConnectionDevice::V5ControllerVexnet,
-            6 => RadioConnectionDevice::ExpControllerBluetooth,
-            7 => RadioConnectionDevice::Host,
+            0 => None,
+            2 => Some(RadioConnectionDevice::V5ControllerBluetooth),
+            4 => Some(RadioConnectionDevice::V5ControllerVexnet),
+            6 => Some(RadioConnectionDevice::ExpControllerBluetooth),
+            7 => Some(RadioConnectionDevice::Host),
             _ => {
                 return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
-                    name: "DeviceType",
+                    name: "Option<RadioConnectionDevice>",
                     value,
                     expected: &[0, 2, 4, 6, 7],
                 }));
@@ -1079,13 +1076,13 @@ impl Encode for RadioStatusPacket {
 pub struct RadioStatusReplyPacket {
     /// Type of device that is paired with the radio.
     pub device: Option<RadioConnectionDevice>,
-    
+
     /// From 0 to 100
     pub quality: u16,
-    
+
     /// Probably RSSI (UNCONFIRMED)
     pub strength: i16,
-    
+
     /// Vexnet3: 5 = download, 9 = reconnecting, anything lower than 53 is pit, else comp (there are a bunch)
     /// Bluetooth: MTU (typically around 240-250)
     pub channel: u8,
@@ -1096,7 +1093,7 @@ pub struct RadioStatusReplyPacket {
 }
 impl Decode for RadioStatusReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let device = RadioConnectionDevice::decode(data)?;
+        let device = Option::<RadioConnectionDevice>::decode(data)?;
         let quality = u16::decode(data)?;
         let strength = i16::decode(data)?;
         let channel = u8::decode(data)?;
