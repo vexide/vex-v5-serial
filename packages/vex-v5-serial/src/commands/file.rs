@@ -12,11 +12,10 @@ use crate::{Connection, ConnectionType};
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
     cdc2::file::{
-        ExtensionType, FileDataReadPacket, FileDataReadPayload, FileDataReadReplyPacket,
-        FileDataWritePacket, FileDataWritePayload, FileDataWriteReplyPacket, FileExitAction,
-        FileInitOption, FileLinkPacket, FileLinkPayload, FileLinkReplyPacket, FileMetadata,
-        FileTransferExitPacket, FileTransferExitReplyPacket, FileTransferInitializePacket,
-        FileTransferInitializePayload, FileTransferInitializeReplyPacket, FileTransferOperation,
+        ExtensionType, FileDataReadPacket, FileDataReadReplyPacket, FileDataWritePacket,
+        FileDataWriteReplyPacket, FileExitAction, FileInitOption, FileLinkPacket,
+        FileLinkReplyPacket, FileMetadata, FileTransferExitPacket, FileTransferExitReplyPacket,
+        FileTransferInitializePacket, FileTransferInitializeReplyPacket, FileTransferOperation,
         FileTransferTarget, FileVendor,
     },
 };
@@ -55,10 +54,8 @@ impl Command for DownloadFile {
         connection: &mut C,
     ) -> Result<Self::Output, C::Error> {
         let transfer_response = connection
-            .handshake::<FileTransferInitializeReplyPacket>(
-                Duration::from_millis(500),
-                5,
-                FileTransferInitializePacket::new(FileTransferInitializePayload {
+            .handshake(
+                FileTransferInitializePacket {
                     operation: FileTransferOperation::Read,
                     target: self.target,
                     vendor: self.vendor,
@@ -78,10 +75,11 @@ impl Command for DownloadFile {
                         },
                     },
                     file_name: self.file_name,
-                }),
+                },
+                Duration::from_millis(500),
+                5,
             )
-            .await?;
-        let transfer_response = transfer_response.payload?;
+            .await??;
 
         let max_chunk_size = connection
             .connection_type()
@@ -91,18 +89,17 @@ impl Command for DownloadFile {
         let mut offset = 0;
         loop {
             let read = connection
-                .handshake::<FileDataReadReplyPacket>(
-                    Duration::from_millis(500),
-                    5,
-                    FileDataReadPacket::new(FileDataReadPayload {
+                .handshake(
+                    FileDataReadPacket {
                         address: self.address + offset,
                         size: max_chunk_size,
-                    }),
+                    },
+                    Duration::from_millis(500),
+                    5,
                 )
-                .await?;
+                .await??;
 
-            let (_, chunk_data) = read.payload.unwrap()?;
-            offset += chunk_data.len() as u32;
+            offset += read.data.len() as u32;
             let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
 
             if let Some(callback) = &mut self.progress_callback {
@@ -113,11 +110,11 @@ impl Command for DownloadFile {
                 // Since data is returned in fixed-size chunks read from flash, VEXos will sometimes read
                 // past the end of the file in the last chunk, returning whatever garbled nonsense happens
                 // to be stored next in QSPI. This is a feature™️, and something we need to handle ourselves.
-                let eof = chunk_data.len() - (offset - transfer_response.file_size) as usize;
-                data.extend(&chunk_data[0..eof]);
+                let eof = read.data.len() - (offset - transfer_response.file_size) as usize;
+                data.extend(&read.data[0..eof]);
                 break; // we're done here
             } else {
-                data.extend(chunk_data);
+                data.extend(read.data);
             }
         }
 
@@ -152,10 +149,8 @@ impl Command for UploadFile<'_> {
         let crc = VEX_CRC32.checksum(&self.data);
 
         let transfer_response = connection
-            .handshake::<FileTransferInitializeReplyPacket>(
-                Duration::from_millis(500),
-                5,
-                FileTransferInitializePacket::new(FileTransferInitializePayload {
+            .handshake(
+                FileTransferInitializePacket {
                     operation: FileTransferOperation::Write,
                     target: self.target,
                     vendor: self.vendor,
@@ -165,25 +160,26 @@ impl Command for UploadFile<'_> {
                     write_file_crc: crc,
                     metadata: self.metadata,
                     file_name: self.file_name.clone(),
-                }),
+                },
+                Duration::from_millis(500),
+                5,
             )
             .await?;
         debug!("transfer init responded");
-        let transfer_response = transfer_response.payload?;
+        let transfer_response = transfer_response?;
 
         if let Some(linked_file) = self.linked_file {
             connection
-                .handshake::<FileLinkReplyPacket>(
-                    Duration::from_millis(500),
-                    5,
-                    FileLinkPacket::new(FileLinkPayload {
+                .handshake(
+                    FileLinkPacket {
                         vendor: linked_file.vendor,
                         reserved: 0,
                         required_file: linked_file.file_name,
-                    }),
+                    },
+                    Duration::from_millis(500),
+                    5,
                 )
-                .await?
-                .payload?;
+                .await??;
         }
 
         let window_size = transfer_response.window_size;
@@ -208,19 +204,18 @@ impl Command for UploadFile<'_> {
                 callback(progress);
             }
 
-            let packet = FileDataWritePacket::new(FileDataWritePayload {
+            let packet = FileDataWritePacket {
                 address: (self.load_address + offset) as _,
                 chunk_data: chunk.clone(),
-            });
+            };
 
             // On bluetooth, we dont wait for the reply
             if connection.connection_type() == ConnectionType::Bluetooth {
                 connection.send(packet).await?;
             } else {
                 connection
-                    .handshake::<FileDataWriteReplyPacket>(Duration::from_millis(500), 5, packet)
-                    .await?
-                    .payload?;
+                    .handshake(packet, Duration::from_millis(500), 5)
+                    .await??;
             }
 
             offset += chunk.len() as u32;
@@ -230,13 +225,14 @@ impl Command for UploadFile<'_> {
         }
 
         connection
-            .handshake::<FileTransferExitReplyPacket>(
+            .handshake(
+                FileTransferExitPacket {
+                    action: self.after_upload,
+                },
                 Duration::from_millis(1000),
                 5,
-                FileTransferExitPacket::new(self.after_upload),
             )
-            .await?
-            .payload?;
+            .await??;
 
         debug!("Successfully uploaded file: {}", self.file_name);
         Ok(())

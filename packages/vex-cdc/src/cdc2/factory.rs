@@ -15,6 +15,7 @@ cdc2_pair!(
     ecmds::FACTORY_CHAL
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryChallengePacket {}
 
 impl Encode for FactoryChallengePacket {
@@ -27,6 +28,7 @@ impl Encode for FactoryChallengePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryChallengeReplyPacket {
     pub challenge_bytes: [u8; 16],
 }
@@ -47,6 +49,7 @@ cdc2_pair!(
     ecmds::FACTORY_RESP
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryResponsePacket {
     pub response_bytes: [u8; 16],
 }
@@ -63,6 +66,7 @@ impl Encode for FactoryResponsePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryResponseReplyPacket {}
 
 impl Decode for FactoryResponseReplyPacket {
@@ -79,6 +83,7 @@ cdc2_pair!(
     ecmds::FACTORY_STATUS
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryStatusPacket {}
 
 impl Encode for FactoryStatusPacket {
@@ -91,6 +96,7 @@ impl Encode for FactoryStatusPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryStatusReplyPacket {
     pub status: u8,
     pub percent: u8,
@@ -113,6 +119,7 @@ cdc2_pair!(
     ecmds::FACTORY_EBL
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryEnablePacket {
     pub magic: [u8; 4],
 }
@@ -133,6 +140,7 @@ impl Encode for FactoryEnablePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FactoryEnableReplyPacket {}
 
 impl Decode for FactoryEnableReplyPacket {

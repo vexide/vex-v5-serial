@@ -244,6 +244,7 @@ cdc2_pair!(
     ecmds::FILE_EXIT,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileTransferExitPacket {
     pub action: FileExitAction,
 }
@@ -258,6 +259,7 @@ impl Encode for FileTransferExitPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileTransferExitReplyPacket {}
 
 impl Decode for FileTransferExitReplyPacket {
@@ -316,6 +318,7 @@ impl Encode for FileDataWritePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileDataWriteReplyPacket {}
 
 impl Decode for FileDataWriteReplyPacket {
@@ -357,6 +360,7 @@ impl Cdc2Command for FileDataReadPacket {
     const ECMD: u8 = ecmds::FILE_READ;
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FileDataReadReplyPacket {
     pub address: u32,
     pub data: Vec<u8>,
@@ -447,6 +451,7 @@ impl Encode for FileLinkPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileLinkReplyPacket {}
 
 impl Decode for FileLinkReplyPacket {
@@ -592,6 +597,7 @@ impl Encode for FileLoadActionPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileLoadActionReplyPacket {}
 
 impl Decode for FileLoadActionReplyPacket {
@@ -714,6 +720,7 @@ impl Encode for FileMetadataSetPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileMetadataSetReplyPacket {}
 
 impl Decode for FileMetadataSetReplyPacket {
@@ -752,6 +759,7 @@ impl Encode for FileErasePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileEraseReplyPacket {}
 
 impl Decode for FileEraseReplyPacket {
@@ -768,6 +776,7 @@ cdc2_pair!(
     ecmds::FILE_CLEANUP,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileCleanUpPacket {}
 
 impl Encode for FileCleanUpPacket {
@@ -835,6 +844,7 @@ impl Encode for FileFormatPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileFormatReplyPacket {}
 
 impl Decode for FileFormatReplyPacket {
@@ -902,6 +912,7 @@ impl Encode for FileControlPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileControlReplyPacket {}
 
 impl Decode for FileControlReplyPacket {

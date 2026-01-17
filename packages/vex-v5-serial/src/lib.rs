@@ -104,9 +104,9 @@ pub trait Connection {
     /// This function will fail immediately if the given packet fails to encode.
     async fn handshake<P: CdcCommand + Clone>(
         &mut self,
+        packet: P,
         timeout: Duration,
         retries: usize,
-        packet: P,
     ) -> Result<P::Reply, Self::Error> {
         let mut last_error = None;
 

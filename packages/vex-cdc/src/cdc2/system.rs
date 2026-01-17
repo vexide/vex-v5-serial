@@ -26,7 +26,7 @@ cdc2_pair!(
     cmds::USER_CDC,
     ecmds::SYS_FLAGS,
 );
-
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemFlagsPacket {}
 
 impl Encode for SystemFlagsPacket {
@@ -39,6 +39,7 @@ impl Encode for SystemFlagsPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemFlagsReplyPacket {
     /// Bit mask.
     /// From left to right:
@@ -94,6 +95,7 @@ cdc2_pair!(
     ecmds::SYS_STATUS,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct SystemStatusPacket {}
 
 impl Encode for SystemStatusPacket {
@@ -197,6 +199,7 @@ cdc2_pair!(
     ecmds::LOG_STATUS,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct LogStatusPacket {}
 
 impl Encode for LogStatusPacket {
@@ -372,6 +375,7 @@ impl Encode for KeyValueSavePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct KeyValueSaveReplyPacket {}
 
 impl Decode for KeyValueSaveReplyPacket {
@@ -429,6 +433,7 @@ cdc2_pair!(
     ecmds::SYS_C_INFO_14,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct CatalogSlot1To4InfoPacket {}
 
 impl Encode for CatalogSlot1To4InfoPacket {
@@ -441,6 +446,7 @@ impl Encode for CatalogSlot1To4InfoPacket {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CatalogSlot1To4InfoReplyPacket {
     pub info: SlotInfo,
 }
@@ -459,6 +465,7 @@ cdc2_pair!(
     ecmds::SYS_C_INFO_58,
 );
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct CatalogSlot5To8InfoPacket {}
 
 impl Encode for CatalogSlot5To8InfoPacket {
@@ -470,7 +477,7 @@ impl Encode for CatalogSlot5To8InfoPacket {
         frame_cdc2_command(self, data, |_| {});
     }
 }
-
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CatalogSlot5To8InfoReplyPacket {
     pub info: SlotInfo,
 }
@@ -490,7 +497,7 @@ cdc2_pair!(
     cmds::USER_CDC,
     ecmds::SYS_USER_PROG,
 );
-
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ProgramControlPacket {}
 
 impl Encode for ProgramControlPacket {
@@ -503,6 +510,7 @@ impl Encode for ProgramControlPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ProgramControlReplyPacket {}
 
 impl Decode for ProgramControlReplyPacket {
@@ -689,6 +697,7 @@ impl Encode for DashTouchPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DashTouchReplyPacket {}
 
 impl Decode for DashTouchReplyPacket {
@@ -729,6 +738,7 @@ impl Encode for DashSelectPacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DashSelectReplyPacket {}
 
 impl Decode for DashSelectReplyPacket {
@@ -765,6 +775,7 @@ impl Encode for ScreenCapturePacket {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct ScreenCaptureReplyPacket {}
 
 impl Decode for ScreenCaptureReplyPacket {
@@ -897,7 +908,7 @@ cdc2_pair!(
     cmds::USER_CDC,
     ecmds::DEV_STATUS,
 );
-
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DeviceStatusPacket {}
 
 impl Encode for DeviceStatusPacket {
@@ -960,7 +971,7 @@ cdc2_pair!(
     cmds::USER_CDC,
     ecmds::FDT_STATUS,
 );
-
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FdtStatusPacket {}
 
 impl Encode for FdtStatusPacket {
@@ -1028,7 +1039,7 @@ cdc2_pair!(
     cmds::USER_CDC,
     ecmds::RADIO_STATUS,
 );
-
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct RadioStatusPacket {}
 
 impl Encode for RadioStatusPacket {
