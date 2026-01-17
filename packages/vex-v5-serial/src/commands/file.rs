@@ -12,11 +12,9 @@ use crate::{Connection, ConnectionType};
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
     cdc2::file::{
-        ExtensionType, FileDataReadPacket, FileDataReadReplyPacket, FileDataWritePacket,
-        FileDataWriteReplyPacket, FileExitAction, FileInitOption, FileLinkPacket,
-        FileLinkReplyPacket, FileMetadata, FileTransferExitPacket, FileTransferExitReplyPacket,
-        FileTransferInitializePacket, FileTransferInitializeReplyPacket, FileTransferOperation,
-        FileTransferTarget, FileVendor,
+        ExtensionType, FileDataReadPacket, FileDataWritePacket, FileExitAction, FileInitOption,
+        FileLinkPacket, FileMetadata, FileTransferExitPacket, FileTransferInitializePacket,
+        FileTransferOperation, FileTransferTarget, FileVendor,
     },
 };
 

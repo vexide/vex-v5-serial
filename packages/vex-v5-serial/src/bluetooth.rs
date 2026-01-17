@@ -267,10 +267,7 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn recv<P: Decode>(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<P, BluetoothError> {
+    async fn recv<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {

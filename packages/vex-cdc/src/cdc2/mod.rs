@@ -7,7 +7,7 @@ use crate::{
     cdc::{CdcCommand, CdcReply},
     crc::{VEX_CRC16, decode_crc16},
     decode::{Decode, DecodeError, DecodeErrorKind},
-    encode::{Encode},
+    encode::Encode,
     varint::VarU16,
 };
 

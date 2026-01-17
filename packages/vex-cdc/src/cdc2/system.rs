@@ -10,11 +10,7 @@ use alloc::{
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
     cdc::cmds,
-    cdc2::{
-        cdc2_command_size,
-        frame_cdc2_command,
-        ecmds,
-    },
+    cdc2::{cdc2_command_size, ecmds, frame_cdc2_command},
     cdc2_pair,
     decode::DecodeErrorKind,
 };

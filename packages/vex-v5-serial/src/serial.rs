@@ -11,12 +11,9 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, VarU16,
+    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16,
     cdc::CdcReply,
-    cdc2::{
-        Cdc2Ack,
-        controller::{UserDataPacket, UserDataReplyPacket},
-    },
+    cdc2::{Cdc2Ack, controller::UserDataPacket},
 };
 
 use crate::{Connection, ConnectionType, RawPacket, trim_packets};
@@ -500,7 +497,7 @@ impl Connection for SerialConnection {
                             None => {}
                         }
                     }
-                    
+
                     trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }

@@ -8,7 +8,7 @@ use log::{error, trace, warn};
 use std::time::Duration;
 
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, Encode, FixedStringSizeError, VarU16,
+    Decode, DecodeError, DecodeErrorKind, FixedStringSizeError,
     cdc::{CdcCommand, CdcReply},
     cdc2::Cdc2Ack,
 };
@@ -45,11 +45,11 @@ impl RawPacket {
     }
 
     /// Decodes the packet into the given type.
-    /// 
+    ///
     /// If successful, marks the packet as used.
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// This function will **NOT** fail if the packet has already been used.
     pub fn decode_and_use<D: Decode>(&mut self) -> Option<Result<D, DecodeError>> {
         match D::decode(&mut self.bytes.as_slice()) {
