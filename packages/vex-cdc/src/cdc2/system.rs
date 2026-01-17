@@ -341,8 +341,35 @@ cdc2_pair!(
     ecmds::SYS_KV_LOAD,
 );
 
-pub type KeyValueLoadPacket = FixedString<31>;
-pub type KeyValueLoadReplyPacket = FixedString<255>;
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct KeyValueLoadPacket {
+    pub key: FixedString<31>,
+}
+
+impl Encode for KeyValueLoadPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(self.key.size())
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |data| {
+            self.key.encode(data);
+        });
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct KeyValueLoadReplyPacket {
+    pub value: FixedString<255>,
+}
+
+impl Decode for KeyValueLoadReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            value: Decode::decode(data)?,
+        })
+    }
+}
 
 // MARK: KeyValueSave
 
