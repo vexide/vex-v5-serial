@@ -9,8 +9,8 @@ use std::time::Duration;
 
 use vex_cdc::{
     Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
-    cdc::CdcReplyPacket,
-    cdc2::{Cdc2Ack, Cdc2ReplyPacket},
+    cdc::{CdcCommand, CdcReply},
+    cdc2::{Cdc2Ack},
 };
 
 pub mod commands;
@@ -24,54 +24,13 @@ pub mod generic;
 #[cfg(feature = "serial")]
 pub mod serial;
 
-pub trait CheckHeader {
-    fn has_valid_header(data: &[u8]) -> bool;
-}
-
-impl<const CMD: u8, const ECMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<CMD, ECMD, P> {
-    fn has_valid_header(mut data: &[u8]) -> bool {
-        let data = &mut data;
-
-        if <[u8; 2] as Decode>::decode(data)
-            .map(|header| header != Self::HEADER)
-            .unwrap_or(true)
-        {
-            return false;
-        }
-
-        if u8::decode(data).map(|id| id != CMD).unwrap_or(true) {
-            return false;
-        }
-
-        let payload_size = VarU16::decode(data);
-        if payload_size.is_err() {
-            return false;
-        }
-
-        if u8::decode(data).map(|ecmd| ecmd != ECMD).unwrap_or(true) {
-            return false;
-        }
-
-        true
-    }
-}
-
-impl<const CMD: u8, P: Decode> CheckHeader for CdcReplyPacket<CMD, P> {
-    fn has_valid_header(data: &[u8]) -> bool {
-        let Some(data) = data.get(0..3) else {
-            return false;
-        };
-
-        data[0..2] == Self::HEADER && data[2] == CMD
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawPacket {
     pub bytes: Vec<u8>,
     pub used: bool,
     pub timestamp: Instant,
 }
+
 impl RawPacket {
     pub fn new(bytes: Vec<u8>) -> Self {
         Self {
@@ -83,10 +42,6 @@ impl RawPacket {
 
     pub fn is_obsolete(&self, timeout: Duration) -> bool {
         self.timestamp.elapsed() > timeout || self.used
-    }
-
-    pub fn check_header<H: CheckHeader>(&self) -> bool {
-        H::has_valid_header(&self.bytes)
     }
 
     /// Decodes the packet into the given type.
@@ -117,10 +72,10 @@ pub trait Connection {
     fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.
-    fn send(&mut self, packet: impl Encode) -> impl Future<Output = Result<(), Self::Error>>;
+    fn send(&mut self, packet: impl CdcCommand) -> impl Future<Output = Result<(), Self::Error>>;
 
     /// Receives a packet.
-    fn recv<P: Decode + CheckHeader>(
+    fn recv<P: CdcReply>(
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, Self::Error>>;
@@ -147,22 +102,22 @@ pub trait Connection {
     /// # Note
     ///
     /// This function will fail immediately if the given packet fails to encode.
-    async fn handshake<D: Decode + CheckHeader>(
+    async fn handshake<P: CdcCommand + Clone>(
         &mut self,
         timeout: Duration,
         retries: usize,
-        packet: impl Encode + Clone,
-    ) -> Result<D, Self::Error> {
+        packet: P,
+    ) -> Result<P::Reply, Self::Error> {
         let mut last_error = None;
 
         for _ in 0..=retries {
             self.send(packet.clone()).await?;
-            match self.recv::<D>(timeout).await {
+            match self.recv::<P::Reply>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
                 Err(e) => {
                     warn!(
                         "Handshake failed while waiting for {}: {:?}. Retrying...",
-                        std::any::type_name::<D>(),
+                        std::any::type_name::<P::Reply>(),
                         e
                     );
                     last_error = Some(e);

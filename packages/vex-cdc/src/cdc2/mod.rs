@@ -47,7 +47,7 @@ pub trait Cdc2Command: CdcCommand {
     const ECMD: u8;
 }
 
-pub(crate) fn cdc2_command_size(payload_size: usize) -> usize {
+pub(crate) const fn cdc2_command_size(payload_size: usize) -> usize {
     let frame_size = 8 + if payload_size > (u8::MAX >> 1) as _ {
         2
     } else {

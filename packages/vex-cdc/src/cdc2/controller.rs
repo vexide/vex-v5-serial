@@ -7,14 +7,18 @@ use alloc::{
 
 use crate::{
     Decode, DecodeError, Encode, FixedString,
-    cdc::{CdcCommand, CdcReply, cmds},
-    cdc2::{
-        Cdc2Ack, Cdc2Command, Cdc2Reply, cdc2_command_size, decode_cdc2_reply, ecmds,
-        frame_cdc2_command,
-    },
+    cdc::cmds,
+    cdc2::{cdc2_command_size, ecmds, frame_cdc2_command},
+    cdc2_pair,
 };
 
-// MARK: UserDataPacket
+// MARK: UserData
+
+cdc2_pair!(
+    UserDataPacket => UserDataReplyPacket,
+    cmds::USER_CDC,
+    ecmds::USER_READ
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UserDataPacket {
@@ -41,15 +45,6 @@ impl Encode for UserDataPacket {
             }
         })
     }
-}
-
-impl CdcCommand for UserDataPacket {
-    const CMD: u8 = cmds::USER_CDC;
-    type Reply = Result<UserDataReplyPacket, Cdc2Ack>;
-}
-
-impl Cdc2Command for UserDataPacket {
-    const ECMD: u8 = ecmds::USER_READ;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -94,22 +89,13 @@ impl Decode for UserDataReplyPacket {
     }
 }
 
-impl Decode for Result<UserDataReplyPacket, Cdc2Ack> {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        decode_cdc2_reply::<Self, UserDataReplyPacket>(data)
-    }
-}
+// MARK: CompetitionControl
 
-impl CdcReply for Result<UserDataReplyPacket, Cdc2Ack> {
-    const CMD: u8 = cmds::USER_CDC;
-    type Command = UserDataPacket;
-}
-
-impl Cdc2Reply for Result<UserDataReplyPacket, Cdc2Ack> {
-    const ECMD: u8 = ecmds::USER_READ;
-}
-
-// MARK: CompetitionControlPacket
+cdc2_pair!(
+    CompetitionControlPacket => CompetitionControlReplyPacket,
+    cmds::CON_CDC,
+    ecmds::CON_COMP_CTRL
+);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompetitionControlPacket {
@@ -132,14 +118,6 @@ impl Encode for CompetitionControlPacket {
     }
 }
 
-impl CdcCommand for CompetitionControlPacket {
-    type Reply = Result<CompetitionControlReplyPacket, Cdc2Ack>;
-    const CMD: u8 = cmds::CON_CDC;
-}
-impl Cdc2Command for CompetitionControlPacket {
-    const ECMD: u8 = ecmds::CON_COMP_CTRL;
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompetitionControlReplyPacket {}
 
@@ -147,20 +125,6 @@ impl Decode for CompetitionControlReplyPacket {
     fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {})
     }
-}
-
-impl Decode for Result<CompetitionControlReplyPacket, Cdc2Ack> {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        decode_cdc2_reply::<Self, CompetitionControlReplyPacket>(data)
-    }
-}
-
-impl CdcReply for Result<CompetitionControlReplyPacket, Cdc2Ack> {
-    const CMD: u8 = cmds::CON_CDC;
-    type Command = CompetitionControlPacket;
-}
-impl Cdc2Reply for Result<CompetitionControlReplyPacket, Cdc2Ack> {
-    const ECMD: u8 = ecmds::CON_COMP_CTRL;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

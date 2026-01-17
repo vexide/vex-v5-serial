@@ -6,15 +6,9 @@ use alloc::vec::Vec;
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
-    cdc::{CdcReplyPacket, cmds::USER_CDC},
-    cdc2::{
-        Cdc2Ack, Cdc2CommandPacket, Cdc2ReplyPacket,
-        ecmds::{
-            FILE_CLEANUP, FILE_CTRL, FILE_DIR, FILE_DIR_ENTRY, FILE_ERASE, FILE_EXIT, FILE_FORMAT,
-            FILE_GET_INFO, FILE_INIT, FILE_LINK, FILE_LOAD, FILE_READ, FILE_SET_INFO,
-            FILE_USER_STAT, FILE_WRITE,
-        },
-    },
+    cdc::{CdcCommand, CdcReply, cmds, decode_cdc_reply_frame},
+    cdc2::{Cdc2Ack, Cdc2Command, Cdc2Reply, cdc2_command_size, ecmds, frame_cdc2_command},
+    cdc2_pair,
     decode::DecodeErrorKind,
 };
 
@@ -170,14 +164,17 @@ impl Decode for FileMetadata {
     }
 }
 
-/// Start uploading or downloading file from the device
-pub type FileTransferInitializePacket =
-    Cdc2CommandPacket<USER_CDC, FILE_INIT, FileTransferInitializePayload>;
-pub type FileTransferInitializeReplyPacket =
-    Cdc2ReplyPacket<USER_CDC, FILE_INIT, FileTransferInitializeReplyPayload>;
+// MARK: FileTransferInitialize
 
+cdc2_pair!(
+    FileTransferInitializePacket => FileTransferInitializeReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_INIT,
+);
+
+/// Start uploading or downloading file from the device
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileTransferInitializePayload {
+pub struct FileTransferInitializePacket {
     pub operation: FileTransferOperation,
     pub target: FileTransferTarget,
     pub vendor: FileVendor,
@@ -189,29 +186,31 @@ pub struct FileTransferInitializePayload {
     pub file_name: FixedString<23>,
 }
 
-impl Encode for FileTransferInitializePayload {
+impl Encode for FileTransferInitializePacket {
     fn size(&self) -> usize {
-        28 + self.file_name.size()
+        cdc2_command_size(28 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        [
-            self.operation as u8,
-            self.target as u8,
-            self.vendor as u8,
-            self.options as u8,
-        ]
-        .encode(data);
-        self.file_size.encode(&mut data[4..]);
-        self.load_address.encode(&mut data[8..]);
-        self.write_file_crc.encode(&mut data[12..]);
-        self.metadata.encode(&mut data[16..]);
-        self.file_name.encode(&mut data[28..]);
+        frame_cdc2_command(self, data, |data| {
+            [
+                self.operation as u8,
+                self.target as u8,
+                self.vendor as u8,
+                self.options as u8,
+            ]
+            .encode(data);
+            self.file_size.encode(&mut data[4..]);
+            self.load_address.encode(&mut data[8..]);
+            self.write_file_crc.encode(&mut data[12..]);
+            self.metadata.encode(&mut data[16..]);
+            self.file_name.encode(&mut data[28..]);
+        });
     }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FileTransferInitializeReplyPayload {
+pub struct FileTransferInitializeReplyPacket {
     /// The amount of receive data (in bytes) that can be sent in every packet.
     pub window_size: u16,
 
@@ -226,23 +225,46 @@ pub struct FileTransferInitializeReplyPayload {
     pub file_crc: u32,
 }
 
-impl Decode for FileTransferInitializeReplyPayload {
+impl Decode for FileTransferInitializeReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let window_size = u16::decode(data)?;
-        let file_size = u32::decode(data)?;
-        // Convert from big endian
-        let file_crc = u32::decode(data)?.swap_bytes();
         Ok(Self {
-            window_size,
-            file_size,
-            file_crc,
+            window_size: Decode::decode(data)?,
+            file_size: Decode::decode(data)?,
+            // Convert from big endian
+            file_crc: u32::decode(data)?.swap_bytes(),
         })
     }
 }
 
-/// Finish uploading or downloading file from the device
-pub type FileTransferExitPacket = Cdc2CommandPacket<USER_CDC, FILE_EXIT, FileExitAction>;
-pub type FileTransferExitReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_EXIT, ()>;
+// MARK: FileTransferExit
+
+cdc2_pair!(
+    FileTransferExitPacket => FileTransferExitReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_EXIT,
+);
+
+pub struct FileTransferExitPacket {
+    pub action: FileExitAction,
+}
+
+impl Encode for FileTransferExitPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(1)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+pub struct FileTransferExitReplyPacket {}
+
+impl Decode for FileTransferExitReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
 
 /// The action to run when a file transfer is completed.
 #[repr(u8)]
@@ -253,199 +275,266 @@ pub enum FileExitAction {
     Halt = 2,
     ShowRunScreen = 3,
 }
+
 impl Encode for FileExitAction {
     fn size(&self) -> usize {
         1
     }
+
     fn encode(&self, data: &mut [u8]) {
         data[0] = *self as _;
     }
 }
-/// Write to the brain
-pub type FileDataWritePacket = Cdc2CommandPacket<USER_CDC, FILE_WRITE, FileDataWritePayload>;
-pub type FileDataWriteReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_WRITE, ()>;
+
+// MARK: FileDataWritePacket
+
+cdc2_pair!(
+    FileDataWritePacket => FileDataWriteReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_WRITE,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileDataWritePayload {
+pub struct FileDataWritePacket {
     /// Memory address to write to.
     pub address: i32,
 
     /// A sequence of bytes to write. Must be 4-byte aligned.
     pub chunk_data: Vec<u8>,
 }
-impl Encode for FileDataWritePayload {
+
+impl Encode for FileDataWritePacket {
     fn size(&self) -> usize {
-        4 + self.chunk_data.len()
+        cdc2_command_size(4 + self.chunk_data.len())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.address.encode(data);
-        self.chunk_data.encode(&mut data[4..]);
+        frame_cdc2_command(self, data, |data| {
+            self.address.encode(data);
+            self.chunk_data.encode(&mut data[4..]);
+        });
     }
 }
 
-/// Read from the brain
-pub type FileDataReadPacket = Cdc2CommandPacket<USER_CDC, FILE_READ, FileDataReadPayload>;
-/// Returns the file content. This packet doesn't have an ack if the data is available.
-pub type FileDataReadReplyPacket = CdcReplyPacket<USER_CDC, FileDataReadReplyPayload>;
+pub struct FileDataWriteReplyPacket {}
+
+impl Decode for FileDataWriteReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: FileDataRead
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FileDataReadPayload {
+pub struct FileDataReadPacket {
     /// Memory address to read from.
     pub address: u32,
 
     /// Number of bytes to read (4-byte aligned).
     pub size: u16,
 }
-impl Encode for FileDataReadPayload {
+
+impl Encode for FileDataReadPacket {
     fn size(&self) -> usize {
-        6
+        cdc2_command_size(6)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.address.encode(data);
-        self.size.encode(&mut data[4..]);
+        frame_cdc2_command(self, data, |data| {
+            self.address.encode(data);
+            self.size.encode(&mut data[4..]);
+        });
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum FileDataReadReplyContents {
-    Ack { address: u32, data: Vec<u8> },
-    Nack(Cdc2Ack),
+impl CdcCommand for FileDataReadPacket {
+    type Reply = Result<FileDataReadReplyPacket, Cdc2Ack>;
+    const CMD: u8 = cmds::USER_CDC;
 }
 
-impl Decode for FileDataReadReplyContents {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        if data.len() == 1 {
-            Ok(Self::Nack(Cdc2Ack::decode(data)?))
-        } else {
-            let address = u32::decode(data)?;
-            let chunk_data = Vec::decode_with_len(data, data.len())?;
+impl Cdc2Command for FileDataReadPacket {
+    const ECMD: u8 = ecmds::FILE_READ;
+}
 
-            Ok(Self::Ack {
-                address,
-                data: chunk_data,
-            })
-        }
+pub struct FileDataReadReplyPacket {
+    pub address: u32,
+    pub data: Vec<u8>,
+}
+
+impl Decode for FileDataReadReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let address = u32::decode(data)?;
+        let chunk_data = Vec::decode_with_len(data, data.len())?;
+
+        Ok(Self {
+            address,
+            data: chunk_data,
+        })
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileDataReadReplyPayload {
-    pub contents: FileDataReadReplyContents,
-    pub crc: u16,
-}
-impl Decode for FileDataReadReplyPayload {
+impl Decode for Result<FileDataReadReplyPacket, Cdc2Ack> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        decode_cdc_reply_frame::<Self>(data)?;
+
         let ecmd = u8::decode(data)?;
-        if ecmd != FILE_READ {
+        if ecmd != ecmds::FILE_READ {
             return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ecmd",
                 value: ecmd,
-                expected: &[FILE_READ],
+                expected: &[ecmds::FILE_READ],
             }));
         }
 
-        let contents = FileDataReadReplyContents::decode(
-            &mut data
-                .get(..data.len() - 2)
-                .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?,
-        )?;
+        let payload_data = &mut data
+            .get(..data.len() - 2)
+            .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
+
+        let payload = Ok(if payload_data.len() == 1 {
+            Err(Cdc2Ack::decode(payload_data)?)
+        } else {
+            Ok(FileDataReadReplyPacket::decode(payload_data)?)
+        });
+
         *data = &data[data.len() - 2..];
 
-        let crc = u16::decode(data)?.swap_bytes();
+        let _crc = u16::decode(data)?.swap_bytes();
 
-        Ok(Self { contents, crc })
+        payload
     }
 }
-impl FileDataReadReplyPayload {
-    pub fn unwrap(self) -> Result<(u32, Vec<u8>), Cdc2Ack> {
-        match self.contents {
-            FileDataReadReplyContents::Ack { address, data } => Ok((address, data)),
-            FileDataReadReplyContents::Nack(nack) => Err(nack),
-        }
-    }
+
+impl CdcReply for Result<FileDataReadReplyPacket, Cdc2Ack> {
+    type Command = FileDataReadPacket;
+    const CMD: u8 = cmds::USER_CDC;
 }
+
+impl Cdc2Reply for Result<FileDataReadReplyPacket, Cdc2Ack> {
+    const ECMD: u8 = ecmds::FILE_READ;
+}
+
+// MARK: FileLink
+
+cdc2_pair!(
+    FileLinkPacket => FileLinkReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_LINK,
+);
 
 /// File linking means allowing one file to be loaded after another file first (its parent).
 ///
 /// This is used in PROS for the hot/cold linking.
-pub type FileLinkPacket = Cdc2CommandPacket<USER_CDC, FILE_LINK, FileLinkPayload>;
-pub type FileLinkReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_LINK, ()>;
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileLinkPayload {
+pub struct FileLinkPacket {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub reserved: u8,
     pub required_file: FixedString<23>,
 }
-impl Encode for FileLinkPayload {
+
+impl Encode for FileLinkPacket {
     fn size(&self) -> usize {
-        2 + self.required_file.size()
+        cdc2_command_size(2 + self.required_file.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.reserved;
-        self.required_file.encode(&mut data[2..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.reserved;
+            self.required_file.encode(&mut data[2..]);
+        });
     }
 }
 
-pub type DirectoryFileCountPacket =
-    Cdc2CommandPacket<USER_CDC, FILE_DIR, DirectoryFileCountPayload>;
-pub type DirectoryFileCountReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_DIR, u16>;
+pub struct FileLinkReplyPacket {}
+
+impl Decode for FileLinkReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: DirectoryFileCount
+
+cdc2_pair!(
+    DirectoryFileCountPacket => DirectoryFileCountReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_DIR,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DirectoryFileCountPayload {
+pub struct DirectoryFileCountPacket {
     pub vendor: FileVendor,
     /// Unused as of VEXos 1.1.5
     pub reserved: u8,
 }
-impl Encode for DirectoryFileCountPayload {
+
+impl Encode for DirectoryFileCountPacket {
     fn size(&self) -> usize {
-        2
+        cdc2_command_size(2)
     }
+
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.reserved;
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.reserved;
+        });
     }
 }
 
-pub type DirectoryEntryPacket = Cdc2CommandPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryPayload>;
-pub type DirectoryEntryReplyPacket =
-    Cdc2ReplyPacket<USER_CDC, FILE_DIR_ENTRY, DirectoryEntryReplyPayload>;
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct DirectoryFileCountReplyPacket {
+    pub count: u16,
+}
+
+impl Decode for DirectoryFileCountReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            count: u16::decode(data)?,
+        })
+    }
+}
+
+// MARK: DirectoryEntry
+
+cdc2_pair!(
+    DirectoryEntryPacket => DirectoryEntryReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_DIR_ENTRY,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DirectoryEntryPayload {
+pub struct DirectoryEntryPacket {
     pub file_index: u8,
     pub reserved: u8,
 }
-impl Encode for DirectoryEntryPayload {
+
+impl Encode for DirectoryEntryPacket {
     fn size(&self) -> usize {
-        2
+        cdc2_command_size(2)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.file_index;
-        data[1] = self.reserved;
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.file_index;
+            data[1] = self.reserved;
+        });
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DirectoryEntryReplyPayload {
+pub struct DirectoryEntryReplyPacket {
     pub file_index: u8,
     pub size: u32,
-
     /// The storage entry address of the file.
     pub load_address: u32,
     pub crc: u32,
-
     pub metadata: Option<FileMetadata>,
     pub file_name: FixedString<23>,
 }
 
-impl Decode for DirectoryEntryReplyPayload {
+impl Decode for DirectoryEntryReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let file_index = u8::decode(data)?;
         let size = u32::decode(data)?;
@@ -472,52 +561,77 @@ impl Decode for DirectoryEntryReplyPayload {
     }
 }
 
-/// Run a binrary file on the brain or stop the program running on the brain.
-pub type FileLoadActionPacket = Cdc2CommandPacket<USER_CDC, FILE_LOAD, FileLoadActionPayload>;
-pub type FileLoadActionReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_LOAD, ()>;
+// MARK: FileLoadAction
 
+cdc2_pair!(
+    FileLoadActionPacket => FileLoadActionReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_LOAD,
+);
+
+/// Run a binary file on the brain or stop the program running on the brain.
+/// Run a binary file on the brain or stop the program running on the brain.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileLoadActionPayload {
+pub struct FileLoadActionPacket {
     pub vendor: FileVendor,
     pub action: FileLoadAction,
     pub file_name: FixedString<23>,
 }
-impl Encode for FileLoadActionPayload {
+
+impl Encode for FileLoadActionPacket {
     fn size(&self) -> usize {
-        2 + self.file_name.size()
+        cdc2_command_size(2 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.action as _;
-        self.file_name.encode(&mut data[2..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.action as _;
+            self.file_name.encode(&mut data[2..]);
+        });
     }
 }
-pub type FileMetadataPacket = Cdc2CommandPacket<USER_CDC, FILE_GET_INFO, FileMetadataPayload>;
-pub type FileMetadataReplyPacket =
-    Cdc2ReplyPacket<USER_CDC, FILE_GET_INFO, Option<FileMetadataReplyPayload>>;
+
+pub struct FileLoadActionReplyPacket {}
+
+impl Decode for FileLoadActionReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: FileMetadata
+
+cdc2_pair!(
+    FileMetadataPacket => Option<FileMetadataReplyPacket>,
+    cmds::USER_CDC,
+    ecmds::FILE_GET_INFO,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileMetadataPayload {
+pub struct FileMetadataPacket {
     pub vendor: FileVendor,
     /// Unused as of VEXos 1.1.5
     pub reserved: u8,
     pub file_name: FixedString<23>,
 }
-impl Encode for FileMetadataPayload {
+
+impl Encode for FileMetadataPacket {
     fn size(&self) -> usize {
-        2 + self.file_name.size()
+        cdc2_command_size(2 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.reserved as _;
-        self.file_name.encode(&mut data[2..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.reserved;
+            self.file_name.encode(&mut data[2..]);
+        });
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileMetadataReplyPayload {
+pub struct FileMetadataReplyPacket {
     /// RESEARCH NEEDED: Unknown what this is if there is no link to the file.
     pub linked_vendor: Option<FileVendor>,
     pub size: u32,
@@ -526,9 +640,10 @@ pub struct FileMetadataReplyPayload {
     pub crc32: u32,
     pub metadata: FileMetadata,
 }
-impl Decode for Option<FileMetadataReplyPayload> {
+
+impl Decode for Option<FileMetadataReplyPacket> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let maybe_vid = u8::decode(data).unwrap();
+        let maybe_vid = u8::decode(data)?;
 
         let linked_vendor = match maybe_vid {
             // 0 is returned if there is no linked file.
@@ -554,7 +669,7 @@ impl Decode for Option<FileMetadataReplyPayload> {
         let crc32 = u32::decode(data)?;
         let metadata = FileMetadata::decode(data)?;
 
-        Ok(Some(FileMetadataReplyPayload {
+        Ok(Some(FileMetadataReplyPacket {
             linked_vendor,
             size,
             load_address,
@@ -564,11 +679,16 @@ impl Decode for Option<FileMetadataReplyPayload> {
     }
 }
 
-pub type FileMetadataSetPacket = Cdc2CommandPacket<USER_CDC, FILE_SET_INFO, FileMetadataSetPayload>;
-pub type FileMetadataSetReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_SET_INFO, ()>;
+// MARK: FileMetadataSet
+
+cdc2_pair!(
+    FileMetadataSetPacket => FileMetadataSetReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_SET_INFO,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileMetadataSetPayload {
+pub struct FileMetadataSetPacket {
     pub vendor: FileVendor,
     /// 0 = default. (RESEARCH NEEDED)
     pub options: u8,
@@ -577,69 +697,117 @@ pub struct FileMetadataSetPayload {
     pub metadata: FileMetadata,
     pub file_name: FixedString<23>,
 }
-impl Encode for FileMetadataSetPayload {
+
+impl Encode for FileMetadataSetPacket {
     fn size(&self) -> usize {
-        18 + self.file_name.size()
+        cdc2_command_size(18 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.options as _;
-        self.load_address.encode(&mut data[2..]);
-        self.metadata.encode(&mut data[6..]);
-        self.file_name.encode(&mut data[18..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.options;
+            self.load_address.encode(&mut data[2..]);
+            self.metadata.encode(&mut data[6..]);
+            self.file_name.encode(&mut data[18..]);
+        });
     }
 }
 
-pub type FileErasePacket = Cdc2CommandPacket<USER_CDC, FILE_ERASE, FileErasePayload>;
-pub type FileEraseReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_ERASE, ()>;
+pub struct FileMetadataSetReplyPacket {}
+
+impl Decode for FileMetadataSetReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: FileErase
+
+cdc2_pair!(
+    FileErasePacket => FileEraseReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_ERASE,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FileErasePayload {
+pub struct FileErasePacket {
     pub vendor: FileVendor,
     /// Unused as of VEXos 1.1.5
     pub reserved: u8,
     pub file_name: FixedString<23>,
 }
-impl Encode for FileErasePayload {
+
+impl Encode for FileErasePacket {
     fn size(&self) -> usize {
-        2 + self.file_name.size()
+        cdc2_command_size(2 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.reserved as _;
-        self.file_name.encode(&mut data[2..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.reserved;
+            self.file_name.encode(&mut data[2..]);
+        });
     }
 }
 
-pub type FileCleanUpPacket = Cdc2CommandPacket<USER_CDC, FILE_CLEANUP, ()>;
-pub type FileCleanUpReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_CLEANUP, FileCleanUpReplyPayload>;
+pub struct FileEraseReplyPacket {}
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FileCleanUpReplyPayload {
-    count: u16,
+impl Decode for FileEraseReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
 }
 
-impl Decode for FileCleanUpReplyPayload {
+// MARK: FileCleanUp
+
+cdc2_pair!(
+    FileCleanUpPacket => FileCleanUpReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_CLEANUP,
+);
+
+pub struct FileCleanUpPacket {}
+
+impl Encode for FileCleanUpPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FileCleanUpReplyPacket {
+    pub count: u16,
+}
+
+impl Decode for FileCleanUpReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {
-            count: Decode::decode(data)?,
+            count: u16::decode(data)?,
         })
     }
 }
 
-/// Same as "File Clear Up", but takes longer
-pub type FileFormatPacket = Cdc2CommandPacket<USER_CDC, FILE_FORMAT, FileFormatConfirmation>;
-pub type FileFormatReplyPacket = Cdc2CommandPacket<USER_CDC, FILE_FORMAT, ()>;
+// MARK: FileFormat
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct FileFormatConfirmation {
+cdc2_pair!(
+    FileFormatPacket => FileFormatReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_FORMAT,
+);
+
+/// Same as "File Clean Up", but takes longer
+pub struct FileFormatPacket {
     /// Must be [0x44, 0x43, 0x42, 0x41].
     pub confirmation_code: [u8; 4],
 }
 
-impl FileFormatConfirmation {
+impl FileFormatPacket {
     pub const FORMAT_CODE: [u8; 4] = [0x44, 0x43, 0x42, 0x41];
 
     pub const fn new() -> Self {
@@ -649,21 +817,33 @@ impl FileFormatConfirmation {
     }
 }
 
-impl Default for FileFormatConfirmation {
+impl Default for FileFormatPacket {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Encode for FileFormatConfirmation {
+impl Encode for FileFormatPacket {
     fn size(&self) -> usize {
-        4
+        cdc2_command_size(4)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.confirmation_code.encode(data)
+        frame_cdc2_command(self, data, |data| {
+            self.confirmation_code.encode(data);
+        });
     }
 }
+
+pub struct FileFormatReplyPacket {}
+
+impl Decode for FileFormatReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+/// MARK: FileControlPacket
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileControlGroup {
@@ -697,39 +877,83 @@ pub enum RadioChannel {
     Download = 0x01,
 }
 
-pub type FileControlPacket = Cdc2CommandPacket<USER_CDC, FILE_CTRL, FileControlGroup>;
-pub type FileControlReplyPacket = Cdc2ReplyPacket<USER_CDC, FILE_CTRL, ()>;
+// MARK: FileControl
 
-pub type ProgramStatusPacket = Cdc2CommandPacket<USER_CDC, FILE_USER_STAT, ProgramStatusPayload>;
-pub type ProgramStatusReplyPacket =
-    Cdc2ReplyPacket<USER_CDC, FILE_USER_STAT, ProgramStatusReplyPayload>;
+cdc2_pair!(
+    FileControlPacket => FileControlReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_CTRL,
+);
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FileControlPacket {
+    pub group: FileControlGroup,
+}
+
+impl Encode for FileControlPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(self.group.size())
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |data| {
+            self.group.encode(data);
+        });
+    }
+}
+
+pub struct FileControlReplyPacket {}
+
+impl Decode for FileControlReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: ProgramStatus
+
+cdc2_pair!(
+    ProgramStatusPacket => ProgramStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FILE_USER_STAT,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ProgramStatusPayload {
+pub struct ProgramStatusPacket {
     pub vendor: FileVendor,
     /// Unused as of VEXos 1.1.5
     pub reserved: u8,
     /// The bin file name.
     pub file_name: FixedString<23>,
 }
-impl Encode for ProgramStatusPayload {
+
+impl Encode for ProgramStatusPacket {
     fn size(&self) -> usize {
-        2 + self.file_name.size()
+        cdc2_command_size(2 + self.file_name.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.vendor as _;
-        data[1] = self.reserved;
-
-        self.file_name.encode(&mut data[2..]);
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.vendor as _;
+            data[1] = self.reserved;
+            self.file_name.encode(&mut data[2..]);
+        });
     }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct ProgramStatusReplyPayload {
+pub struct ProgramStatusReplyPacket {
     /// A zero-based slot number.
     pub slot: u8,
-
     /// A zero-based slot number, always same as Slot.
     pub requested_slot: u8,
+}
+
+impl Decode for ProgramStatusReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            slot: u8::decode(data)?,
+            requested_slot: u8::decode(data)?,
+        })
+    }
 }

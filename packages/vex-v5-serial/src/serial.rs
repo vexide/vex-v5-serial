@@ -11,12 +11,10 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER,
-    VarU16,
-    cdc2::{
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16, cdc::CdcReply, cdc2::{
         Cdc2Ack,
         controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
-    },
+    }
 };
 
 use crate::{CheckHeader, Connection, ConnectionType, RawPacket, trim_packets};
@@ -484,7 +482,7 @@ impl Connection for SerialConnection {
         Ok(())
     }
 
-    async fn recv<P: Decode + CheckHeader>(&mut self, timeout: Duration) -> Result<P, SerialError> {
+    async fn recv<P: CdcReply>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {

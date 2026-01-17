@@ -9,19 +9,37 @@ use alloc::{
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
-    cdc::cmds::USER_CDC,
+    cdc::cmds,
     cdc2::{
-        Cdc2CommandPacket, Cdc2ReplyPacket,
-        ecmds::{
-            DEV_STATUS, FDT_STATUS, LOG_READ, LOG_STATUS, RADIO_STATUS, SYS_C_INFO_14,
-            SYS_C_INFO_58, SYS_DASH_SEL, SYS_DASH_TOUCH, SYS_FLAGS, SYS_KV_LOAD, SYS_KV_SAVE,
-            SYS_SCREEN_CAP, SYS_STATUS, SYS_USER_PROG,
-        },
+        cdc2_command_size,
+        frame_cdc2_command,
+        ecmds,
     },
+    cdc2_pair,
     decode::DecodeErrorKind,
 };
 
-pub struct SystemFlags {
+// MARK: SystemFlags
+
+cdc2_pair!(
+    SystemFlagsPacket => SystemFlagsReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_FLAGS,
+);
+
+pub struct SystemFlagsPacket {}
+
+impl Encode for SystemFlagsPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+pub struct SystemFlagsReplyPacket {
     /// Bit mask.
     /// From left to right:
     /// no.1 to no.8 bit - Page index
@@ -52,7 +70,7 @@ pub struct SystemFlags {
     /// 145 = Driver program
     pub current_program: u8,
 }
-impl Decode for SystemFlags {
+impl Decode for SystemFlagsReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let flags = u32::decode(data)?;
         let byte_1 = u8::decode(data)?;
@@ -68,8 +86,28 @@ impl Decode for SystemFlags {
     }
 }
 
+// MARK: SystemStatus
+
+cdc2_pair!(
+    SystemStatusPacket => SystemStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_STATUS,
+);
+
+pub struct SystemStatusPacket {}
+
+impl Encode for SystemStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct SystemStatus {
+pub struct SystemStatusReplyPacket {
     /// Always zero as of VEXos 1.1.5
     pub reserved: u8,
     /// returns None when connected via controller
@@ -79,7 +117,7 @@ pub struct SystemStatus {
     pub touch_version: Version,
     pub details: Option<SystemDetails>,
 }
-impl Decode for SystemStatus {
+impl Decode for SystemStatusReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let reserved = u8::decode(data)?;
         let system_version = match Version::decode(data)? {
@@ -151,11 +189,68 @@ impl Decode for SystemDetails {
     }
 }
 
-pub type SystemFlagsPacket = Cdc2CommandPacket<USER_CDC, SYS_FLAGS, ()>;
-pub type SystemFlagsReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_FLAGS, SystemFlags>;
+// MARK: LogStatus
 
-pub type SystemStatusPacket = Cdc2CommandPacket<USER_CDC, SYS_STATUS, ()>;
-pub type SystemStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_STATUS, SystemStatus>;
+cdc2_pair!(
+    LogStatusPacket => LogStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::LOG_STATUS,
+);
+
+pub struct LogStatusPacket {}
+
+impl Encode for LogStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LogStatusReplyPacket {
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_1: u8,
+
+    /// Total number of recorded event logs.
+    pub count: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_2: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_3: u32,
+
+    /// Always zero as of VEXos 1.1.5
+    pub reserved_4: u32,
+}
+impl Decode for LogStatusReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let reserved = u8::decode(data)?;
+        let count = u32::decode(data)?;
+        let reserved_2 = u32::decode(data)?;
+        let reserved_3 = u32::decode(data)?;
+        let reserved_4 = u32::decode(data)?;
+
+        Ok(Self {
+            reserved_1: reserved,
+            count,
+            reserved_2,
+            reserved_3,
+            reserved_4,
+        })
+    }
+}
+
+// MARK: LogRead
+
+cdc2_pair!(
+    LogReadPacket => LogReadReplyPacket,
+    cmds::USER_CDC,
+    ecmds::LOG_READ,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct LogEntry {
@@ -192,66 +287,29 @@ impl Decode for LogEntry {
     }
 }
 
-pub type LogStatusPacket = Cdc2CommandPacket<USER_CDC, LOG_STATUS, ()>;
-pub type LogStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_STATUS, LogStatusReplyPayload>;
-
+/// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns
+/// [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LogStatusReplyPayload {
-    /// Always zero as of VEXos 1.1.5
-    pub reserved_1: u8,
-
-    /// Total number of recorded event logs.
-    pub count: u32,
-
-    /// Always zero as of VEXos 1.1.5
-    pub reserved_2: u32,
-
-    /// Always zero as of VEXos 1.1.5
-    pub reserved_3: u32,
-
-    /// Always zero as of VEXos 1.1.5
-    pub reserved_4: u32,
-}
-impl Decode for LogStatusReplyPayload {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let reserved = u8::decode(data)?;
-        let count = u32::decode(data)?;
-        let reserved_2 = u32::decode(data)?;
-        let reserved_3 = u32::decode(data)?;
-        let reserved_4 = u32::decode(data)?;
-
-        Ok(Self {
-            reserved_1: reserved,
-            count,
-            reserved_2,
-            reserved_3,
-            reserved_4,
-        })
-    }
-}
-
-/// For example: If the brain has 26 logs, from A to Z. With offset 5 and count 5, it returns [V, W, X, Y, Z]. With offset 10 and count 5, it returns [Q, R, S, T, U].
-pub type LogReadPacket = Cdc2CommandPacket<USER_CDC, LOG_READ, LogReadPayload>;
-pub type LogReadReplyPacket = Cdc2ReplyPacket<USER_CDC, LOG_READ, LogReadReplyPayload>;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LogReadPayload {
+pub struct LogReadPacket {
     pub offset: u32,
     pub count: u32,
 }
-impl Encode for LogReadPayload {
+
+impl Encode for LogReadPacket {
     fn size(&self) -> usize {
-        8
+        cdc2_command_size(8)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.offset.encode(data);
-        self.count.encode(&mut data[4..]);
+        frame_cdc2_command(self, data, |data| {
+            self.offset.encode(data);
+            self.count.encode(&mut data[4..]);
+        });
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct LogReadReplyPayload {
+pub struct LogReadReplyPacket {
     /// Size of each log item in bytes.
     pub log_size: u8,
     /// The offset number used in this packet.
@@ -260,7 +318,7 @@ pub struct LogReadReplyPayload {
     pub count: u16,
     pub entries: Vec<LogEntry>,
 }
-impl Decode for LogReadReplyPayload {
+impl Decode for LogReadReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let log_size = u8::decode(data)?;
         let offset = u32::decode(data)?;
@@ -276,27 +334,53 @@ impl Decode for LogReadReplyPayload {
     }
 }
 
-pub type KeyValueLoadPacket = Cdc2CommandPacket<USER_CDC, SYS_KV_LOAD, FixedString<31>>;
-pub type KeyValueLoadReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_LOAD, FixedString<255>>;
+// MARK: KeyValueLoad
 
-pub type KeyValueSavePacket = Cdc2CommandPacket<USER_CDC, SYS_KV_SAVE, KeyValueSavePayload>;
-pub type KeyValueSaveReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_KV_SAVE, ()>;
+cdc2_pair!(
+    KeyValueLoadPacket => KeyValueLoadReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_KV_LOAD,
+);
+
+pub type KeyValueLoadPacket = FixedString<31>;
+pub type KeyValueLoadReplyPacket = FixedString<255>;
+
+// MARK: KeyValueSave
+
+cdc2_pair!(
+    KeyValueSavePacket => KeyValueSaveReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_KV_SAVE,
+);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct KeyValueSavePayload {
+pub struct KeyValueSavePacket {
     pub key: FixedString<31>,
     pub value: FixedString<255>,
 }
-impl Encode for KeyValueSavePayload {
+
+impl Encode for KeyValueSavePacket {
     fn size(&self) -> usize {
-        self.key.size() + self.value.size()
+        cdc2_command_size(self.key.size() + self.value.size())
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.key.to_string().encode(data);
-        self.value.to_string().encode(&mut data[self.key.size()..]);
+        frame_cdc2_command(self, data, |data| {
+            self.key.to_string().encode(data);
+            self.value.to_string().encode(&mut data[self.key.size()..]);
+        });
     }
 }
+
+pub struct KeyValueSaveReplyPacket {}
+
+impl Decode for KeyValueSaveReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: CatalogSlotInfo
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Slot {
@@ -319,15 +403,8 @@ impl Decode for Slot {
     }
 }
 
-pub type CatalogSlot1To4InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, ()>;
-pub type CatalogSlot1To4InfoReplyPacket =
-    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_14, SlotInfoPayload>;
-pub type CatalogSlot5To8InfoPacket = Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, ()>;
-pub type CatalogSlot5To8InfoReplyPacket =
-    Cdc2CommandPacket<USER_CDC, SYS_C_INFO_58, SlotInfoPayload>;
-
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SlotInfoPayload {
+pub struct SlotInfo {
     /// Bit Mask.
     ///
     /// `flags & 2^(x - 1)` = Is slot x used
@@ -337,7 +414,7 @@ pub struct SlotInfoPayload {
     pub slots: [Slot; 4],
 }
 
-impl Decode for SlotInfoPayload {
+impl Decode for SlotInfo {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let flags = u8::decode(data)?;
         let slots = <[Slot; 4]>::decode(data)?;
@@ -346,8 +423,95 @@ impl Decode for SlotInfoPayload {
     }
 }
 
-pub type ProgramControlPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
-pub type ProgramControlReplyPacket = Cdc2CommandPacket<USER_CDC, SYS_USER_PROG, ()>;
+cdc2_pair!(
+    CatalogSlot1To4InfoPacket => CatalogSlot1To4InfoReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_C_INFO_14,
+);
+
+pub struct CatalogSlot1To4InfoPacket {}
+
+impl Encode for CatalogSlot1To4InfoPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+pub struct CatalogSlot1To4InfoReplyPacket {
+    pub info: SlotInfo,
+}
+
+impl Decode for CatalogSlot1To4InfoReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            info: Decode::decode(data)?,
+        })
+    }
+}
+
+cdc2_pair!(
+    CatalogSlot5To8InfoPacket => CatalogSlot5To8InfoReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_C_INFO_58,
+);
+
+pub struct CatalogSlot5To8InfoPacket {}
+
+impl Encode for CatalogSlot5To8InfoPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+pub struct CatalogSlot5To8InfoReplyPacket {
+    pub info: SlotInfo,
+}
+
+impl Decode for CatalogSlot5To8InfoReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            info: Decode::decode(data)?,
+        })
+    }
+}
+
+// MARK: ProgramControl
+
+cdc2_pair!(
+    ProgramControlPacket => ProgramControlReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_USER_PROG,
+);
+
+pub struct ProgramControlPacket {}
+
+impl Encode for ProgramControlPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+pub struct ProgramControlReplyPacket {}
+
+impl Decode for ProgramControlReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: DashScreen
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
@@ -495,33 +659,54 @@ pub enum DashScreen {
     // Pneumatic = 59,
 }
 
-pub type DashTouchPacket = Cdc2CommandPacket<USER_CDC, SYS_DASH_TOUCH, DashTouchPayload>;
-pub type DashTouchReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_DASH_TOUCH, ()>;
+// MARK: DashTouch
+
+cdc2_pair!(
+    DashTouchPacket => DashTouchReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_DASH_TOUCH,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DashTouchPayload {
+pub struct DashTouchPacket {
     pub x: u16,
     pub y: u16,
     /// 1 for pressing, 0 for released
     pub pressing: u16,
 }
-impl Encode for DashTouchPayload {
+
+impl Encode for DashTouchPacket {
     fn size(&self) -> usize {
-        6
+        cdc2_command_size(6)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        self.x.encode(data);
-        self.y.encode(&mut data[2..]);
-        self.pressing.encode(&mut data[4..]);
+        frame_cdc2_command(self, data, |data| {
+            self.x.encode(data);
+            self.y.encode(&mut data[2..]);
+            self.pressing.encode(&mut data[4..]);
+        });
     }
 }
 
-pub type DashSelectPacket = Cdc2CommandPacket<USER_CDC, SYS_DASH_SEL, DashSelectPayload>;
-pub type DashSelectReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_DASH_SEL, ()>;
+pub struct DashTouchReplyPacket {}
+
+impl Decode for DashTouchReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: DashSelect
+
+cdc2_pair!(
+    DashSelectPacket => DashSelectReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_DASH_SEL,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct DashSelectPayload {
+pub struct DashSelectPacket {
     pub screen: DashScreen,
 
     /// This serves as a generic argument to the dash
@@ -530,36 +715,65 @@ pub struct DashSelectPayload {
     /// on a device screen.
     pub port: u8,
 }
-impl Encode for DashSelectPayload {
+
+impl Encode for DashSelectPacket {
     fn size(&self) -> usize {
-        2
+        cdc2_command_size(2)
     }
 
     fn encode(&self, data: &mut [u8]) {
-        data[0] = self.screen as _;
-        data[1] = self.port;
+        frame_cdc2_command(self, data, |data| {
+            data[0] = self.screen as _;
+            data[1] = self.port;
+        });
     }
 }
 
-pub type ScreenCapturePacket = Cdc2CommandPacket<USER_CDC, SYS_SCREEN_CAP, ScreenCapturePayload>;
-pub type ScreenCaptureReplyPacket = Cdc2ReplyPacket<USER_CDC, SYS_SCREEN_CAP, ()>;
+pub struct DashSelectReplyPacket {}
+
+impl Decode for DashSelectReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: ScreenCapture
+
+cdc2_pair!(
+    ScreenCapturePacket => ScreenCaptureReplyPacket,
+    cmds::USER_CDC,
+    ecmds::SYS_SCREEN_CAP,
+);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct ScreenCapturePayload {
+pub struct ScreenCapturePacket {
     /// Optionally, a specific LogiCVC layer to capture.
     pub layer: Option<u8>,
 }
-impl Encode for ScreenCapturePayload {
+
+impl Encode for ScreenCapturePacket {
     fn size(&self) -> usize {
-        if self.layer.is_some() { 1 } else { 0 }
+        cdc2_command_size(if self.layer.is_some() { 1 } else { 0 })
     }
 
     fn encode(&self, data: &mut [u8]) {
-        if let Some(layer) = self.layer {
-            data[0] = layer;
-        }
+        frame_cdc2_command(self, data, |data| {
+            if let Some(layer) = self.layer {
+                data[0] = layer;
+            }
+        });
     }
 }
+
+pub struct ScreenCaptureReplyPacket {}
+
+impl Decode for ScreenCaptureReplyPacket {
+    fn decode(_data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {})
+    }
+}
+
+// MARK: DeviceStatus
 
 // This is copied from vex-sdk
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -676,16 +890,33 @@ impl Decode for DeviceStatus {
     }
 }
 
-pub type DeviceStatusPacket = Cdc2CommandPacket<USER_CDC, DEV_STATUS, ()>;
-pub type DeviceStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, DEV_STATUS, DeviceStatusReplyPayload>;
+// MARK: DeviceStatus
+
+cdc2_pair!(
+    DeviceStatusPacket => DeviceStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::DEV_STATUS,
+);
+
+pub struct DeviceStatusPacket {}
+
+impl Encode for DeviceStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DeviceStatusReplyPayload {
+pub struct DeviceStatusReplyPacket {
     /// Number of elements in the following array.
     pub count: u8,
     pub devices: Vec<DeviceStatus>,
 }
-impl Decode for DeviceStatusReplyPayload {
+impl Decode for DeviceStatusReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let count = u8::decode(data)?;
         let devices = Vec::decode_with_len(data, count as _)?;
@@ -693,22 +924,7 @@ impl Decode for DeviceStatusReplyPayload {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FdtStatus {
-    pub count: u8,
-    pub files: Vec<Fdt>,
-}
-impl Decode for FdtStatus {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let count = u8::decode(data)?;
-        let entries = Vec::decode_with_len(data, count as _)?;
-
-        Ok(Self {
-            count,
-            files: entries,
-        })
-    }
-}
+// MARK: FdtStatus
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Fdt {
@@ -739,8 +955,42 @@ impl Decode for Fdt {
     }
 }
 
-pub type FdtStatusPacket = Cdc2CommandPacket<USER_CDC, FDT_STATUS, ()>;
-pub type FdtStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, FDT_STATUS, FdtStatus>;
+cdc2_pair!(
+    FdtStatusPacket => FdtStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FDT_STATUS,
+);
+
+pub struct FdtStatusPacket {}
+
+impl Encode for FdtStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FdtStatusReplyPacket {
+    pub count: u8,
+    pub files: Vec<Fdt>,
+}
+impl Decode for FdtStatusReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let count = u8::decode(data)?;
+        let entries = Vec::decode_with_len(data, count as _)?;
+
+        Ok(Self {
+            count,
+            files: entries,
+        })
+    }
+}
+
+// MARK: RadioStatus
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
@@ -766,18 +1016,33 @@ impl Decode for ConnectionDeviceType {
                 return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                     name: "DeviceType",
                     value,
-                    expected: &[
-                        0,2,4,6,7,
-                    ],
+                    expected: &[0, 2, 4, 6, 7],
                 }));
             }
         })
     }
 }
 
+cdc2_pair!(
+    RadioStatusPacket => RadioStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::RADIO_STATUS,
+);
+
+pub struct RadioStatusPacket {}
+
+impl Encode for RadioStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct RadioStatus {
+pub struct RadioStatusReplyPacket {
     /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
     pub device: ConnectionDeviceType,
     /// From 0 to 100
@@ -791,7 +1056,7 @@ pub struct RadioStatus {
     /// Bluetooth: INT
     pub timeslot: u8,
 }
-impl Decode for RadioStatus {
+impl Decode for RadioStatusReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let device = ConnectionDeviceType::decode(data)?;
         let quality = u16::decode(data)?;
@@ -808,6 +1073,3 @@ impl Decode for RadioStatus {
         })
     }
 }
-
-pub type RadioStatusPacket = Cdc2CommandPacket<USER_CDC, RADIO_STATUS, ()>;
-pub type RadioStatusReplyPacket = Cdc2ReplyPacket<USER_CDC, RADIO_STATUS, RadioStatus>;
