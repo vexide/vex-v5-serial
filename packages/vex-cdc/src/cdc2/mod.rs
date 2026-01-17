@@ -79,15 +79,12 @@ pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
     // Encode payload
     payload_fn(&mut data[(frame_size - 2)..(command_size - 2)]);
 
-    println!("{:x?}", data);
-    println!("{:x?}", &data[0..(command_size - 2)]);
     // The CRC16 checksum is of the whole encoded packet, meaning we need
     // to also include the header bytes.
     VEX_CRC16
         .checksum(&data[0..(command_size - 2)])
         .to_be()
         .encode(&mut data[(command_size - 2)..]);
-    println!("{:x?}", data);
 }
 
 /// CDC2 (Extended) Reply Packet

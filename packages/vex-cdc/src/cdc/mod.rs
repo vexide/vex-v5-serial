@@ -100,10 +100,7 @@ pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<()
         }));
     }
 
-    let payload_size = VarU16::decode(data)?.into_inner();
-    *data = data
-        .get((payload_size as usize)..)
-        .ok_or_else(|| DecodeError::new::<R>(DecodeErrorKind::UnexpectedEnd))?;
+    _ = VarU16::decode(data)?.into_inner();
 
     Ok(())
 }
