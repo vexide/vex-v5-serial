@@ -12,7 +12,7 @@ vex-v5-serial = { version = "0.5.1", path = "packages/vex-v5-serial" }
 vex-cdc = { version = "0.1.0", path = "packages/vex-cdc" }
 
 [dev-dependencies]
-vex-v5-serial = { workspace = true }
+vex-v5-serial = { workspace = true, features = ["file-commands", "screen-commands"] }
 log = "0.4.28"
 tokio = { version = "1.47.1", features = ["full"] }
 simplelog = "0.12.2"

@@ -34,13 +34,34 @@ mod version;
 
 pub use crc::{VEX_CRC16, VEX_CRC32};
 pub use decode::{Decode, DecodeError, DecodeErrorKind, DecodeWithLength};
-pub use encode::{Encode, MessageEncoder};
+pub use encode::Encode;
 pub use string::{FixedString, FixedStringSizeError};
 pub use varint::{VarU16, VarU16SizeError};
 pub use version::Version;
 
-/// Starting byte sequence for all device-bound CDC packets.
-pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
+macro_rules! cdc2_pair {
+    ($command_type:ty => $reply_type:ty, $cmd:expr, $ecmd:expr$(,)?) => {
+        impl crate::cdc::CdcCommand for $command_type {
+            const CMD: u8 = $cmd;
+            type Reply = Result<$reply_type, crate::cdc2::Cdc2Ack>;
+        }
+        impl crate::cdc2::Cdc2Command for $command_type {
+            const ECMD: u8 = $ecmd;
+        }
 
-/// Starting byte sequence used for all host-bound CDC packets.
-pub const REPLY_HEADER: [u8; 2] = [0xAA, 0x55];
+        impl crate::decode::Decode for Result<$reply_type, crate::cdc2::Cdc2Ack> {
+            fn decode(data: &mut &[u8]) -> Result<Self, crate::decode::DecodeError> {
+                crate::cdc2::decode_cdc2_reply::<Self, $reply_type>(data)
+            }
+        }
+
+        impl crate::cdc::CdcReply for Result<$reply_type, crate::cdc2::Cdc2Ack> {
+            const CMD: u8 = $cmd;
+            type Command = $command_type;
+        }
+        impl crate::cdc2::Cdc2Reply for Result<$reply_type, crate::cdc2::Cdc2Ack> {
+            const ECMD: u8 = $ecmd;
+        }
+    };
+}
+pub(crate) use cdc2_pair;

@@ -8,14 +8,13 @@ use log::{error, trace, warn};
 use std::time::Duration;
 
 use vex_cdc::{
-    Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
-    cdc::CdcReplyPacket,
-    cdc2::{Cdc2Ack, Cdc2ReplyPacket},
+    Decode, DecodeError, DecodeErrorKind, FixedStringSizeError,
+    cdc::{CdcCommand, CdcReply},
+    cdc2::Cdc2Ack,
 };
 
+#[cfg(all(feature = "screen-commands", feature = "file-commands"))]
 pub mod commands;
-
-use crate::commands::Command;
 
 #[cfg(feature = "bluetooth")]
 pub mod bluetooth;
@@ -24,54 +23,13 @@ pub mod generic;
 #[cfg(feature = "serial")]
 pub mod serial;
 
-pub trait CheckHeader {
-    fn has_valid_header(data: &[u8]) -> bool;
-}
-
-impl<const CMD: u8, const ECMD: u8, P: Decode> CheckHeader for Cdc2ReplyPacket<CMD, ECMD, P> {
-    fn has_valid_header(mut data: &[u8]) -> bool {
-        let data = &mut data;
-
-        if <[u8; 2] as Decode>::decode(data)
-            .map(|header| header != Self::HEADER)
-            .unwrap_or(true)
-        {
-            return false;
-        }
-
-        if u8::decode(data).map(|id| id != CMD).unwrap_or(true) {
-            return false;
-        }
-
-        let payload_size = VarU16::decode(data);
-        if payload_size.is_err() {
-            return false;
-        }
-
-        if u8::decode(data).map(|ecmd| ecmd != ECMD).unwrap_or(true) {
-            return false;
-        }
-
-        true
-    }
-}
-
-impl<const CMD: u8, P: Decode> CheckHeader for CdcReplyPacket<CMD, P> {
-    fn has_valid_header(data: &[u8]) -> bool {
-        let Some(data) = data.get(0..3) else {
-            return false;
-        };
-
-        data[0..2] == Self::HEADER && data[2] == CMD
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RawPacket {
     pub bytes: Vec<u8>,
     pub used: bool,
     pub timestamp: Instant,
 }
+
 impl RawPacket {
     pub fn new(bytes: Vec<u8>) -> Self {
         Self {
@@ -85,20 +43,29 @@ impl RawPacket {
         self.timestamp.elapsed() > timeout || self.used
     }
 
-    pub fn check_header<H: CheckHeader>(&self) -> bool {
-        H::has_valid_header(&self.bytes)
-    }
-
     /// Decodes the packet into the given type.
+    ///
     /// If successful, marks the packet as used.
+    ///
     /// # Note
+    ///
     /// This function will **NOT** fail if the packet has already been used.
-    pub fn decode_and_use<D: Decode>(&mut self) -> Result<D, DecodeError> {
-        let decoded = D::decode(&mut self.bytes.as_slice())?;
-        self.used = true;
-        Ok(decoded)
+    pub fn decode_and_use<D: Decode>(&mut self) -> Option<Result<D, DecodeError>> {
+        match D::decode(&mut self.bytes.as_slice()) {
+            Ok(pkt) => {
+                self.used = true;
+                Some(Ok(pkt))
+            }
+            Err(err) => match err.kind() {
+                DecodeErrorKind::UnexpectedByte { name, .. } if name == "cmd" || name == "ecmd" => {
+                    None
+                }
+                _ => Some(Err(err)),
+            },
+        }
     }
 }
+
 /// Removes old and used packets from the incoming packets buffer.
 pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
     trace!("Trimming packets. Length before: {}", packets.len());
@@ -109,7 +76,7 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
     trace!("Trimmed packets. Length after: {}", packets.len());
 }
 
-/// Represents an open connection to a V5 peripheral.
+/// Represents an open connection to a VEX peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection {
     type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError>;
@@ -117,27 +84,13 @@ pub trait Connection {
     fn connection_type(&self) -> ConnectionType;
 
     /// Sends a packet.
-    fn send(&mut self, packet: impl Encode) -> impl Future<Output = Result<(), Self::Error>>;
+    fn send(&mut self, packet: impl CdcCommand) -> impl Future<Output = Result<(), Self::Error>>;
 
     /// Receives a packet.
-    fn recv<P: Decode + CheckHeader>(
+    fn recv<P: CdcReply>(
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, Self::Error>>;
-
-    /// Read user program output.
-    fn read_user(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, Self::Error>>;
-
-    /// Write to user program stdio.
-    fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
-
-    /// Executes a [`Command`].
-    fn execute_command<C: Command>(
-        &mut self,
-        command: C,
-    ) -> impl Future<Output = Result<C::Output, Self::Error>> {
-        command.execute(self)
-    }
 
     /// Sends a packet and waits for a response.
     ///
@@ -147,22 +100,22 @@ pub trait Connection {
     /// # Note
     ///
     /// This function will fail immediately if the given packet fails to encode.
-    async fn handshake<D: Decode + CheckHeader>(
+    async fn handshake<P: CdcCommand + Clone>(
         &mut self,
+        packet: P,
         timeout: Duration,
         retries: usize,
-        packet: impl Encode + Clone,
-    ) -> Result<D, Self::Error> {
+    ) -> Result<P::Reply, Self::Error> {
         let mut last_error = None;
 
         for _ in 0..=retries {
             self.send(packet.clone()).await?;
-            match self.recv::<D>(timeout).await {
+            match self.recv::<P::Reply>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
                 Err(e) => {
                     warn!(
                         "Handshake failed while waiting for {}: {:?}. Retrying...",
-                        std::any::type_name::<D>(),
+                        std::any::type_name::<P::Reply>(),
                         e
                     );
                     last_error = Some(e);
@@ -175,6 +128,12 @@ pub trait Connection {
         );
         Err(last_error.unwrap())
     }
+
+    /// Read user program output.
+    fn read_user(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, Self::Error>>;
+
+    /// Write to user program stdio.
+    fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -194,6 +153,7 @@ impl ConnectionType {
         matches!(self, ConnectionType::Bluetooth)
     }
 
+    #[allow(unused)]
     pub(crate) fn max_chunk_size(&self, window_size: u16) -> u16 {
         const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 

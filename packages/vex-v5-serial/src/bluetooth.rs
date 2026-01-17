@@ -18,7 +18,7 @@ use crate::trim_packets;
 
 use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
 
-use super::{CheckHeader, Connection, ConnectionType, RawPacket};
+use super::{Connection, ConnectionType, RawPacket};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -267,29 +267,26 @@ impl Connection for BluetoothConnection {
         Ok(())
     }
 
-    async fn recv<P: Decode + CheckHeader>(
-        &mut self,
-        timeout: Duration,
-    ) -> Result<P, BluetoothError> {
+    async fn recv<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
         select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
-                        if packet.check_header::<P>() {
-                            match packet.decode_and_use::<P>() {
-                                Ok(decoded) => {
-                                    trim_packets(&mut self.incoming_packets);
-                                    return Ok(decoded);
-                                }
-                                Err(e) => {
-                                    error!("Failed to decode packet with valid header: {}", e);
-                                    packet.used = true;
-                                    return Err(BluetoothError::DecodeError(e));
-                                }
+                        match packet.decode_and_use::<P>() {
+                            Some(Ok(decoded)) => {
+                                trim_packets(&mut self.incoming_packets);
+                                return Ok(decoded);
                             }
+                            Some(Err(e)) => {
+                                error!("Failed to decode packet with valid header: {}", e);
+                                packet.used = true;
+                                return Err(BluetoothError::DecodeError(e));
+                            }
+                            None => {}
                         }
                     }
+
                     trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }

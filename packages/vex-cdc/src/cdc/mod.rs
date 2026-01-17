@@ -2,12 +2,12 @@
 
 use crate::{
     decode::{Decode, DecodeError, DecodeErrorKind},
-    encode::{Encode, MessageEncoder},
+    encode::Encode,
     varint::VarU16,
     version::Version,
 };
 
-use super::{COMMAND_HEADER, REPLY_HEADER};
+use bitflags::bitflags;
 
 /// CDC packet opcodes.
 ///
@@ -34,8 +34,11 @@ pub mod cmds {
     pub const BRAIN_NAME_GET: u8 = 0x44;
 }
 
-use bitflags::bitflags;
-use cmds::{QUERY_1, SYSTEM_VERSION};
+/// Starting byte sequence for all device-bound CDC packets.
+pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
+
+/// Starting byte sequence used for all host-bound CDC packets.
+pub const REPLY_HEADER: [u8; 2] = [0xAA, 0x55];
 
 /// CDC (Simple) command packet.
 ///
@@ -53,48 +56,11 @@ use cmds::{QUERY_1, SYSTEM_VERSION};
 /// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds) indicating the type of packet. |
 /// | `size`    | 1–2    | Size of `payload` encoded as a [`VarU16`]. |
 /// | `payload` | n      | Encoded payload. |
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct CdcCommandPacket<const CMD: u8, P: Encode> {
-    payload: P,
-}
+pub trait CdcCommand: Encode {
+    const CMD: u8;
+    const HEADER: [u8; 4] = COMMAND_HEADER;
 
-impl<const CMD: u8, P: Encode> CdcCommandPacket<CMD, P> {
-    /// Header used for device-bound VEX CDC packets.
-    pub const HEADER: [u8; 4] = COMMAND_HEADER;
-
-    /// Creates a new device-bound packet with a given generic payload type.
-    pub fn new(payload: P) -> Self {
-        Self { payload }
-    }
-}
-
-impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
-    fn size(&self) -> usize {
-        let payload_size = self.payload.size();
-
-        5 + if payload_size == 0 {
-            0
-        } else if payload_size > (u8::MAX >> 1) as _ {
-            2
-        } else {
-            1
-        } + payload_size
-    }
-
-    fn encode(&self, data: &mut [u8]) {
-        Self::HEADER.encode(data);
-        data[4] = CMD;
-
-        let payload_size = self.payload.size();
-
-        // We only encode the payload size if there is a payload
-        if payload_size > 0 {
-            let mut enc = MessageEncoder::new_with_position(data, 5);
-
-            enc.write(&VarU16::new(payload_size as u16));
-            enc.write(&self.payload);
-        }
-    }
+    type Reply: CdcReply;
 }
 
 /// CDC (Simple) reply packet.
@@ -113,63 +79,64 @@ impl<const CMD: u8, P: Encode> Encode for CdcCommandPacket<CMD, P> {
 /// | `cmd`     | 1      | A [CDC command opcode](crate::cdc::cmds) indicating the type of command being replied to. |
 /// | `size`    | 1–2    | Size of `payload` encoded as a [`VarU16`]. |
 /// | `payload` | n      | Encoded payload. |
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct CdcReplyPacket<const CMD: u8, P: Decode> {
-    /// Packet Payload Size
-    pub size: u16,
+pub trait CdcReply: Decode {
+    const CMD: u8;
+    const HEADER: [u8; 2] = REPLY_HEADER;
 
-    /// Packet Payload
-    ///
-    /// Contains data for a given packet that be encoded and sent over serial to the host.
-    pub payload: P,
+    type Command: CdcCommand;
 }
 
-impl<const CMD: u8, P: Decode> CdcReplyPacket<CMD, P> {
-    /// Header used for host-bound VEX CDC packets.
-    pub const HEADER: [u8; 2] = REPLY_HEADER;
+pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<(), DecodeError> {
+    if <[u8; 2]>::decode(data)? != R::HEADER {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::InvalidHeader));
+    }
+
+    let cmd = u8::decode(data)?;
+    if cmd != R::CMD {
+        return Err(DecodeError::new::<R>(DecodeErrorKind::UnexpectedByte {
+            name: "cmd",
+            value: cmd,
+            expected: &[R::CMD],
+        }));
+    }
+
+    _ = VarU16::decode(data)?.into_inner();
+
+    Ok(())
 }
 
-impl<const CMD: u8, P: Decode> Decode for CdcReplyPacket<CMD, P> {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        if <[u8; 2]>::decode(data)? != Self::HEADER {
-            return Err(DecodeError::new::<Self>(DecodeErrorKind::InvalidHeader));
-        }
+// MARK: Packets
 
-        let cmd = u8::decode(data)?;
-        if cmd != CMD {
-            return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
-                name: "cmd",
-                value: cmd,
-                expected: &[CMD],
-            }));
-        }
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct SystemVersionPacket {}
 
-        let payload_size = VarU16::decode(data)?.into_inner();
-        let mut payload_data = data
-            .get(0..(payload_size as usize))
-            .ok_or_else(|| DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd))?;
-        *data = &data[(payload_size as usize)..];
+impl Encode for SystemVersionPacket {
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+    }
 
-        let payload = P::decode(&mut payload_data)?;
-
-        Ok(Self {
-            size: payload_size,
-            payload,
-        })
+    fn size(&self) -> usize {
+        5
     }
 }
 
-pub type SystemVersionPacket = CdcCommandPacket<SYSTEM_VERSION, ()>;
-pub type SystemVersionReplyPacket = CdcReplyPacket<SYSTEM_VERSION, SystemVersionReplyPayload>;
+impl CdcCommand for SystemVersionPacket {
+    const CMD: u8 = cmds::SYSTEM_VERSION;
+    type Reply = SystemVersionReplyPacket;
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct SystemVersionReplyPayload {
+pub struct SystemVersionReplyPacket {
     pub version: Version,
     pub product_type: ProductType,
     pub flags: ProductFlags,
 }
-impl Decode for SystemVersionReplyPayload {
+
+impl Decode for SystemVersionReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        decode_cdc_reply_frame::<Self>(data)?;
+
         let version = Version::decode(data)?;
         let product_type = ProductType::decode(data)?;
         let flags = ProductFlags::from_bits_truncate(u8::decode(data)?);
@@ -182,11 +149,32 @@ impl Decode for SystemVersionReplyPayload {
     }
 }
 
-pub type Query1Packet = CdcCommandPacket<QUERY_1, ()>;
-pub type Query1ReplyPacket = CdcReplyPacket<QUERY_1, Query1ReplyPayload>;
+impl CdcReply for SystemVersionReplyPacket {
+    const CMD: u8 = cmds::SYSTEM_VERSION;
+    type Command = SystemVersionPacket;
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Query1ReplyPayload {
+pub struct SystemAlivePacket {}
+
+impl Encode for SystemAlivePacket {
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+    }
+
+    fn size(&self) -> usize {
+        5
+    }
+}
+
+impl CdcCommand for SystemAlivePacket {
+    const CMD: u8 = cmds::QUERY_1;
+    type Reply = SystemAliveReplyPacket;
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct SystemAliveReplyPacket {
     pub version_1: u32,
     pub version_2: u32,
 
@@ -197,8 +185,10 @@ pub struct Query1ReplyPayload {
     pub count: u8,
 }
 
-impl Decode for Query1ReplyPayload {
+impl Decode for SystemAliveReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        decode_cdc_reply_frame::<Self>(data)?;
+
         let version_1 = u32::decode(data)?;
         let version_2 = u32::decode(data)?;
         let boot_source = u8::decode(data)?;
@@ -213,44 +203,78 @@ impl Decode for Query1ReplyPayload {
     }
 }
 
+impl CdcReply for SystemAliveReplyPacket {
+    const CMD: u8 = cmds::QUERY_1;
+    type Command = SystemAlivePacket;
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProductType {
-    /* V5 */
+    /// V5 Robot Brain (276-4810)
     V5Brain = 0x10,
-    Controller = 0x11,
-    V5EBrain = 0x14, //field controller
-    /* Unobserved EXP Variant? */
-    ExPBrainVariant = 0x16,
-    ExPControllerVariant = 0x17,
 
+    /// V5 Controller (276-4820)
+    V5Controller = 0x11,
+
+    /// Smart Field Controller (276-7577)
+    V5EventBrain = 0x14,
+
+    /// Unknown EXP Brain Variant
+    ExpBrainVariant = 0x16,
+
+    /// Unknown EXP Controller Variant
+    ExpControllerVariant = 0x17,
+
+    /// V5 GPS Sensor (276-7405)
     GpsSensor = 0x18,
 
-    /* IQ2 */
-    IQ2Brain = 0x20,
-    IQ2Controller = 0x21,
+    /// IQ Robot Brain (Generation 2) (228-6480)
+    Iq2Brain = 0x20,
 
-    /* Normal EXP */
+    /// IQ Controller (Generation 2) (228-6470)
+    Iq2Controller = 0x21,
+
+    /// EXP Robot Brain (280-7125)
     ExpBrain = 0x60,
+
+    /// EXP Controller (280-7729)
     ExpController = 0x61,
 
-    AIM = 0x70,
-    
-    AIVision = 0x80,
-    WorkcellArm = 0x90,
+    /// VEX AIM Coding Robot (249-8581)
+    Aim = 0x70,
+
+    /// AI Vision Sensor (276-8659, 228-9136)
+    AiVision = 0x80,
+
+    /// CTE Workcell Arm (234-8952)
+    CteWorkcellArm = 0x90,
 }
+
 impl Decode for ProductType {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let data = <[u8; 2]>::decode(data)?;
 
         match data[1] {
             0x10 => Ok(Self::V5Brain),
+            0x11 => Ok(Self::V5Controller),
+            0x14 => Ok(Self::V5EventBrain),
+            0x16 => Ok(Self::ExpBrainVariant),
+            0x17 => Ok(Self::ExpControllerVariant),
+            0x18 => Ok(Self::GpsSensor),
+            0x20 => Ok(Self::Iq2Brain),
+            0x21 => Ok(Self::Iq2Controller),
             0x60 => Ok(Self::ExpBrain),
-            0x11 => Ok(Self::Controller),
+            0x61 => Ok(Self::ExpController),
+            0x70 => Ok(Self::Aim),
+            0x80 => Ok(Self::AiVision),
+            0x90 => Ok(Self::CteWorkcellArm),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
-                expected: &[0x10, 0x11, 0x60],
+                expected: &[
+                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90,
+                ],
             })),
         }
     }

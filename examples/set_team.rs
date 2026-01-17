@@ -4,10 +4,7 @@ use vex_v5_serial::{
     Connection,
     protocol::{
         FixedString,
-        cdc2::system::{
-            KeyValueLoadPacket, KeyValueLoadReplyPacket, KeyValueSavePacket, KeyValueSavePayload,
-            KeyValueSaveReplyPacket,
-        },
+        cdc2::system::{KeyValueLoadPacket, KeyValueSavePacket},
     },
     serial::{self, SerialError},
 };
@@ -15,7 +12,7 @@ use vex_v5_serial::{
 #[tokio::main]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
-        log::LevelFilter::Trace,
+        log::LevelFilter::Debug,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Always,
@@ -28,32 +25,41 @@ async fn main() -> Result<(), SerialError> {
     // Open a connection to the device
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
+    let old_teamnumber = connection
+        .handshake(
+            KeyValueLoadPacket {
+                key: FixedString::new("teamnumber").unwrap(),
+            },
+            Duration::from_millis(100),
+            2,
+        )
+        .await??
+        .value;
+
     // Set the team number on the brain
     connection
-        .send(KeyValueSavePacket::new(KeyValueSavePayload {
-            key: FixedString::new("teamnumber")?,
-            value: FixedString::new(
-                "vexide is number 1! vexide is number 1! vexide is number 1! vexide is number 1!",
-            )?,
-        }))
-        .await?;
-    connection
-        .recv::<KeyValueSaveReplyPacket>(Duration::from_millis(100))
-        .await
-        .unwrap();
+        .handshake(
+            KeyValueSavePacket {
+                key: FixedString::new("teamnumber")?,
+                value: FixedString::new("vexide")?,
+            },
+            Duration::from_millis(100),
+            2,
+        )
+        .await??;
 
-    connection
-        .send(KeyValueLoadPacket::new(
-            FixedString::new("teamnumber").unwrap(),
-        ))
-        .await?;
-    let res = connection
-        .recv::<KeyValueLoadReplyPacket>(Duration::from_millis(100))
-        .await
-        .unwrap()
-        .payload?;
+    let new_teamnumber = connection
+        .handshake(
+            KeyValueLoadPacket {
+                key: FixedString::new("teamnumber").unwrap(),
+            },
+            Duration::from_millis(100),
+            2,
+        )
+        .await??
+        .value;
 
-    println!("{:?}", res);
+    println!("{} -> {}", old_teamnumber.as_str(), new_teamnumber.as_str());
 
     Ok(())
 }

@@ -3,11 +3,11 @@ use std::{str::FromStr, time::Duration};
 use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
 use vex_v5_serial::{
     Connection,
-    commands::file::DownloadFile,
+    commands::file::download_file,
     protocol::{
         FixedString,
         cdc2::file::{
-            FileControlGroup, FileControlPacket, FileControlReplyPacket, FileTransferTarget,
+            FileControlGroup, FileControlPacket, FileTransferTarget,
             FileVendor, RadioChannel,
         },
     },
@@ -38,31 +38,32 @@ async fn main() -> Result<(), SerialError> {
     // and can be found here::
     // <https://github.com/vexide/cargo-v5/blob/main/src/connection.rs#L61>
     connection
-        .handshake::<FileControlReplyPacket>(
+        .handshake(
+            FileControlPacket {
+                group: FileControlGroup::Radio(RadioChannel::Download),
+            },
             Duration::from_millis(500),
             10,
-            FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
-        .await?
-        .payload?;
+        .await??;
 
     sleep(Duration::from_millis(1000)).await;
 
     let file = "slot_1.bin";
 
     // Download program file
-    let download = connection
-        .execute_command(DownloadFile {
-            file_name: FixedString::from_str(file).unwrap(),
-            size: 2000,
-            vendor: FileVendor::User,
-            target: FileTransferTarget::Qspi,
-            address: 0x03800000,
-            progress_callback: Some(Box::new(move |progress| {
-                log::info!("{}: {:.2}%", file, progress);
-            }) as Box<dyn FnMut(f32) + Send>),
-        })
-        .await?;
+    let download = download_file(
+        &mut connection,
+        FixedString::from_str(file).unwrap(),
+        2000,
+        FileVendor::User,
+        FileTransferTarget::Qspi,
+        0x03800000,
+        Some(move |progress| {
+            log::info!("{}: {:.2}%", file, progress);
+        }),
+    )
+    .await?;
 
     let mut file = File::create_new(file).await?;
     file.write_all(&download).await?;

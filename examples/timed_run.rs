@@ -5,11 +5,8 @@ use tokio::time::sleep;
 use vex_v5_serial::{
     Connection,
     protocol::{
-        cdc::{ProductType, SystemVersionPacket, SystemVersionReplyPacket},
-        cdc2::controller::{
-            CompetitionControlPacket, CompetitionControlPayload, CompetitionControlReplyPacket,
-            MatchMode,
-        },
+        cdc::{ProductType, SystemVersionPacket},
+        cdc2::controller::{CompetitionControlPacket, CompetitionMode},
     },
     serial::{self, SerialError},
 };
@@ -31,14 +28,10 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
-        .handshake::<SystemVersionReplyPacket>(
-            Duration::from_millis(700),
-            5,
-            SystemVersionPacket::new(()),
-        )
+        .handshake(SystemVersionPacket {}, Duration::from_millis(700), 5)
         .await?;
 
-    match response.payload.product_type {
+    match response.product_type {
         ProductType::V5Brain | ProductType::ExpBrain => {
             error!("You must be connected to the Brain over controller to use field control");
             return Ok(());
@@ -48,44 +41,44 @@ async fn main() -> Result<(), SerialError> {
 
     info!("Setting match mode to auto");
     connection
-        .handshake::<CompetitionControlReplyPacket>(
+        .handshake(
+            CompetitionControlPacket {
+                mode: CompetitionMode::Autonomous,
+                time: 0,
+            },
             Duration::from_millis(500),
             10,
-            CompetitionControlPacket::new(CompetitionControlPayload {
-                match_mode: MatchMode::Auto,
-                match_time: 0,
-            }),
         )
-        .await?;
+        .await??;
 
     sleep(Duration::from_secs(2)).await;
 
     info!("Setting match mode to driver");
     connection
-        .handshake::<CompetitionControlReplyPacket>(
+        .handshake(
+            CompetitionControlPacket {
+                mode: CompetitionMode::Driver,
+                time: 2,
+            },
             Duration::from_millis(500),
             10,
-            CompetitionControlPacket::new(CompetitionControlPayload {
-                match_mode: MatchMode::Driver,
-                match_time: 2,
-            }),
         )
-        .await?;
+        .await??;
 
     // 1 minute 45 seconds
     sleep(Duration::from_secs(2)).await;
 
     info!("Setting match mode to disabled");
     connection
-        .handshake::<CompetitionControlReplyPacket>(
+        .handshake(
+            CompetitionControlPacket {
+                mode: CompetitionMode::Disabled,
+                time: 4,
+            },
             Duration::from_millis(500),
             10,
-            CompetitionControlPacket::new(CompetitionControlPayload {
-                match_mode: MatchMode::Disabled,
-                match_time: 4,
-            }),
         )
-        .await?;
+        .await??;
 
     Ok(())
 }

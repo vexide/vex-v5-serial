@@ -3,7 +3,7 @@ use std::time::Duration;
 use log::info;
 use vex_v5_serial::{
     Connection,
-    protocol::cdc::{SystemVersionPacket, SystemVersionReplyPacket},
+    protocol::cdc::SystemVersionPacket,
     serial::{self, SerialError},
 };
 
@@ -24,14 +24,10 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let response = connection
-        .handshake::<SystemVersionReplyPacket>(
-            Duration::from_millis(700),
-            5,
-            SystemVersionPacket::new(()),
-        )
+        .handshake(SystemVersionPacket {}, Duration::from_millis(700), 5)
         .await?;
 
-    info!("{:?}", response.payload.product_type);
+    info!("{:?}", response);
 
     Ok(())
 }
