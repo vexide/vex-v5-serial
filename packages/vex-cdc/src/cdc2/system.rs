@@ -1028,24 +1028,24 @@ impl Decode for FdtStatusReplyPacket {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
-pub enum ConnectionDeviceType {
-    NoConnection = 0,
+pub enum RadioConnectionDevice {
+    None = 0,
     V5ControllerBluetooth = 2,
-    V5ControllerVEXNet = 4,
+    V5ControllerVexnet = 4,
     //speculated
-    EXPControllerBluetooth = 6,
+    ExpControllerBluetooth = 6,
     //On a brain, a computer. On a controller, a brain.
     Host = 7,
 }
-impl Decode for ConnectionDeviceType {
+impl Decode for RadioConnectionDevice {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let value = u8::decode(data)?;
         Ok(match value {
-            0 => ConnectionDeviceType::NoConnection,
-            2 => ConnectionDeviceType::V5ControllerBluetooth,
-            4 => ConnectionDeviceType::V5ControllerVEXNet,
-            6 => ConnectionDeviceType::EXPControllerBluetooth,
-            7 => ConnectionDeviceType::Host,
+            0 => RadioConnectionDevice::None,
+            2 => RadioConnectionDevice::V5ControllerBluetooth,
+            4 => RadioConnectionDevice::V5ControllerVexnet,
+            6 => RadioConnectionDevice::ExpControllerBluetooth,
+            7 => RadioConnectionDevice::Host,
             _ => {
                 return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                     name: "DeviceType",
@@ -1077,22 +1077,26 @@ impl Encode for RadioStatusPacket {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct RadioStatusReplyPacket {
-    /// 0 = No controller, 4 = Controller connected (UNCONFIRMED)
-    pub device: ConnectionDeviceType,
+    /// Type of device that is paired with the radio.
+    pub device: Option<RadioConnectionDevice>,
+    
     /// From 0 to 100
     pub quality: u16,
+    
     /// Probably RSSI (UNCONFIRMED)
     pub strength: i16,
+    
     /// Vexnet3: 5 = download, 9 = reconnecting, anything lower than 53 is pit, else comp (there are a bunch)
     /// Bluetooth: MTU (typically around 240-250)
     pub channel: u8,
+
     /// Vexnet3: TDMA frame timeslot.
     /// Bluetooth: INT
     pub timeslot: u8,
 }
 impl Decode for RadioStatusReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        let device = ConnectionDeviceType::decode(data)?;
+        let device = RadioConnectionDevice::decode(data)?;
         let quality = u16::decode(data)?;
         let strength = i16::decode(data)?;
         let channel = u8::decode(data)?;
