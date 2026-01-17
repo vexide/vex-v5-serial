@@ -2,15 +2,7 @@ use std::future::Future;
 
 use crate::Connection;
 
+#[cfg(feature = "file-commands")]
 pub mod file;
-#[cfg(feature = "screen-command")]
+#[cfg(feature = "screen-commands")]
 pub mod screen;
-
-pub trait Command {
-    type Output;
-
-    fn execute<C: Connection + ?Sized>(
-        self,
-        connection: &mut C,
-    ) -> impl Future<Output = Result<Self::Output, C::Error>>;
-}

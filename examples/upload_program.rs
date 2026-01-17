@@ -2,10 +2,8 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     Connection,
-    commands::file::{ProgramData, UploadProgram},
-    protocol::cdc2::file::{
-        FileControlGroup, FileControlPacket, FileControlReplyPacket, FileExitAction, RadioChannel,
-    },
+    commands::file::{ProgramData, upload_program},
+    protocol::cdc2::file::{FileControlGroup, FileControlPacket, FileExitAction, RadioChannel},
     serial::{self, SerialError},
 };
 
@@ -28,9 +26,9 @@ async fn main() -> Result<(), SerialError> {
     let program_data = include_bytes!("./basic.bin").to_vec();
 
     let callback_generator = |step| {
-        Box::new(move |progress| {
+        move |progress| {
             log::info!("{}: {:.2}%", step, progress);
-        })
+        }
     };
 
     // Swap radio to download channel.
@@ -40,30 +38,31 @@ async fn main() -> Result<(), SerialError> {
     // and can be found here::
     // <https://github.com/vexide/cargo-v5/blob/main/src/connection.rs#L61>
     connection
-        .handshake::<FileControlReplyPacket>(
+        .handshake(
+            FileControlPacket {
+                group: FileControlGroup::Radio(RadioChannel::Download),
+            },
             Duration::from_millis(500),
             10,
-            FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
-        .await?
-        .payload?;
+        .await??;
 
     // Upload program file
-    connection
-        .execute_command(UploadProgram {
-            name: "quick".to_string(),
-            description: "A basic vexide program".to_string(),
-            icon: "USER029x.bmp".to_string(),
-            program_type: "vexide".to_string(),
-            slot: 4,
-            data: ProgramData::Monolith(program_data),
-            compress: true,
-            after_upload: FileExitAction::RunProgram,
-            ini_callback: Some(callback_generator("INI")),
-            lib_callback: Some(callback_generator("LIB")),
-            bin_callback: Some(callback_generator("BIN")),
-        })
-        .await?;
+    upload_program(
+        &mut connection,
+        4,
+        "quick",
+        "A basic vexide program",
+        "vexide",
+        "USER029x.bmp",
+        true,
+        ProgramData::Monolith(program_data),
+        FileExitAction::RunProgram,
+        Some(callback_generator("INI")),
+        Some(callback_generator("LIB")),
+        Some(callback_generator("BIN")),
+    )
+    .await?;
 
     Ok(())
 }

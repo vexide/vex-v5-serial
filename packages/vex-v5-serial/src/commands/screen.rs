@@ -16,140 +16,96 @@ use vex_cdc::{
     },
 };
 
-use super::{Command, file::DownloadFile};
+use super::file::download_file;
 
-#[derive(Debug, Clone, Copy)]
-pub struct ScreenCapture;
-impl Command for ScreenCapture {
-    type Output = image::RgbImage;
+pub async fn screen_capture<C: Connection + ?Sized>(
+    connection: &mut C,
+) -> Result<image::RgbImage, C::Error> {
+    // Tell the brain we want to take a screenshot
+    connection
+        .handshake::<ScreenCaptureReplyPacket>(
+            Duration::from_millis(100),
+            5,
+            ScreenCapturePacket::new(ScreenCapturePayload { layer: None }),
+        )
+        .await?;
 
-    async fn execute<C: Connection + ?Sized>(
-        self,
-        connection: &mut C,
-    ) -> Result<Self::Output, C::Error> {
-        // Tell the brain we want to take a screenshot
-        connection
-            .handshake::<ScreenCaptureReplyPacket>(
-                Duration::from_millis(100),
-                5,
-                ScreenCapturePacket::new(ScreenCapturePayload { layer: None }),
-            )
-            .await?;
+    // Grab the image data
+    let cap = download_file(
+        connection,
+        FixedString::new("screen".to_string()).unwrap(),
+        512 * 272 * 4,
+        FileVendor::Sys,
+        FileTransferTarget::Cbuf,
+        0,
+        Some(|progress| {
+            info!("Downloading screen: {:.2}%", progress)
+        }),
+    )
+    .await?;
 
-        // Grab the image data
-        let cap = connection
-            .execute_command(DownloadFile {
-                file_name: FixedString::new("screen".to_string()).unwrap(),
-                vendor: FileVendor::Sys,
-                target: FileTransferTarget::Cbuf,
-                address: 0,
-                size: 512 * 272 * 4,
-                progress_callback: Some(Box::new(|progress| {
-                    info!("Downloading screen: {:.2}%", progress)
-                })),
-            })
-            .await
-            .unwrap();
+    let colors = cap
+        .chunks(4)
+        .filter_map(|p| {
+            if p.len() == 4 {
+                // little endian
+                let color = [p[2], p[1], p[0]];
+                Some(color)
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect::<Vec<_>>();
 
-        let colors = cap
-            .chunks(4)
-            .filter_map(|p| {
-                if p.len() == 4 {
-                    // little endian
-                    let color = [p[2], p[1], p[0]];
-                    Some(color)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .collect::<Vec<_>>();
-
-        let image = image::RgbImage::from_vec(512, 272, colors).unwrap();
-        Ok(image::GenericImageView::view(&image, 0, 0, 480, 272).to_image())
-    }
+    let image = image::RgbImage::from_vec(512, 272, colors).unwrap();
+    Ok(image::GenericImageView::view(&image, 0, 0, 480, 272).to_image())
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MockTouch {
-    pub x: u16,
-    pub y: u16,
-    pub pressed: bool,
-}
-impl Command for MockTouch {
-    type Output = ();
-
-    async fn execute<C: Connection + ?Sized>(
-        self,
-        connection: &mut C,
-    ) -> Result<Self::Output, C::Error> {
-        connection
-            .handshake::<DashTouchReplyPacket>(
-                Duration::from_millis(100),
-                5,
-                DashTouchPacket::new(DashTouchPayload {
-                    x: self.x,
-                    y: self.y,
-                    pressing: if self.pressed { 1 } else { 0 },
-                }),
-            )
-            .await?;
-        Ok(())
-    }
+pub async fn mock_touch<C: Connection + ?Sized>(
+    connection: &mut C,
+    x: u16,
+    y: u16,
+    pressed: bool,
+) -> Result<(), C::Error> {
+    connection
+        .handshake::<DashTouchReplyPacket>(
+            Duration::from_millis(100),
+            5,
+            DashTouchPacket::new(DashTouchPayload {
+                x,
+                y,
+                pressing: if pressed { 1 } else { 0 },
+            }),
+        )
+        .await?;
+    Ok(())
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MockTap {
-    pub x: u16,
-    pub y: u16,
-}
-impl Command for MockTap {
-    type Output = ();
-
-    async fn execute<C: Connection + ?Sized>(
-        self,
-        connection: &mut C,
-    ) -> Result<Self::Output, C::Error> {
-        connection
-            .execute_command(MockTouch {
-                x: self.x,
-                y: self.y,
-                pressed: true,
-            })
-            .await?;
-        connection
-            .execute_command(MockTouch {
-                x: self.x,
-                y: self.y,
-                pressed: false,
-            })
-            .await?;
-
-        Ok(())
-    }
+pub async fn mock_tap<C: Connection + ?Sized>(
+    connection: &mut C,
+    x: u16,
+    y: u16,
+) -> Result<(), C::Error> {
+    mock_touch(connection, x, y, true).await?;
+    mock_touch(connection, x, y, false).await?;
+    Ok(())
 }
 
-#[derive(Debug)]
-pub struct OpenDashScreen {
-    pub dash: DashScreen,
-}
-impl Command for OpenDashScreen {
-    type Output = ();
-    async fn execute<C: Connection + ?Sized>(
-        self,
-        connection: &mut C,
-    ) -> Result<Self::Output, C::Error> {
-        connection
-            .handshake::<DashSelectReplyPacket>(
-                Duration::from_millis(100),
-                5,
-                DashSelectPacket::new(DashSelectPayload {
-                    screen: self.dash,
-                    port: 0,
-                }),
-            )
-            .await?;
+pub async fn open_dash_screen<C: Connection + ?Sized>(
+    connection: &mut C,
+    dash: DashScreen,
+) -> Result<(), C::Error> {
+    connection
+        .handshake::<DashSelectReplyPacket>(
+            Duration::from_millis(100),
+            5,
+            DashSelectPacket::new(DashSelectPayload {
+                screen: dash,
+                port: 0,
+            }),
+        )
+        .await?;
 
-        Ok(())
-    }
+    Ok(())
 }

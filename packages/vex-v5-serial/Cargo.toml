@@ -14,7 +14,6 @@ authors = ["vexide", "Gavin Niederman <gavinniederman@gmail.com>", "Tropical"]
 vex-cdc = { workspace = true }
 log = "0.4.28"
 thiserror = "2"
-flate2 = "1.1.2"
 
 tokio = { version = "1.47.1", features = [
     "io-util",
@@ -27,8 +26,9 @@ serialport = { version = "4.7.3", optional = true, features = [
 ] }
 btleplug = { version = "0.11.5", optional = true }
 futures = { version = "0.3.30", default-features = false, optional = true }
-uuid = { version = "1.8.0", default-features = false, optional = true}
+uuid = { version = "1.8.0", default-features = false, optional = true }
 image = { version = "0.25.1", default-features = false, optional = true }
+flate2 = { version = "1.1.2", optional = true }
 
 [features]
 default = ["serial", "bluetooth"]
@@ -40,4 +40,5 @@ bluetooth = [
     "dep:futures",
     "dep:uuid",
 ]
-screen-command = ["dep:image"]
+screen-commands = ["dep:image"]
+file-commands = ["dep:flate2"]

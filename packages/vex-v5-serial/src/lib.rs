@@ -13,9 +13,8 @@ use vex_cdc::{
     cdc2::Cdc2Ack,
 };
 
+#[cfg(all(feature = "screen-commands", feature = "file-commands"))]
 pub mod commands;
-
-use crate::commands::Command;
 
 #[cfg(feature = "bluetooth")]
 pub mod bluetooth;
@@ -77,7 +76,7 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
     trace!("Trimmed packets. Length after: {}", packets.len());
 }
 
-/// Represents an open connection to a V5 peripheral.
+/// Represents an open connection to a VEX peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection {
     type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError>;
@@ -92,20 +91,6 @@ pub trait Connection {
         &mut self,
         timeout: Duration,
     ) -> impl Future<Output = Result<P, Self::Error>>;
-
-    /// Read user program output.
-    fn read_user(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, Self::Error>>;
-
-    /// Write to user program stdio.
-    fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
-
-    /// Executes a [`Command`].
-    fn execute_command<C: Command>(
-        &mut self,
-        command: C,
-    ) -> impl Future<Output = Result<C::Output, Self::Error>> {
-        command.execute(self)
-    }
 
     /// Sends a packet and waits for a response.
     ///
@@ -143,6 +128,12 @@ pub trait Connection {
         );
         Err(last_error.unwrap())
     }
+
+    /// Read user program output.
+    fn read_user(&mut self, buf: &mut [u8]) -> impl Future<Output = Result<usize, Self::Error>>;
+
+    /// Write to user program stdio.
+    fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -162,6 +153,7 @@ impl ConnectionType {
         matches!(self, ConnectionType::Bluetooth)
     }
 
+    #[allow(unused)]
     pub(crate) fn max_chunk_size(&self, window_size: u16) -> u16 {
         const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
