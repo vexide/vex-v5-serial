@@ -12,7 +12,7 @@ use crate::{Connection, ConnectionType};
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
     cdc2::file::{
-        ExtensionType, FileDataReadPacket, FileDataWritePacket, FileExitAction, FileInitOption,
+        ExtensionType, FileDataReadPacket, FileDataWritePacket, FileExitAction, FileTransferOptions,
         FileLinkPacket, FileMetadata, FileTransferExitPacket, FileTransferInitializePacket,
         FileTransferOperation, FileTransferTarget, FileVendor,
     },
@@ -48,7 +48,7 @@ pub async fn download_file<C: Connection>(
                 operation: FileTransferOperation::Read,
                 target,
                 vendor,
-                options: FileInitOption::None,
+                options: FileTransferOptions::None,
                 file_size: size,
                 write_file_crc: 0,
                 load_address: address,
@@ -136,7 +136,7 @@ pub async fn upload_file<C: Connection + ?Sized>(
                 operation: FileTransferOperation::Write,
                 target,
                 vendor,
-                options: FileInitOption::Overwrite,
+                options: FileTransferOptions::Overwrite,
                 file_size: data.len() as u32,
                 load_address: load_address,
                 write_file_crc: crc,

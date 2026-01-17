@@ -24,9 +24,10 @@ pub enum FileTransferOperation {
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum FileInitOption {
+pub enum FileTransferOptions {
     None = 0,
     Overwrite = 1,
+    EraseAll = 0x80,
 }
 
 #[repr(u8)]
@@ -178,7 +179,7 @@ pub struct FileTransferInitializePacket {
     pub operation: FileTransferOperation,
     pub target: FileTransferTarget,
     pub vendor: FileVendor,
-    pub options: FileInitOption,
+    pub options: FileTransferOptions,
     pub file_size: u32,
     pub load_address: u32,
     pub write_file_crc: u32,
