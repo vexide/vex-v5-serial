@@ -155,9 +155,9 @@ impl CdcReply for SystemVersionReplyPacket {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Query1Packet {}
+pub struct SystemAlivePacket {}
 
-impl Encode for Query1Packet {
+impl Encode for SystemAlivePacket {
     fn encode(&self, data: &mut [u8]) {
         Self::HEADER.encode(data);
         data[4] = Self::CMD;
@@ -168,13 +168,13 @@ impl Encode for Query1Packet {
     }
 }
 
-impl CdcCommand for Query1Packet {
+impl CdcCommand for SystemAlivePacket {
     const CMD: u8 = cmds::QUERY_1;
     type Reply = SystemVersionReplyPacket;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Query1ReplyPacket {
+pub struct SystemAliveReplyPacket {
     pub version_1: u32,
     pub version_2: u32,
 
@@ -185,7 +185,7 @@ pub struct Query1ReplyPacket {
     pub count: u8,
 }
 
-impl Decode for Query1ReplyPacket {
+impl Decode for SystemAliveReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         decode_cdc_reply_frame::<Self>(data)?;
 
@@ -203,9 +203,9 @@ impl Decode for Query1ReplyPacket {
     }
 }
 
-impl CdcReply for Query1ReplyPacket {
+impl CdcReply for SystemAliveReplyPacket {
     const CMD: u8 = cmds::QUERY_1;
-    type Command = Query1Packet;
+    type Command = SystemAlivePacket;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
