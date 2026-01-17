@@ -131,6 +131,6 @@ impl Decode for CompetitionControlReplyPacket {
 #[repr(u8)]
 pub enum CompetitionMode {
     Driver = 8,
-    Auto = 10,
+    Autonomous = 10,
     Disabled = 11,
 }
