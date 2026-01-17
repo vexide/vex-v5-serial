@@ -11,15 +11,17 @@ use tokio::{
 };
 use tokio_serial::SerialStream;
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, REPLY_HEADER, VarU16, cdc::CdcReply, cdc2::{
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedString, FixedStringSizeError, VarU16,
+    cdc::CdcReply,
+    cdc2::{
         Cdc2Ack,
-        controller::{UserDataPacket, UserDataPayload, UserDataReplyPacket},
-    }
+        controller::{UserDataPacket, UserDataReplyPacket},
+    },
 };
 
-use crate::{CheckHeader, Connection, ConnectionType, RawPacket, trim_packets};
+use crate::{Connection, ConnectionType, RawPacket, trim_packets};
 
-/// The USB venddor ID for VEX devices
+/// The USB vendor ID for VEX devices
 pub const VEX_USB_VID: u16 = 0x2888;
 
 /// The USB PID of the V5 Brain
@@ -343,14 +345,14 @@ impl SerialDevice {
     }
 }
 
-/// Decodes a [`HostBoundPacket`]'s header sequence.
-fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
-    let header = Decode::decode(&mut data)?;
-    if header != REPLY_HEADER {
-        return Err(DecodeError::new::<[u8; 2]>(DecodeErrorKind::InvalidHeader));
-    }
-    Ok(header)
-}
+// /// Decodes a [`HostBoundPacket`]'s header sequence.
+// fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
+//     let header = Decode::decode(&mut data)?;
+//     if header != REPLY_HEADER {
+//         return Err(DecodeError::new::<[u8; 2]>(DecodeErrorKind::InvalidHeader));
+//     }
+//     Ok(header)
+// }
 
 /// An open serial connection to a V5 device.
 #[derive(Debug)]
@@ -403,11 +405,8 @@ impl SerialConnection {
         self.system_port.read_exact(&mut header).await?;
 
         // Verify that the header is valid
-        if let Err(e) = validate_header(&header) {
-            warn!(
-                "Skipping packet with invalid header: {:x?}. Error: {}",
-                header, e
-            );
+        if header != [0xAA, 0x55] {
+            warn!("Skipping packet with invalid header: {:x?}.", header,);
             return Ok(());
         }
 
@@ -488,20 +487,20 @@ impl Connection for SerialConnection {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
-                        if packet.check_header::<P>() {
-                            match packet.decode_and_use::<P>() {
-                                Ok(decoded) => {
-                                    trim_packets(&mut self.incoming_packets);
-                                    return Ok(decoded);
-                                }
-                                Err(e) => {
-                                    error!("Failed to decode packet with valid header: {}", e);
-                                    packet.used = true;
-                                    return Err(SerialError::DecodeError(e));
-                                }
+                        match packet.decode_and_use::<P>() {
+                            Some(Ok(decoded)) => {
+                                trim_packets(&mut self.incoming_packets);
+                                return Ok(decoded);
                             }
+                            Some(Err(e)) => {
+                                error!("Failed to decode packet with valid header: {}", e);
+                                packet.used = true;
+                                return Err(SerialError::DecodeError(e));
+                            }
+                            None => {}
                         }
                     }
+                    
                     trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }
@@ -517,16 +516,15 @@ impl Connection for SerialConnection {
             let mut data = Vec::new();
             loop {
                 let fifo = self
-                    .handshake::<UserDataReplyPacket>(
-                        Duration::from_millis(100),
-                        1,
-                        UserDataPacket::new(UserDataPayload {
+                    .handshake(
+                        UserDataPacket {
                             channel: 1, // stdio channel
                             write: None,
-                        }),
+                        },
+                        Duration::from_millis(100),
+                        1,
                     )
-                    .await?
-                    .payload?;
+                    .await??;
                 if let Some(read) = fifo.data {
                     data.extend(read.as_bytes());
                     break;
@@ -548,19 +546,18 @@ impl Connection for SerialConnection {
             while !buf.is_empty() {
                 let (chunk, rest) = buf.split_at(std::cmp::min(224, buf.len()));
                 _ = self
-                    .handshake::<UserDataReplyPacket>(
-                        Duration::from_millis(100),
-                        1,
-                        UserDataPacket::new(UserDataPayload {
+                    .handshake(
+                        UserDataPacket {
                             channel: 2, // stdio channel
                             write: Some(
                                 FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
                                     .unwrap(),
                             ),
-                        }),
+                        },
+                        Duration::from_millis(100),
+                        1,
                     )
-                    .await?
-                    .payload?;
+                    .await??;
                 buf = rest;
             }
 

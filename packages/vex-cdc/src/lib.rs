@@ -39,12 +39,6 @@ pub use string::{FixedString, FixedStringSizeError};
 pub use varint::{VarU16, VarU16SizeError};
 pub use version::Version;
 
-/// Starting byte sequence for all device-bound CDC packets.
-pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
-
-/// Starting byte sequence used for all host-bound CDC packets.
-pub const REPLY_HEADER: [u8; 2] = [0xAA, 0x55];
-
 macro_rules! cdc2_pair {
     ($command_type:ty => $reply_type:ty, $cmd:expr, $ecmd:expr$(,)?) => {
         impl crate::cdc::CdcCommand for $command_type {

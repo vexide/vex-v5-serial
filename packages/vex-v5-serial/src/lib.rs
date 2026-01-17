@@ -8,9 +8,9 @@ use log::{error, trace, warn};
 use std::time::Duration;
 
 use vex_cdc::{
-    Decode, DecodeError, Encode, FixedStringSizeError, VarU16,
+    Decode, DecodeError, DecodeErrorKind, Encode, FixedStringSizeError, VarU16,
     cdc::{CdcCommand, CdcReply},
-    cdc2::{Cdc2Ack},
+    cdc2::Cdc2Ack,
 };
 
 pub mod commands;
@@ -45,15 +45,28 @@ impl RawPacket {
     }
 
     /// Decodes the packet into the given type.
+    /// 
     /// If successful, marks the packet as used.
+    /// 
     /// # Note
+    /// 
     /// This function will **NOT** fail if the packet has already been used.
-    pub fn decode_and_use<D: Decode>(&mut self) -> Result<D, DecodeError> {
-        let decoded = D::decode(&mut self.bytes.as_slice())?;
-        self.used = true;
-        Ok(decoded)
+    pub fn decode_and_use<D: Decode>(&mut self) -> Option<Result<D, DecodeError>> {
+        match D::decode(&mut self.bytes.as_slice()) {
+            Ok(pkt) => {
+                self.used = true;
+                Some(Ok(pkt))
+            }
+            Err(err) => match err.kind() {
+                DecodeErrorKind::UnexpectedByte { name, .. } if name == "cmd" || name == "ecmd" => {
+                    None
+                }
+                _ => Some(Err(err)),
+            },
+        }
     }
 }
+
 /// Removes old and used packets from the incoming packets buffer.
 pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
     trace!("Trimming packets. Length before: {}", packets.len());

@@ -2,9 +2,9 @@ use crate::{Connection, ConnectionType, bluetooth, serial};
 use futures::{TryFutureExt, try_join};
 use std::time::Duration;
 use thiserror::Error;
-use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
+use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc::{CdcCommand, CdcReply}, cdc2::Cdc2Ack};
 
-use super::{CheckHeader, bluetooth::BluetoothError, serial::SerialError};
+use super::{bluetooth::BluetoothError, serial::SerialError};
 
 pub enum GenericConnection {
     Bluetooth(bluetooth::BluetoothConnection),
@@ -20,7 +20,7 @@ impl Connection for GenericConnection {
         }
     }
 
-    async fn send(&mut self, packet: impl Encode) -> Result<(), GenericError> {
+    async fn send(&mut self, packet: impl CdcCommand) -> Result<(), GenericError> {
         match self {
             GenericConnection::Bluetooth(c) => c.send(packet).await?,
             GenericConnection::Serial(s) => s.send(packet).await?,
@@ -28,7 +28,7 @@ impl Connection for GenericConnection {
         Ok(())
     }
 
-    async fn recv<P: Decode + CheckHeader>(
+    async fn recv<P: CdcReply>(
         &mut self,
         timeout: std::time::Duration,
     ) -> Result<P, GenericError> {

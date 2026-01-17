@@ -34,6 +34,12 @@ pub mod cmds {
     pub const BRAIN_NAME_GET: u8 = 0x44;
 }
 
+/// Starting byte sequence for all device-bound CDC packets.
+pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
+
+/// Starting byte sequence used for all host-bound CDC packets.
+pub const REPLY_HEADER: [u8; 2] = [0xAA, 0x55];
+
 /// CDC (Simple) command packet.
 ///
 /// A device-bound message containing a command identifier and an encoded payload.
@@ -52,7 +58,7 @@ pub mod cmds {
 /// | `payload` | n      | Encoded payload. |
 pub trait CdcCommand: Encode {
     const CMD: u8;
-    const HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
+    const HEADER: [u8; 4] = COMMAND_HEADER;
 
     type Reply: CdcReply;
 }
@@ -75,7 +81,7 @@ pub trait CdcCommand: Encode {
 /// | `payload` | n      | Encoded payload. |
 pub trait CdcReply: Decode {
     const CMD: u8;
-    const HEADER: [u8; 2] = [0xAA, 0x55];
+    const HEADER: [u8; 2] = REPLY_HEADER;
 
     type Command: CdcCommand;
 }
