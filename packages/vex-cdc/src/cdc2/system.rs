@@ -3,7 +3,7 @@
 use core::u8;
 
 use alloc::{
-    string::{String, ToString},
+    string::{String},
     vec::Vec,
 };
 
@@ -348,12 +348,12 @@ pub struct KeyValueLoadPacket {
 
 impl Encode for KeyValueLoadPacket {
     fn size(&self) -> usize {
-        cdc2_command_size(self.key.size())
+        cdc2_command_size(self.key.len() + 1)
     }
 
     fn encode(&self, data: &mut [u8]) {
         frame_cdc2_command(self, data, |data| {
-            self.key.encode(data);
+            self.key.as_str().encode(data);
         });
     }
 }
@@ -387,13 +387,13 @@ pub struct KeyValueSavePacket {
 
 impl Encode for KeyValueSavePacket {
     fn size(&self) -> usize {
-        cdc2_command_size(self.key.size() + self.value.size())
+        cdc2_command_size(self.key.len() + self.value.len() + 2)
     }
 
     fn encode(&self, data: &mut [u8]) {
         frame_cdc2_command(self, data, |data| {
-            self.key.to_string().encode(data);
-            self.value.to_string().encode(&mut data[self.key.size()..]);
+            self.key.as_str().encode(data);
+            self.value.as_str().encode(&mut data[self.key.len() + 1..]);
         });
     }
 }
