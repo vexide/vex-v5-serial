@@ -3,7 +3,7 @@ use std::time::Duration;
 use log::info;
 use vex_v5_serial::{
     Connection,
-    protocol::cdc2::system::{DeviceStatusPacket, DeviceStatusReplyPacket},
+    protocol::cdc2::system::DeviceStatusPacket,
     serial::{self, SerialError},
 };
 
@@ -23,13 +23,8 @@ async fn main() -> Result<(), SerialError> {
     let mut connection = devices[0].connect(Duration::from_secs(30))?;
 
     let status = connection
-        .handshake::<DeviceStatusReplyPacket>(
-            Duration::from_millis(500),
-            10,
-            DeviceStatusPacket::new(()),
-        )
-        .await?
-        .payload?;
+        .handshake(DeviceStatusPacket {}, Duration::from_millis(500), 10)
+        .await??;
 
     for device in status.devices {
         info!("{:?} on port: {}", device.device_type, device.port);
