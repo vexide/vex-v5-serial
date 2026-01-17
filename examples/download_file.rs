@@ -38,10 +38,12 @@ async fn main() -> Result<(), SerialError> {
     // and can be found here::
     // <https://github.com/vexide/cargo-v5/blob/main/src/connection.rs#L61>
     connection
-        .handshake::<FileControlReplyPacket>(
+        .handshake(
+            FileControlPacket {
+                group: FileControlGroup::Radio(RadioChannel::Download),
+            },
             Duration::from_millis(500),
             10,
-            FileControlPacket::new(FileControlGroup::Radio(RadioChannel::Download)),
         )
         .await?
         .payload?;

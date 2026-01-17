@@ -8,27 +8,23 @@ use vex_cdc::{
     FixedString,
     cdc2::{
         file::{FileTransferTarget, FileVendor},
-        system::{
-            DashScreen, DashSelectPacket, DashSelectPayload, DashSelectReplyPacket,
-            DashTouchPacket, DashTouchPayload, DashTouchReplyPacket, ScreenCapturePacket,
-            ScreenCapturePayload, ScreenCaptureReplyPacket,
-        },
+        system::{DashScreen, DashSelectPacket, DashTouchPacket, ScreenCapturePacket},
     },
 };
 
 use super::file::download_file;
 
-pub async fn screen_capture<C: Connection + ?Sized>(
+pub async fn screen_capture<C: Connection>(
     connection: &mut C,
 ) -> Result<image::RgbImage, C::Error> {
     // Tell the brain we want to take a screenshot
     connection
-        .handshake::<ScreenCaptureReplyPacket>(
+        .handshake(
+            ScreenCapturePacket { layer: None },
             Duration::from_millis(100),
             5,
-            ScreenCapturePacket::new(ScreenCapturePayload { layer: None }),
         )
-        .await?;
+        .await??;
 
     // Grab the image data
     let cap = download_file(
@@ -38,9 +34,7 @@ pub async fn screen_capture<C: Connection + ?Sized>(
         FileVendor::Sys,
         FileTransferTarget::Cbuf,
         0,
-        Some(|progress| {
-            info!("Downloading screen: {:.2}%", progress)
-        }),
+        Some(|progress| info!("Downloading screen: {:.2}%", progress)),
     )
     .await?;
 
@@ -62,31 +56,28 @@ pub async fn screen_capture<C: Connection + ?Sized>(
     Ok(image::GenericImageView::view(&image, 0, 0, 480, 272).to_image())
 }
 
-pub async fn mock_touch<C: Connection + ?Sized>(
+pub async fn mock_touch<C: Connection>(
     connection: &mut C,
     x: u16,
     y: u16,
     pressed: bool,
 ) -> Result<(), C::Error> {
     connection
-        .handshake::<DashTouchReplyPacket>(
-            Duration::from_millis(100),
-            5,
-            DashTouchPacket::new(DashTouchPayload {
+        .handshake(
+            DashTouchPacket {
                 x,
                 y,
                 pressing: if pressed { 1 } else { 0 },
-            }),
+            },
+            Duration::from_millis(100),
+            5,
         )
-        .await?;
+        .await??;
+
     Ok(())
 }
 
-pub async fn mock_tap<C: Connection + ?Sized>(
-    connection: &mut C,
-    x: u16,
-    y: u16,
-) -> Result<(), C::Error> {
+pub async fn mock_tap<C: Connection>(connection: &mut C, x: u16, y: u16) -> Result<(), C::Error> {
     mock_touch(connection, x, y, true).await?;
     mock_touch(connection, x, y, false).await?;
     Ok(())
@@ -97,15 +88,15 @@ pub async fn open_dash_screen<C: Connection + ?Sized>(
     dash: DashScreen,
 ) -> Result<(), C::Error> {
     connection
-        .handshake::<DashSelectReplyPacket>(
-            Duration::from_millis(100),
-            5,
-            DashSelectPacket::new(DashSelectPayload {
+        .handshake(
+            DashSelectPacket {
                 screen: dash,
                 port: 0,
-            }),
+            },
+            Duration::from_millis(100),
+            5,
         )
-        .await?;
+        .await??;
 
     Ok(())
 }

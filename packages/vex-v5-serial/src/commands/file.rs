@@ -18,8 +18,6 @@ use vex_cdc::{
     },
 };
 
-use super::Command;
-
 /// The epoch of the serial protocol's timestamps.
 pub const J2000_EPOCH: u64 = 946684800;
 
