@@ -7,7 +7,6 @@ use crate::{
     version::Version,
 };
 
-use alloc::vec::Vec;
 use bitflags::bitflags;
 
 /// CDC packet opcodes.

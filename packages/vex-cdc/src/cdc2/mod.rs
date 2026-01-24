@@ -228,17 +228,6 @@ pub mod ecmds {
     pub const SYS_C_INFO_14: u8 = 0x31;
     pub const SYS_C_INFO_58: u8 = 0x32;
 
-    // controller - only works over wired a controller connection
-    pub const CON_RADIO_INFO: u8 = 0x35;
-    pub const CON_VER_FLASH: u8 = 0x39;
-    pub const CON_RADIO_MODE: u8 = 0x41;
-    pub const CON_VER_EXPECT: u8 = 0x49;
-    pub const CON_FLASH_ERASE: u8 = 0x3B;
-    pub const CON_FLASH_WRITE: u8 = 0x3C;
-    pub const CON_FLASH_VALIDATE: u8 = 0x3E;
-    pub const CON_RADIO_FORCE: u8 = 0x3F;
-    pub const CON_COMP_CTRL: u8 = 0xC1;
-
     // be careful!!
     pub const FACTORY_STATUS: u8 = 0xF1;
     pub const FACTORY_RESET: u8 = 0xF2;
@@ -249,6 +238,37 @@ pub mod ecmds {
     pub const FACTORY_RESP: u8 = 0xFD;
     pub const FACTORY_SPECIAL: u8 = 0xFE;
     pub const FACTORY_EBL: u8 = 0xFF;
+
+    // V5 Controller Specific
+    pub const CON_RADIO_INFO: u8 = 0x35;
+    pub const CON_VER_FLASH: u8 = 0x39;
+    pub const CON_RADIO_MODE: u8 = 0x41;
+    pub const CON_VER_EXPECT: u8 = 0x49;
+    pub const CON_FLASH_ERASE: u8 = 0x3B;
+    pub const CON_FLASH_WRITE: u8 = 0x3C;
+    pub const CON_FLASH_VALIDATE: u8 = 0x3E;
+    pub const CON_RADIO_FORCE: u8 = 0x3F;
+    pub const CON_COMP_CTRL: u8 = 0xC1;
+
+    // IQ2 Controller Specific
+    pub const CNTR_GET_STATE: u8 = 0x60;
+    pub const CNTR_SET_PAIR_ID: u8 = 0x61;
+    pub const CNTR_GET_PAIR_ID: u8 = 0x62;
+    pub const CNTR_GET_TEST_DATA: u8 = 0x63;
+    pub const CNTR_TEST_CMD: u8 = 0x64;
+    pub const CNTR_ABORT_JS_CAL: u8 = 101;
+    pub const CNTR_START_JS_CAL: u8 = 0x65;
+    pub const CNTR_GET_VERSIONS: u8 = 0x67;
+    pub const CNTR_DEV_STATE: u8 = 0x68;
+
+    // AI Vision Sensor Specific
+    pub const AI2CAM_SETTINGS: u8 = 0x61;
+    pub const AI2CAM_DETSET: u8 = 0x62;
+    pub const AI2CAM_DETGET: u8 = 0x63;
+    pub const AI2CAM_OBJECTS: u8 = 0x68;
+    pub const AI2CAM_CLASSES: u8 = 0x69;
+    pub const AI2CAM_CLEAR: u8 = 0x6E;
+    pub const AI2CAM_STATUS: u8 = 0x6F;
 }
 
 /// CDC2 Packet Acknowledgement Codes
