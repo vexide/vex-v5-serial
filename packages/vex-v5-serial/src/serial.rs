@@ -30,6 +30,8 @@ pub const EXP_BRAIN_USB_PID: u16 = 0x600;
 /// The USB PID of the V5 Controller
 pub const V5_CONTROLLER_USB_PID: u16 = 0x0503;
 
+pub const AIR_CONTROLLER_USB_PID: u16 = 0x0a10;
+
 pub const V5_SERIAL_BAUDRATE: u32 = 115200;
 
 /// The information of a generic vex serial port
@@ -69,7 +71,7 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
         }
 
         match info.pid {
-            V5_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
+            V5_CONTROLLER_USB_PID | AIR_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
                 port_info: port.clone(),
                 port_type: VexSerialPortType::Controller,
             }),

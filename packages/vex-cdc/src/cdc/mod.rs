@@ -7,6 +7,7 @@ use crate::{
     version::Version,
 };
 
+use alloc::vec::Vec;
 use bitflags::bitflags;
 
 /// CDC packet opcodes.
@@ -35,6 +36,9 @@ pub mod cmds {
 }
 
 /// Starting byte sequence for all device-bound CDC packets.
+/// 
+/// The fourth (0x47) byte may change depending on the intended device target, for example a
+/// controller may internally use 0x4e.
 pub const COMMAND_HEADER: [u8; 4] = [0xC9, 0x36, 0xB8, 0x47];
 
 /// Starting byte sequence used for all host-bound CDC packets.
@@ -86,7 +90,7 @@ pub trait CdcReply: Decode {
     type Command: CdcCommand;
 }
 
-pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<(), DecodeError> {
+pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<u16, DecodeError> {
     if <[u8; 2]>::decode(data)? != R::HEADER {
         return Err(DecodeError::new::<R>(DecodeErrorKind::InvalidHeader));
     }
@@ -100,9 +104,7 @@ pub(crate) fn decode_cdc_reply_frame<R: CdcReply>(data: &mut &[u8]) -> Result<()
         }));
     }
 
-    _ = VarU16::decode(data)?.into_inner();
-
-    Ok(())
+    Ok(VarU16::decode(data)?.into_inner())
 }
 
 // MARK: Packets
@@ -249,6 +251,9 @@ pub enum ProductType {
 
     /// CTE Workcell Arm (234-8952)
     CteWorkcellArm = 0x90,
+
+    /// VEX Air Controller
+    AirController = 0xA1,
 }
 
 impl Decode for ProductType {
@@ -269,11 +274,12 @@ impl Decode for ProductType {
             0x70 => Ok(Self::Aim),
             0x80 => Ok(Self::AiVision),
             0x90 => Ok(Self::CteWorkcellArm),
+            0xA1 => Ok(Self::AirController),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
                 expected: &[
-                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90,
+                    0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90, 0xA1,
                 ],
             })),
         }

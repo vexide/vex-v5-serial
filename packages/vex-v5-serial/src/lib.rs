@@ -13,7 +13,7 @@ use vex_cdc::{
     cdc2::Cdc2Ack,
 };
 
-#[cfg(all(feature = "screen-commands", feature = "file-commands"))]
+#[cfg(any(feature = "screen-commands", feature = "file-commands"))]
 pub mod commands;
 
 #[cfg(feature = "bluetooth")]
