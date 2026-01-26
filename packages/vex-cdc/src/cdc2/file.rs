@@ -49,17 +49,21 @@ pub enum FileTransferTarget {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileVendor {
-    User = 1,
-    Sys = 15,
-    Dev1 = 16,
-    Dev2 = 24,
-    Dev3 = 32,
-    Dev4 = 40,
-    Dev5 = 48,
-    Dev6 = 56,
-    VexVm = 64,
-    Vex = 240,
-    Undefined = 241,
+    User = 0x01,
+    VexAirVm = 0x03,
+    Sys = 0x0F,
+    Dev1 = 0x10,
+    Dev2 = 0x18,
+    Dev3 = 0x20,
+    Dev4 = 0x28,
+    Dev5 = 0x30,
+    Dev6 = 0x38,
+    VexVm = 0x40,
+    Vex = 0xF0,
+    Undefined = 0xF1,
+    AimImage = 0x80,
+    AimSound = 0x88,
+    Esp32 = 0xFC,
 }
 impl Decode for FileVendor {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
