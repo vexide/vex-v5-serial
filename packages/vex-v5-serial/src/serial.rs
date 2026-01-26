@@ -71,13 +71,14 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
         }
 
         match info.pid {
-            V5_CONTROLLER_USB_PID | AIR_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
+            V5_CONTROLLER_USB_PID => vex_ports.push(VexSerialPort {
                 port_info: port.clone(),
                 port_type: VexSerialPortType::Controller,
             }),
-            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID => {
+            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID | AIR_CONTROLLER_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
+
                 if let Some(mut location) = info.interface {
                     if cfg!(target_os = "macos") {
                         location -= 1; // macOS is 1-indexed
