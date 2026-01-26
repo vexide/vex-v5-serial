@@ -262,8 +262,11 @@ pub enum ProductType {
 
     /// CTE Workcell Arm (234-8952)
     CteWorkcellArm = 0x90,
+    
+    /// VEX AIR Hornet
+    AirHornet = 0xA0,
 
-    /// VEX Air Controller
+    /// VEX AIR Controller
     AirController = 0xA1,
 }
 
@@ -285,13 +288,14 @@ impl Decode for ProductType {
             0x70 => Ok(Self::Aim),
             0x80 => Ok(Self::AiVision),
             0x90 => Ok(Self::CteWorkcellArm),
+            0xA0 => Ok(Self::AirHornet),
             0xA1 => Ok(Self::AirController),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "ProductType",
                 value: v,
                 expected: &[
                     0x10, 0x11, 0x14, 0x16, 0x17, 0x18, 0x20, 0x21, 0x60, 0x61, 0x70, 0x80, 0x90,
-                    0xA1,
+                    0xA0, 0xA1,
                 ],
             })),
         }
@@ -519,6 +523,52 @@ impl Decode for ControllerPuppetState {
             battery_level: u8::decode(data)?,
             buttons: u16::decode(data)?,
             battery_capacity: u8::decode(data)?,
+        })
+    }
+}
+
+// MARK: FlashRead
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FlashReadPacket {
+    pub addr: u32,
+    pub len: u16,
+}
+
+impl CdcCommand for FlashReadPacket {
+    const CMD: u8 = cmds::FLASH_READ;
+    type Reply = FlashReadReplyPacket;
+}
+
+impl Encode for FlashReadPacket {
+    fn encode(&self, data: &mut [u8]) {
+        Self::HEADER.encode(data);
+        data[4] = Self::CMD;
+        data[5] = 6;
+        self.addr.encode(&mut data[6..]);
+        self.len.encode(&mut data[10..]);
+    }
+
+    fn size(&self) -> usize {
+        12
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FlashReadReplyPacket {
+    data: alloc::vec::Vec<u8>,
+}
+
+impl CdcReply for FlashReadReplyPacket {
+    type Command = FlashReadPacket;
+    const CMD: u8 = cmds::FLASH_READ;
+}
+
+impl Decode for FlashReadReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        let len = decode_cdc_reply_frame::<Self>(data)?;
+        Ok(Self {
+            data: data[..(len as usize)].to_vec(),
         })
     }
 }

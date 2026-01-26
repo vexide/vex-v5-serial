@@ -50,6 +50,7 @@ pub enum FileTransferTarget {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum FileVendor {
     User = 0x01,
+    VexAirFirmware = 0x02,
     VexAirVm = 0x03,
     Sys = 0x0F,
     Dev1 = 0x10,
@@ -68,22 +69,28 @@ pub enum FileVendor {
 impl Decode for FileVendor {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         match u8::decode(data)? {
-            1 => Ok(Self::User),
-            15 => Ok(Self::Sys),
-            16 => Ok(Self::Dev1),
-            24 => Ok(Self::Dev2),
-            32 => Ok(Self::Dev3),
-            40 => Ok(Self::Dev4),
-            48 => Ok(Self::Dev5),
-            56 => Ok(Self::Dev6),
-            64 => Ok(Self::VexVm),
-            240 => Ok(Self::Vex),
-            241 => Ok(Self::Undefined),
+            0x01 => Ok(Self::User),
+            0x02 => Ok(Self::VexAirFirmware),
+            0x03 => Ok(Self::VexAirVm),
+            0x0F => Ok(Self::Sys),
+            0x10 => Ok(Self::Dev1),
+            0x18 => Ok(Self::Dev2),
+            0x20 => Ok(Self::Dev3),
+            0x28 => Ok(Self::Dev4),
+            0x30 => Ok(Self::Dev5),
+            0x38 => Ok(Self::Dev6),
+            0x40 => Ok(Self::VexVm),
+            0xF0 => Ok(Self::Vex),
+            0xF1 => Ok(Self::Undefined),
+            0x80 => Ok(Self::AimImage),
+            0x88 => Ok(Self::AimSound),
+            0xFC => Ok(Self::Esp32),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "FileVendor",
                 value: v,
                 expected: &[
-                    0x01, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
+                    0x01, 0x02, 0x03, 0x0F, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38, 0x40, 0xF0, 0xF1,
+                    0x80, 0x88, 0xFC,
                 ],
             })),
         }
