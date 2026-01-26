@@ -95,6 +95,7 @@ pub enum FileLoadAction {
 
 #[derive(Default, Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum ExtensionType {
     /// Regular unencrypted file.
     #[default]
