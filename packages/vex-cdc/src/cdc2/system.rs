@@ -827,6 +827,7 @@ pub enum DeviceType {
     Res3Sensor = 15,
     OpticalSensor = 16,
     Magnet = 17,
+    AimThing = 22,
     GpsSensor = 20,
     AicameraSensor = 26,
     LightTower = 27,
@@ -862,6 +863,7 @@ impl Decode for DeviceType {
             16 => DeviceType::OpticalSensor,
             17 => DeviceType::Magnet,
             20 => DeviceType::GpsSensor,
+            22 => DeviceType::AimThing,
             26 => DeviceType::AicameraSensor,
             27 => DeviceType::LightTower,
             28 => DeviceType::ArmDevice,
@@ -879,7 +881,7 @@ impl Decode for DeviceType {
                     value,
                     expected: &[
                         0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 26, 27, 28,
-                        29, 30, 64, 70, 71, 128, 129, 255,
+                        29, 30, 64, 70, 71, 128, 129, 255, 22,
                     ],
                 }));
             }

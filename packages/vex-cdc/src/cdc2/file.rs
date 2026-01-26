@@ -48,10 +48,10 @@ pub enum FileTransferTarget {
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum FileVendor {
+    // V5/General user programs
     User = 0x01,
-    VexAirFirmware = 0x02,
-    VexAirVm = 0x03,
     Sys = 0x0F,
     Dev1 = 0x10,
     Dev2 = 0x18,
@@ -62,9 +62,21 @@ pub enum FileVendor {
     VexVm = 0x40,
     Vex = 0xF0,
     Undefined = 0xF1,
+
+    /// Used to VEX AIR .vexos packages.
+    VexAirFirmware = 0x02,
+
+    /// Used for VEX AIR python packages.
+    VexAirVm = 0x03,
+
+    /// AIM image.
     AimImage = 0x80,
+
+    /// AIM audio asset.
     AimSound = 0x88,
-    Esp32 = 0xFC,
+
+    /// This vendor is used for firmware updates on the AIM radio, which is an esp32s3.
+    AimRadio = 0xFC,
 }
 impl Decode for FileVendor {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
@@ -84,7 +96,7 @@ impl Decode for FileVendor {
             0xF1 => Ok(Self::Undefined),
             0x80 => Ok(Self::AimImage),
             0x88 => Ok(Self::AimSound),
-            0xFC => Ok(Self::Esp32),
+            0xFC => Ok(Self::AimRadio),
             v => Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                 name: "FileVendor",
                 value: v,
