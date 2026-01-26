@@ -108,6 +108,9 @@ pub enum ExtensionType {
 
     /// File's contents is encrypted.
     EncryptedBinary = 0x73,
+
+    /// Zipped program binary (VEX AIR only).
+    Zipped = 0x7A,
 }
 
 impl Decode for ExtensionType {
@@ -116,11 +119,12 @@ impl Decode for ExtensionType {
             0x0 => Self::Binary,
             0x61 => Self::Vm,
             0x73 => Self::EncryptedBinary,
+            0x7A => Self::Zipped,
             unknown => {
                 return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedByte {
                     name: "ExtensionType",
                     value: unknown,
-                    expected: &[0x0],
+                    expected: &[0x0, 0x61, 0x73, 0x7A],
                 }));
             }
         })
