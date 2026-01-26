@@ -2,7 +2,7 @@
 
 use core::u8;
 
-use alloc::{string::String, vec::Vec};
+use alloc::{string::{String, ToString}, vec::Vec};
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
@@ -1162,7 +1162,7 @@ impl Decode for UserDataReplyPacket {
 
         let read = if data_len > 0 {
             Some({
-                let mut utf8 = vec![];
+                let mut utf8 = alloc::vec![];
 
                 for _ in 0..data_len {
                     let byte = u8::decode(data)?;

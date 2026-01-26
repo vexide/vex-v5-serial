@@ -1,10 +1,5 @@
 //! Controller packets.
 
-use alloc::{
-    string::{String, ToString},
-    vec,
-};
-
 use crate::{
     Decode, DecodeError, DecodeErrorKind, Encode, FixedString, cdc::cmds, cdc2::{cdc2_command_size, ecmds, frame_cdc2_command}, cdc2_pair
 };

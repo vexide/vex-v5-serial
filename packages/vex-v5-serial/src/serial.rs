@@ -13,7 +13,7 @@ use tokio_serial::SerialStream;
 use vex_cdc::{
     Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16,
     cdc::CdcReply,
-    cdc2::{Cdc2Ack, controller::UserDataPacket},
+    cdc2::{Cdc2Ack, system::UserDataPacket},
 };
 
 use crate::{Connection, ConnectionType, RawPacket, trim_packets};
