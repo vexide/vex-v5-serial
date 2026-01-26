@@ -827,7 +827,8 @@ pub enum DeviceType {
     Res3Sensor = 15,
     OpticalSensor = 16,
     Magnet = 17,
-    AimThing = 22,
+    /// Used in AIM and EXP to represent the integrated radio (either a cc2642x or an ESP32 MCU).
+    OnboardRadio = 22,
     GpsSensor = 20,
     AicameraSensor = 26,
     LightTower = 27,
@@ -863,7 +864,7 @@ impl Decode for DeviceType {
             16 => DeviceType::OpticalSensor,
             17 => DeviceType::Magnet,
             20 => DeviceType::GpsSensor,
-            22 => DeviceType::AimThing,
+            22 => DeviceType::OnboardRadio,
             26 => DeviceType::AicameraSensor,
             27 => DeviceType::LightTower,
             28 => DeviceType::ArmDevice,
