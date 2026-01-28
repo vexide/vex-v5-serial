@@ -18,14 +18,9 @@ pub mod cmds {
     pub const EEPROM_ERASE: u8 = 0x31;
     pub const ACK: u8 = 0x33;
     pub const BRAIN_NAME_GET: u8 = 0x44;
-    pub const CON_BACKLIGHT: u8 = 0x44;
-    pub const CON_RUMBLE: u8 = 0x47;
-    pub const CON_DASHBOARD_VIEW: u8 = 0x50;
     pub const USER_CDC: u8 = 0x56;
     pub const CON_CDC: u8 = 0x58;
-    pub const PARTNER_CON_CDC: u8 = 0x59; //user inter-controller. Unclear if valid outside.
     pub const USER_ENTER: u8 = 0x60;
-    pub const CON_PUPPET_INPUT: u8 = 0x60;
     pub const USER_CATALOG: u8 = 0x61;
     pub const FLASH_ERASE: u8 = 0x63;
     pub const FLASH_WRITE: u8 = 0x64;
@@ -36,10 +31,22 @@ pub mod cmds {
     pub const COMPONENT_GET: u8 = 0x69;
     pub const USER_SLOT_GET: u8 = 0x78;
     pub const USER_SLOT_SET: u8 = 0x79;
+    pub const SYSTEM_VERSION: u8 = 0xA4;
+
+    // Only confirmed to exist on V5
+    pub const LCD_READ: u8 = 0x73;
+    pub const LCD_SAVE: u8 = 0x75;
+    pub const ALERT_STATUS: u8 = 0x82;
+
+    // V5 Controller Only
     pub const CON_RADIO_RESET: u8 = 0x90;
+    pub const CON_BACKLIGHT: u8 = 0x44;
+    pub const CON_RUMBLE: u8 = 0x47;
+    pub const CON_DASHBOARD_VIEW: u8 = 0x50;
+    pub const PARTNER_CON_CDC: u8 = 0x59; //user inter-controller. Unclear if valid outside.
+    pub const CON_PUPPET_INPUT: u8 = 0x60;
     pub const CON_RADIO_PORT_RX: u8 = 0x91;
     pub const CON_RADIO_TYPE: u8 = 0x92; //identical functionality to ecmd 0x42
-    pub const SYSTEM_VERSION: u8 = 0xA4;
     pub const CON_RADIO_CONFIGURE: u8 = 0x9B; //set loc/remote SSNs, boot w/ JS/USR/DAT
     pub const CON_RADIO_PORT_TX: u8 = 0xB0; //16 byte only
     pub const CON_RADIO_PATCH_FW_BUF: u8 = 0xB2;
@@ -80,9 +87,8 @@ pub trait CdcCommand: Encode {
 
 /// CDC (Simple) reply packet.
 ///
-/// A host-bound packet sent in response to a [`CdcCommandPacket`].  
-/// Each reply consists of a 2-byte [`REPLY_HEADER`], the echoed command ID,
-/// a variable-width length field, and the decoded payload.
+/// A host-bound packet sent in response to a [`CdcCommandPacket`]. Each reply consists of a 2-byte
+/// [`REPLY_HEADER`], the echoed command ID, a variable-width length field, and the decoded payload.
 ///
 /// The payload type `P` must implement [`Decode`].
 ///
