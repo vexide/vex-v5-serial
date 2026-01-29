@@ -12,9 +12,9 @@ use crate::{Connection, ConnectionType};
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
     cdc2::file::{
-        ExtensionType, FileDataReadPacket, FileDataWritePacket, FileExitAction, FileTransferOptions,
-        FileLinkPacket, FileMetadata, FileTransferExitPacket, FileTransferInitializePacket,
-        FileTransferOperation, FileTransferTarget, FileVendor,
+        ExtensionType, FileDataReadPacket, FileDataWritePacket, FileExitAction, FileLinkPacket,
+        FileMetadata, FileTransferExitPacket, FileTransferInitializePacket, FileTransferOperation,
+        FileTransferOptions, FileTransferTarget, FileVendor,
     },
 };
 
@@ -180,16 +180,13 @@ pub async fn upload_file<C: Connection + ?Sized>(
         } else {
             chunk.to_vec()
         };
-        trace!("sending chunk of size: {}", chunk.len());
-        let progress = (offset as f32 / data.len() as f32) * 100.0;
-        if let Some(callback) = &mut progress_callback {
-            callback(progress);
-        }
 
         let packet = FileDataWritePacket {
             address: (load_address + offset) as _,
             chunk_data: chunk.clone(),
         };
+
+        trace!("sending chunk of size: {}", chunk.len());
 
         // On bluetooth, we dont wait for the reply
         if connection.connection_type() == ConnectionType::Bluetooth {
@@ -201,12 +198,13 @@ pub async fn upload_file<C: Connection + ?Sized>(
         }
 
         offset += chunk.len() as u32;
-    }
-    if let Some(callback) = &mut progress_callback {
-        callback(100.0);
+
+        if let Some(callback) = &mut progress_callback {
+            callback(((offset as f32 / data.len() as f32) * 100.0).min(100.0));
+        }
     }
 
-    connection
+    _ = connection
         .handshake(
             FileTransferExitPacket {
                 action: after_upload,
