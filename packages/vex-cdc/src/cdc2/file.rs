@@ -155,7 +155,7 @@ impl Decode for ExtensionType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileMetadata {
     pub extension: FixedString<3>,
     pub extension_type: ExtensionType,
@@ -284,7 +284,9 @@ impl Encode for FileTransferExitPacket {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        frame_cdc2_command(self, data, |_| {});
+        frame_cdc2_command(self, data, |data| {
+            self.action.encode(data);
+        });
     }
 }
 
