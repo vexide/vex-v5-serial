@@ -65,9 +65,12 @@ pub enum FileVendor {
 
     /// Used to VEX AIR .vexos packages.
     VexAirFirmware = 0x02,
-
+    
     /// Used for VEX AIR python packages.
     VexAirVm = 0x03,
+
+    /// VEX air mission files (normally mounted readonly as mass storage).
+    VexAirMissions = 0x04,
 
     /// AIM image.
     AimImage = 0x80,
