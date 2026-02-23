@@ -36,6 +36,8 @@ pub const AIR_CONTROLLER_USB_PID: u16 = 0x0a10;
 
 pub const AIM_USB_PID: u16 = 0x0700;
 
+pub const AIV_USB_PID: u16 = 0x0800;
+
 pub const V5_SERIAL_BAUDRATE: u32 = 115200;
 
 /// The information of a generic vex serial port
@@ -79,7 +81,7 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                 port_info: port.clone(),
                 port_type: VexSerialPortType::Controller,
             }),
-            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID | AIR_CONTROLLER_USB_PID | AIR_HORNET_USB_PID | AIM_USB_PID => {
+            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID | AIR_CONTROLLER_USB_PID | AIR_HORNET_USB_PID | AIM_USB_PID | AIV_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
 
