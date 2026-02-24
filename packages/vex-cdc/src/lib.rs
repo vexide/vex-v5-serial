@@ -18,7 +18,7 @@
 //! [vex-v5-serial]: http://crates.io/crates/vex-v5-serial
 //! [cargo-v5]: https://github.com/vexide/cargo-v5
 
-#![no_std]
+//#![no_std]
 
 extern crate alloc;
 
