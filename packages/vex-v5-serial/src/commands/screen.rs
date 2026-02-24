@@ -8,7 +8,7 @@ use vex_cdc::{
     FixedString,
     cdc2::{
         file::{FileTransferTarget, FileVendor},
-        system::{DashScreen, DashSelectPacket, DashTouchPacket, ScreenCapturePacket},
+        system::{DashSelectPacket, DashTouchPacket, ScreenCapturePacket},
     },
 };
 
@@ -80,23 +80,5 @@ pub async fn mock_touch<C: Connection>(
 pub async fn mock_tap<C: Connection>(connection: &mut C, x: u16, y: u16) -> Result<(), C::Error> {
     mock_touch(connection, x, y, true).await?;
     mock_touch(connection, x, y, false).await?;
-    Ok(())
-}
-
-pub async fn open_dash_screen<C: Connection + ?Sized>(
-    connection: &mut C,
-    dash: DashScreen,
-) -> Result<(), C::Error> {
-    connection
-        .handshake(
-            DashSelectPacket {
-                screen: dash,
-                port: 0,
-            },
-            Duration::from_millis(100),
-            5,
-        )
-        .await??;
-
     Ok(())
 }

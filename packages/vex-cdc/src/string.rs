@@ -29,7 +29,7 @@ use crate::{
 /// - Contents are always valid UTF-8.
 /// - The inner string must satisfy `bytes.len() <= N`.
 /// - All bytes past the end of the string are zeroed.
-#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone, Copy, Hash)]
 pub struct FixedString<const N: usize>([u8; N]);
 
 impl<const N: usize> FixedString<N> {

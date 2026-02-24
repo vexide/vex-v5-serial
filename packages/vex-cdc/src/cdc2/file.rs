@@ -65,9 +65,12 @@ pub enum FileVendor {
 
     /// Used to VEX AIR .vexos packages.
     VexAirFirmware = 0x02,
-
+    
     /// Used for VEX AIR python packages.
     VexAirVm = 0x03,
+
+    /// VEX air mission files (normally mounted readonly as mass storage).
+    VexAirMissions = 0x04,
 
     /// AIM image.
     AimImage = 0x80,
@@ -155,7 +158,7 @@ impl Decode for ExtensionType {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct FileMetadata {
     pub extension: FixedString<3>,
     pub extension_type: ExtensionType,
@@ -284,7 +287,9 @@ impl Encode for FileTransferExitPacket {
     }
 
     fn encode(&self, data: &mut [u8]) {
-        frame_cdc2_command(self, data, |_| {});
+        frame_cdc2_command(self, data, |data| {
+            self.action.encode(data);
+        });
     }
 }
 

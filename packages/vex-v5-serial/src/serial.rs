@@ -81,7 +81,12 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                 port_info: port.clone(),
                 port_type: VexSerialPortType::Controller,
             }),
-            V5_BRAIN_USB_PID | EXP_BRAIN_USB_PID | AIR_CONTROLLER_USB_PID | AIR_HORNET_USB_PID | AIM_USB_PID | AIV_USB_PID => {
+            V5_BRAIN_USB_PID
+            | EXP_BRAIN_USB_PID
+            | AIR_CONTROLLER_USB_PID
+            | AIR_HORNET_USB_PID
+            | AIM_USB_PID 
+            | AIV_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
 
@@ -259,21 +264,19 @@ pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
         // Find out what type it is so we can assign devices
         match port.port_type {
             VexSerialPortType::System => {
-                let port_name = port.port_info.port_name.clone();
-
                 // Peek the next port. If it is a user port, add it to a brain device. If not, add it to an unknown device
                 if match ports.peek() {
                     Some(p) => p.port_type == VexSerialPortType::User,
                     _ => false,
                 } {
-                    devices.push(SerialDevice::Brain {
-                        system_port: port_name,
-                        user_port: ports.next().unwrap().port_info.port_name.clone(),
+                    devices.push(SerialDevice {
+                        system_port: port,
+                        user_port: ports.next(),
                     });
                 } else {
-                    // If there is only a system device, add a unknown V5 device
-                    devices.push(SerialDevice::Unknown {
-                        system_port: port_name,
+                    devices.push(SerialDevice {
+                        system_port: port,
+                        user_port: None,
                     });
                 }
             }
@@ -283,14 +286,15 @@ pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
                     Some(p) => p.port_type == VexSerialPortType::System,
                     _ => false,
                 } {
-                    devices.push(SerialDevice::Brain {
-                        system_port: ports.next().unwrap().port_info.port_name.clone(),
-                        user_port: port.port_info.port_name.clone(),
+                    devices.push(SerialDevice {
+                        system_port: ports.next().unwrap(),
+                        user_port: Some(port),
                     });
                 }
             }
-            VexSerialPortType::Controller => devices.push(SerialDevice::Controller {
-                system_port: port.port_info.port_name.clone(),
+            VexSerialPortType::Controller => devices.push(SerialDevice {
+                system_port: port,
+                user_port: None,
             }),
         }
     }
@@ -299,29 +303,10 @@ pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
     Ok(devices)
 }
 
-/// Represents a V5 device that can be connected to over serial.
 #[derive(Clone, Debug)]
-pub enum SerialDevice {
-    /// V5 Brain
-    ///
-    /// Has both a system and user port.
-    Brain {
-        user_port: String,
-        system_port: String,
-    },
-
-    /// V5 Controller
-    ///
-    /// Has a system port, but no user port.
-    Controller { system_port: String },
-
-    /// Unknown V5 Peripheral.
-    ///
-    /// A secret, more sinsiter, third thing.
-    /// *Probably doesn't even exist. How'd you even get this to happen?*
-    ///
-    /// Has a system port and no user port but __is not a controller__.
-    Unknown { system_port: String },
+pub struct SerialDevice {
+    system_port: VexSerialPort,
+    user_port: Option<VexSerialPort>,
 }
 
 impl SerialDevice {
@@ -329,86 +314,72 @@ impl SerialDevice {
         SerialConnection::open(self.clone(), timeout)
     }
 
-    pub fn system_port(&self) -> String {
-        match &self {
-            Self::Brain {
-                system_port,
-                user_port: _,
-            }
-            | Self::Controller { system_port }
-            | Self::Unknown { system_port } => system_port.clone(),
-        }
+    pub fn system_port(&self) -> &VexSerialPort {
+        &self.system_port
     }
 
-    pub fn user_port(&self) -> Option<String> {
-        match &self {
-            Self::Brain {
-                system_port: _,
-                user_port,
-            } => Some(user_port.clone()),
-            _ => None,
-        }
+    pub fn user_port(&self) -> Option<&VexSerialPort> {
+        self.user_port.as_ref()
     }
 }
-
-// /// Decodes a [`HostBoundPacket`]'s header sequence.
-// fn validate_header(mut data: &[u8]) -> Result<[u8; 2], DecodeError> {
-//     let header = Decode::decode(&mut data)?;
-//     if header != REPLY_HEADER {
-//         return Err(DecodeError::new::<[u8; 2]>(DecodeErrorKind::InvalidHeader));
-//     }
-//     Ok(header)
-// }
 
 /// An open serial connection to a V5 device.
 #[derive(Debug)]
 pub struct SerialConnection {
-    system_port: SerialStream,
-    user_port: Option<BufReader<SerialStream>>,
+    system_port: (VexSerialPort, SerialStream),
+    user_port: Option<(VexSerialPort, BufReader<SerialStream>)>,
     incoming_packets: Vec<RawPacket>,
 }
 
 impl SerialConnection {
     /// Opens a new serial connection to a V5 Brain.
     pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, SerialError> {
-        // Open the system port
-        let system_port = match tokio_serial::SerialStream::open(
-            &tokio_serial::new(device.system_port(), 115200)
-                .parity(tokio_serial::Parity::None)
-                .timeout(timeout)
-                .stop_bits(tokio_serial::StopBits::One),
-        ) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(SerialError::SerialportError(e)),
-        }?;
-
-        // Open the user port (if it exists)
-        let user_port = if let Some(port) = &device.user_port() {
-            Some(match tokio_serial::SerialStream::open(
-                &tokio_serial::new(port, V5_SERIAL_BAUDRATE)
-                    .parity(tokio_serial::Parity::None)
-                    .timeout(timeout)
-                    .stop_bits(tokio_serial::StopBits::One),
-            ) {
-                Ok(v) => Ok(BufReader::new(v)),
-                Err(e) => Err(SerialError::SerialportError(e)),
-            }?)
-        } else {
-            None
-        };
-
         Ok(Self {
-            system_port,
-            user_port,
+            system_port: {
+                let stream = match tokio_serial::SerialStream::open(
+                    &tokio_serial::new(&device.system_port.port_info.port_name, 115200)
+                        .parity(tokio_serial::Parity::None)
+                        .timeout(timeout)
+                        .stop_bits(tokio_serial::StopBits::One),
+                ) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(SerialError::SerialportError(e)),
+                }?;
+
+                (device.system_port, stream)
+            },
+            user_port: if let Some(port) = device.user_port {
+                let stream = match tokio_serial::SerialStream::open(
+                    &tokio_serial::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
+                        .parity(tokio_serial::Parity::None)
+                        .timeout(timeout)
+                        .stop_bits(tokio_serial::StopBits::One),
+                ) {
+                    Ok(v) => Ok(BufReader::new(v)),
+                    Err(e) => Err(SerialError::SerialportError(e)),
+                }?;
+
+                Some((port, stream))
+            } else {
+                None
+            },
             incoming_packets: Default::default(),
         })
+    }
+
+    pub fn system_port(&self) -> &VexSerialPort {
+        &self.system_port.0
+    }
+
+    pub fn user_port(&self) -> Option<&VexSerialPort> {
+        self.user_port.as_ref().map(|port| &port.0)
     }
 
     /// Receives a single packet from the serial port and adds it to the queue of incoming packets.
     async fn receive_one_packet(&mut self) -> Result<(), SerialError> {
         // Read the header into an array
         let mut header = [0u8; 2];
-        self.system_port.read_exact(&mut header).await?;
+        self.system_port.1.read_exact(&mut header).await?;
 
         // Verify that the header is valid
         if header != [0xAA, 0x55] {
@@ -420,13 +391,13 @@ impl SerialConnection {
         let mut packet = Vec::from(header);
 
         // Push the command's ID
-        packet.push(self.system_port.read_u8().await?);
+        packet.push(self.system_port.1.read_u8().await?);
 
         // Get the size of the packet
         // We do some extra logic to make sure we only read the necessary amount of bytes
-        let first_size_byte = self.system_port.read_u8().await?;
+        let first_size_byte = self.system_port.1.read_u8().await?;
         let size = if VarU16::check_wide(first_size_byte) {
-            let second_size_byte = self.system_port.read_u8().await?;
+            let second_size_byte = self.system_port.1.read_u8().await?;
             packet.extend([first_size_byte, second_size_byte]);
 
             // Decode the size of the packet
@@ -441,7 +412,7 @@ impl SerialConnection {
 
         // Read the rest of the packet
         let mut payload = vec![0; size];
-        self.system_port.read_exact(&mut payload).await?;
+        self.system_port.1.read_exact(&mut payload).await?;
 
         // Completely fill the packet
         packet.extend(payload);
@@ -474,12 +445,12 @@ impl Connection for SerialConnection {
         trace!("sent packet: {:x?}", encoded);
 
         // Write the packet to the serial port
-        match self.system_port.write_all(&encoded).await {
+        match self.system_port.1.write_all(&encoded).await {
             Ok(_) => (),
             Err(e) => return Err(SerialError::IoError(e)),
         };
 
-        match self.system_port.flush().await {
+        match self.system_port.1.flush().await {
             Ok(_) => (),
             Err(e) => return Err(SerialError::IoError(e)),
         };
@@ -516,7 +487,7 @@ impl Connection for SerialConnection {
     }
 
     async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, SerialError> {
-        if let Some(user_port) = &mut self.user_port {
+        if let Some((_, user_port)) = &mut self.user_port {
             Ok(user_port.read(buf).await?)
         } else {
             let mut data = Vec::new();
@@ -545,7 +516,7 @@ impl Connection for SerialConnection {
     }
 
     async fn write_user(&mut self, mut buf: &[u8]) -> Result<usize, SerialError> {
-        if let Some(user_port) = &mut self.user_port {
+        if let Some((_, user_port)) = &mut self.user_port {
             Ok(user_port.write(buf).await?)
         } else {
             let buf_len = buf.len();
