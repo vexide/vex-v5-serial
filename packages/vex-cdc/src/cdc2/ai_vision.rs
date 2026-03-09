@@ -170,7 +170,7 @@ pub struct AI2SettingsPacket {
     pub sensor_sigs: u8,
     pub model_flags: u8,
     //skip 2 bytes
-    pub unknown_flags: u8, //corresponds to AI2SettingFlag::Unknown 0x20
+    pub status_ovl_flags: u8,
     //skip *many* bytes
     pub debug_print_colorcodes: bool, //at 0x3D. Does not print to CDC
 }
@@ -190,7 +190,7 @@ impl Encode for AI2SettingsPacket {
                 self.model_flags,
             ]
             .encode(&mut data[0x3..]);
-            data[0x9] = self.unknown_flags;
+            data[0x9] = self.status_ovl_flags;
             data[0x3d] = self.debug_print_colorcodes as u8;
         });
     }
