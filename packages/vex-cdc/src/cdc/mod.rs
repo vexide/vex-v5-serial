@@ -19,6 +19,7 @@ pub mod cmds {
     pub const ACK: u8 = 0x33;
     pub const BRAIN_NAME_GET: u8 = 0x44;
     pub const USER_CDC: u8 = 0x56;
+    pub const RC_CDC: u8 = 0x57; //used by aimrc_RcCmd
     pub const CON_CDC: u8 = 0x58;
     pub const USER_ENTER: u8 = 0x60;
     pub const USER_CATALOG: u8 = 0x61;
@@ -230,6 +231,9 @@ impl CdcReply for SystemAliveReplyPacket {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProductType {
+    //IQ Robot Brain (Generation 1) (228-2540)
+    Iq1Brain = 0x1, 
+
     /// V5 Robot Brain (276-4810)
     V5Brain = 0x10,
 

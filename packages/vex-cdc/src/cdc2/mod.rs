@@ -15,6 +15,7 @@ pub mod controller;
 pub mod factory;
 pub mod file;
 pub mod system;
+pub mod ai_vision;
 
 /// CDC2 (Extended) Command Packet
 ///
@@ -239,7 +240,7 @@ pub mod ecmds {
     pub const FACTORY_SPECIAL: u8 = 0xFE;
     pub const FACTORY_EBL: u8 = 0xFF;
 
-    // IQ2 Controller Specific
+    // IQ2 & EXP Controller Specific
     pub const CNTR_GET_STATE: u8 = 0x60;
     pub const CNTR_SET_PAIR_ID: u8 = 0x61;
     pub const CNTR_GET_PAIR_ID: u8 = 0x62;
@@ -276,8 +277,18 @@ pub mod ecmds {
     pub const AI2CAM_DETGET: u8 = 0x63;
     pub const AI2CAM_OBJECTS: u8 = 0x68;
     pub const AI2CAM_CLASSES: u8 = 0x69;
+    pub const AI2CAM_MODEL: u8 = 0x6A;
     pub const AI2CAM_CLEAR: u8 = 0x6E;
     pub const AI2CAM_STATUS: u8 = 0x6F;
+
+    //AIM Coding Robot Specific
+    pub const AIM_NETWORK: u8 = 0x64;
+    pub const AIM_TOUCH: u8 = 0x65;
+    //RC = AIM Remote Controller. Unclear what the context for these is.
+    pub const AIM_RC_CMD: u8 = 0x7f;
+    pub const AIM_RC_AISTATUS: u8 = 0x7d;
+    pub const AIM_RC_STATUS: u8 = 0x7e;
+
 }
 
 /// CDC2 Packet Acknowledgement Codes
