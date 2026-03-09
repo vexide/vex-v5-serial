@@ -156,7 +156,7 @@ pub enum AI2SettingFlag {
     Test = 0x4,
     Sensor = 0x8,
     Model = 0x10,
-    Unknown = 0x20, //there's only one byte of data, so probably another control bitflag
+    StatusOverlay = 0x20, //there's only one byte of data, so probably another control bitflag
     Reset = 0x80,   //no other values need to be set to use Reset.
 }
 
