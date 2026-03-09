@@ -233,7 +233,9 @@ pub mod ecmds {
     pub const FACTORY_RESET: u8 = 0xF2;
     pub const FACTORY_PING: u8 = 0xF4;
     pub const FACTORY_PONG: u8 = 0xF5;
+    pub const FACTORY_OPCTR_STATUS: u8 = 0xF8;
     pub const FACTORY_HW_STATUS: u8 = 0xF9;
+    pub const FACTORY_DEVICE_CTRL: u8 = 0xFA;
     pub const FACTORY_CHAL: u8 = 0xFC;
     pub const FACTORY_RESP: u8 = 0xFD;
     pub const FACTORY_SPECIAL: u8 = 0xFE;
