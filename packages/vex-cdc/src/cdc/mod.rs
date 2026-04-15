@@ -231,7 +231,7 @@ impl CdcReply for SystemAliveReplyPacket {
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ProductType {
-    //IQ Robot Brain (Generation 1) (228-2540)
+    /// IQ Robot Brain (Generation 1) (228-2540)
     Iq1Brain = 0x1, 
 
     /// V5 Robot Brain (276-4810)
