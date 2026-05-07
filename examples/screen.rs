@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use vex_v5_serial::{
     Connection,
-    protocol::cdc2::system::{DashScreen, DashSelectPacket},
+    protocol::cdc2::system::{DashSelectPacket},
     serial::{self, SerialError},
 };
 
@@ -25,7 +25,7 @@ async fn main() -> Result<(), SerialError> {
     connection
         .handshake(
             DashSelectPacket {
-                screen: DashScreen::Settings,
+                screen: 2,
                 port: 0,
             },
             Duration::from_millis(500),

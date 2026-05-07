@@ -4,7 +4,7 @@ use rustyline::DefaultEditor;
 use vex_v5_serial::{
     Connection,
     bluetooth::{self, BluetoothError},
-    protocol::cdc2::system::{DashScreen, DashSelectPacket},
+    protocol::cdc2::system::{DashSelectPacket},
 };
 
 #[tokio::main]
@@ -44,7 +44,7 @@ async fn main() -> Result<(), BluetoothError> {
     // Send a dash packet to test things out
     connection
         .send(DashSelectPacket {
-            screen: DashScreen::Config,
+            screen: 2,
             port: 0,
         })
         .await?;

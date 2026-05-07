@@ -16,6 +16,8 @@ pub mod factory;
 pub mod file;
 pub mod system;
 pub mod ai_vision;
+pub mod air;
+
 
 /// CDC2 (Extended) Command Packet
 ///
@@ -229,6 +231,9 @@ pub mod ecmds {
     pub const SYS_C_INFO_14: u8 = 0x31;
     pub const SYS_C_INFO_58: u8 = 0x32;
 
+    //theoretically for IQ2/EXP/V5. Not implemented as of 5-6-26.
+    pub const CTRL_SIM_DATA: u8 = 0x84; 
+
     // be careful!!
     pub const FACTORY_STATUS: u8 = 0xF1;
     pub const FACTORY_RESET: u8 = 0xF2;
@@ -281,14 +286,30 @@ pub mod ecmds {
     pub const AI2CAM_CLEAR: u8 = 0x6E;
     pub const AI2CAM_STATUS: u8 = 0x6F;
 
-    //AIM Coding Robot Specific
+    // AIM Coding Robot Specific
     pub const AIM_NETWORK: u8 = 0x64;
     pub const AIM_TOUCH: u8 = 0x65;
-    //RC = AIM Remote Controller. Unclear what the context for these is.
-    pub const AIM_RC_CMD: u8 = 0x7f;
+  
+    pub const AIM_RC_CMD: u8 = 0x7f;   //RC = AIM Remote Controller. Unclear what the context for these is.
     pub const AIM_RC_AISTATUS: u8 = 0x7d;
     pub const AIM_RC_STATUS: u8 = 0x7e;
 
+    // AIR Specific
+    pub const AIR_NETWORK: u8 = 0x71;
+    pub const AIR_PROGRAMS: u8 = 0x75; //gets the contents of programs SHM
+    pub const AIR_VERSION: u8 = 0x76; //gets version (fw & package ver)
+    pub const AIR_CTRL_STATUS: u8 = 0x79;
+    pub const AIR_CTRL_SIM_MODE: u8 = 0x81;
+    pub const AIR_CTRL_TELEM: u8 = 0x82;
+    pub const AIR_COMP_MODE: u8 = 0x83;
+
+    // AIR Competition Control Specific - no idea why these ranges
+    pub const AIR_CC_SYSTEM_STATUS: u8 = 0x10; //get field status shm
+    pub const AIR_CC_SET_MATCH_STATE: u8 = 0x20; //drone enable state & match timer
+    pub const AIR_CC_SET_CLOCK: u8 = 0x30; //configure timezone and time 
+    pub const AIR_CC_SET_EVENT_INFO: u8 = 0x31; //event name, comp type, year, ID
+    pub const AIR_CC_SET_MATCH_NAME: u8 = 0x32;
+    pub const AIR_CC_END_MATCH: u8 = 0x33;
 }
 
 /// CDC2 Packet Acknowledgement Codes
