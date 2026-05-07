@@ -148,3 +148,90 @@ impl Decode for FactoryEnableReplyPacket {
         Ok(Self {})
     }
 }
+
+//MARK: FactoryHwStatus
+cdc2_pair!(
+    FactoryHwStatusPacket => FactoryHwStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FACTORY_HW_STATUS
+);
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FactoryHwStatusPacket {}
+
+impl Encode for FactoryHwStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FactoryHwStatusReplyPacket {
+    // total number of connected smart devices
+    pub num_devices: u8,
+    //number of full 11W motors (also counted as part of total connected)
+    pub num_11w_motors: u8,
+    //number of 5.5W/"ClassRoom" motors (also counted as part of total connected)
+    pub num_55w_motors: u8,
+    //this is not the actual radio device status, but contains
+    //radio link status, mode (bt/vn3), and if one is connected.
+    pub radio_status: u8,
+    //the internal build version of the radio firmware
+    pub radio_version: u8,
+}
+
+impl Decode for FactoryHwStatusReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            num_devices: u8::decode(data)?,
+            num_11w_motors: u8::decode(data)?,
+            num_55w_motors: u8::decode(data)?,
+            radio_status: u8::decode(data)?,
+            radio_version: u8::decode(data)?,
+        })
+    }
+}
+
+//MARK: FactoryOpctrStatus
+
+cdc2_pair!(
+    FactoryOpctrStatusPacket => FactoryOpctrStatusReplyPacket,
+    cmds::USER_CDC,
+    ecmds::FACTORY_OPCTR_STATUS
+);
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FactoryOpctrStatusPacket {}
+
+impl Encode for FactoryOpctrStatusPacket {
+    fn size(&self) -> usize {
+        cdc2_command_size(0)
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        frame_cdc2_command(self, data, |_| {});
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct FactoryOpctrStatusReplyPacket {
+    pub brain_id: u32,
+    pub opctr_system: u32,
+    pub opctr_user: u32,
+    pub opctr_runs: u32,
+}
+
+impl Decode for FactoryOpctrStatusReplyPacket {
+    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+        Ok(Self {
+            brain_id: u32::decode(data)?,
+            opctr_system: u32::decode(data)?,
+            opctr_user: u32::decode(data)?,
+            opctr_runs: u32::decode(data)?,
+        })
+    }
+}
