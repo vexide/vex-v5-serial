@@ -1,14 +1,10 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
+use async_serial::{AsyncSerialPort, AsyncSerialPortBuilder};
+use futures::{AsyncReadExt, AsyncWriteExt, FutureExt, io::BufReader, select};
 use log::{debug, error, trace, warn};
 use std::time::Duration;
 use thiserror::Error;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufReader},
-    select,
-    time::sleep,
-};
-use tokio_serial::SerialStream;
 use vex_cdc::{
     Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16,
     cdc::CdcReply,
@@ -45,7 +41,7 @@ pub const V5_SERIAL_BAUDRATE: u32 = 115200;
 /// The information of a generic vex serial port
 #[derive(Clone, Debug)]
 pub struct VexSerialPort {
-    pub port_info: tokio_serial::SerialPortInfo,
+    pub port_info: serialport::SerialPortInfo,
     pub port_type: VexSerialPortType,
 }
 
@@ -219,7 +215,7 @@ fn types_by_name_order(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
 /// Finds all available VEX serial ports that can be connected to.
 fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
     // Get all available serial ports
-    let ports = tokio_serial::available_ports()?;
+    let ports = serialport::available_ports()?;
 
     // Create a vector that will contain all vex ports
     let mut filtered_ports = Vec::new();
@@ -328,8 +324,8 @@ impl SerialDevice {
 /// An open serial connection to a V5 device.
 #[derive(Debug)]
 pub struct SerialConnection {
-    system_port: (VexSerialPort, SerialStream),
-    user_port: Option<(VexSerialPort, BufReader<SerialStream>)>,
+    system_port: (VexSerialPort, AsyncSerialPort),
+    user_port: Option<(VexSerialPort, BufReader<AsyncSerialPort>)>,
     incoming_packets: Vec<RawPacket>,
 }
 
@@ -338,30 +334,23 @@ impl SerialConnection {
     pub fn open(device: SerialDevice, timeout: Duration) -> Result<Self, SerialError> {
         Ok(Self {
             system_port: {
-                let stream = match tokio_serial::SerialStream::open(
-                    &tokio_serial::new(&device.system_port.port_info.port_name, 115200)
-                        .parity(tokio_serial::Parity::None)
+                let stream =
+                    async_serial::new(&device.system_port.port_info.port_name, V5_SERIAL_BAUDRATE)
                         .timeout(timeout)
-                        .stop_bits(tokio_serial::StopBits::One),
-                ) {
-                    Ok(v) => Ok(v),
-                    Err(e) => Err(SerialError::SerialportError(e)),
-                }?;
+                        .parity(serialport::Parity::None)
+                        .stop_bits(serialport::StopBits::One)
+                        .open_async()?;
 
                 (device.system_port, stream)
             },
             user_port: if let Some(port) = device.user_port {
-                let stream = match tokio_serial::SerialStream::open(
-                    &tokio_serial::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
-                        .parity(tokio_serial::Parity::None)
-                        .timeout(timeout)
-                        .stop_bits(tokio_serial::StopBits::One),
-                ) {
-                    Ok(v) => Ok(BufReader::new(v)),
-                    Err(e) => Err(SerialError::SerialportError(e)),
-                }?;
+                let stream = async_serial::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
+                    .timeout(timeout)
+                    .parity(serialport::Parity::None)
+                    .stop_bits(serialport::StopBits::One)
+                    .open_async()?;
 
-                Some((port, stream))
+                Some((port, BufReader::new(stream)))
             } else {
                 None
             },
@@ -392,14 +381,25 @@ impl SerialConnection {
         // Create a buffer to store the entire packet
         let mut packet = Vec::from(header);
 
+        let mut byte_buf = [0_u8; 1];
+
         // Push the command's ID
-        packet.push(self.system_port.1.read_u8().await?);
+        packet.push({
+            self.system_port.1.read_exact(&mut byte_buf).await?;
+            byte_buf[0]
+        });
 
         // Get the size of the packet
         // We do some extra logic to make sure we only read the necessary amount of bytes
-        let first_size_byte = self.system_port.1.read_u8().await?;
+        let first_size_byte = {
+            self.system_port.1.read_exact(&mut byte_buf).await?;
+            byte_buf[0]
+        };
         let size = if VarU16::check_wide(first_size_byte) {
-            let second_size_byte = self.system_port.1.read_u8().await?;
+            let second_size_byte = {
+                self.system_port.1.read_exact(&mut byte_buf).await?;
+                byte_buf[0]
+            };
             packet.extend([first_size_byte, second_size_byte]);
 
             // Decode the size of the packet
@@ -483,8 +483,8 @@ impl Connection for SerialConnection {
                     trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }
-            } => result,
-            _ = sleep(timeout) => Err(SerialError::Timeout)
+            }.fuse() => result,
+            _ = futures_timer::Delay::new(timeout).fuse() => Err(SerialError::Timeout)
         }
     }
 
@@ -560,7 +560,7 @@ pub enum SerialError {
     Nack(#[from] Cdc2Ack),
 
     #[error("Serialport Error")]
-    SerialportError(#[from] tokio_serial::Error),
+    SerialportError(#[from] serialport::Error),
 
     #[error("Could not infer serial port types")]
     CouldntInferTypes,

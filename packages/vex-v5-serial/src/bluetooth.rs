@@ -6,11 +6,9 @@ use btleplug::api::{
     ValueNotification, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
-use futures::Stream;
+use futures::{FutureExt, Stream};
 use log::{debug, error, trace, warn};
 use thiserror::Error;
-use tokio::select;
-use tokio::time::sleep;
 use tokio_stream::StreamExt;
 use uuid::Uuid;
 
@@ -269,7 +267,7 @@ impl Connection for BluetoothConnection {
 
     async fn recv<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
-        select! {
+        futures::select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
@@ -290,8 +288,8 @@ impl Connection for BluetoothConnection {
                     trim_packets(&mut self.incoming_packets);
                     self.receive_one_packet().await?;
                 }
-            } => result,
-            _ = sleep(timeout) => Err(BluetoothError::Timeout)
+            }.fuse() => result,
+            _ = futures_timer::Delay::new(timeout).fuse() => Err(BluetoothError::Timeout)
         }
     }
 
