@@ -232,7 +232,7 @@ impl CdcReply for SystemAliveReplyPacket {
 #[repr(u16)]
 pub enum ProductType {
     /// IQ Robot Brain (Generation 1) (228-2540)
-    Iq1Brain = 0x1, 
+    Iq1Brain = 0x1,
 
     /// V5 Robot Brain (276-4810)
     V5Brain = 0x10,
@@ -272,7 +272,7 @@ pub enum ProductType {
 
     /// CTE Workcell Arm (234-8952)
     CteWorkcellArm = 0x90,
-    
+
     /// VEX AIR Hornet
     AirHornet = 0xA0,
 

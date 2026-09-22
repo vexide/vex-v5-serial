@@ -7,8 +7,7 @@ use vex_v5_serial::{
     protocol::{
         FixedString,
         cdc2::file::{
-            FileControlGroup, FileControlPacket, FileTransferTarget,
-            FileVendor, RadioChannel,
+            FileControlGroup, FileControlPacket, FileTransferTarget, FileVendor, RadioChannel,
         },
     },
     serial::{self, SerialError},

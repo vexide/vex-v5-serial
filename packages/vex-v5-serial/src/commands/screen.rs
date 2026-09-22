@@ -8,7 +8,7 @@ use vex_cdc::{
     FixedString,
     cdc2::{
         file::{FileTransferTarget, FileVendor},
-        system::{DashSelectPacket, DashTouchPacket, ScreenCapturePacket},
+        system::{DashTouchPacket, ScreenCapturePacket},
     },
 };
 

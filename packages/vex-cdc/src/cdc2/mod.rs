@@ -11,11 +11,11 @@ use crate::{
     varint::VarU16,
 };
 
+pub mod ai_vision;
 pub mod controller;
 pub mod factory;
 pub mod file;
 pub mod system;
-pub mod ai_vision;
 
 /// CDC2 (Extended) Command Packet
 ///
@@ -66,7 +66,7 @@ pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
     C::HEADER.encode(data);
     data[4] = C::CMD;
     data[5] = C::ECMD;
-    
+
     let command_size = packet.size();
     let frame_size = 8 + if (command_size - 6) > ((u8::MAX >> 1) as usize) {
         2
@@ -74,7 +74,7 @@ pub(crate) fn frame_cdc2_command<C: Cdc2Command>(
         1
     };
     let payload_size = command_size - frame_size;
-    
+
     VarU16::new(payload_size as u16).encode(&mut data[6..]);
 
     // Encode payload
@@ -288,7 +288,6 @@ pub mod ecmds {
     pub const AIM_RC_CMD: u8 = 0x7f;
     pub const AIM_RC_AISTATUS: u8 = 0x7d;
     pub const AIM_RC_STATUS: u8 = 0x7e;
-
 }
 
 /// CDC2 Packet Acknowledgement Codes

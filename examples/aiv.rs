@@ -3,7 +3,10 @@ use std::time::Duration;
 use log::info;
 use vex_v5_serial::{
     Connection,
-    protocol::{cdc::SystemVersionPacket, cdc2::ai_vision::{AI2ModelInfoPacket, AI2StatusPacket}},
+    protocol::{
+        cdc::SystemVersionPacket,
+        cdc2::ai_vision::{AI2ModelInfoPacket, AI2StatusPacket},
+    },
     serial::{self, SerialError},
 };
 
@@ -29,7 +32,11 @@ async fn main() -> Result<(), SerialError> {
 
     let payload = response.unwrap();
     info!("{:?}", payload);
-    info!("Model: {} | Version String: {}",payload.model_name.as_str(),payload.model_version_str.as_str());
+    info!(
+        "Model: {} | Version String: {}",
+        payload.model_name.as_str(),
+        payload.model_version_str.as_str()
+    );
 
     Ok(())
 }

@@ -2,7 +2,10 @@
 
 use core::u8;
 
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,

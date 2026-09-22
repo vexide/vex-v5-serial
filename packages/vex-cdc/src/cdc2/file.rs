@@ -65,7 +65,7 @@ pub enum FileVendor {
 
     /// Used to VEX AIR .vexos packages.
     VexAirFirmware = 0x02,
-    
+
     /// Used for VEX AIR python packages.
     VexAirVm = 0x03,
 

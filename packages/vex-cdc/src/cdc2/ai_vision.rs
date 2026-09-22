@@ -157,7 +157,7 @@ pub enum AI2SettingFlag {
     Sensor = 0x8,
     Model = 0x10,
     StatusOverlay = 0x20, //there's only one byte of data, so probably another control bitflag
-    Reset = 0x80,   //no other values need to be set to use Reset.
+    Reset = 0x80,         //no other values need to be set to use Reset.
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -391,7 +391,7 @@ pub struct AI2ModelObject {
 
 impl Decode for AI2ModelObject {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-         //data is 12 bit, packed into 3 sets of u16s.
+        //data is 12 bit, packed into 3 sets of u16s.
         let words = <[u16; 3]>::decode(data)?;
         let score = u16::decode(data)?;
 
