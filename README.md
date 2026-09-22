@@ -15,5 +15,5 @@ This project provides a Rust implementation of the serial communications protoco
 - Most CDC and CDC2 (extended) command packets implemented.
 - Experimental support for many different non-V5 products (EXP, AIR, AIM, AI Vision, etc...)
 - Optional utility routines for higher-level tasks like program uploading.
-- Separate `vex_cdc` bare protocol crate with `#![no_std]` support.
+- Separate `vex-cdc` bare protocol crate with `#![no_std]` support.
 - *Mostly* executor agnostic (the `bluetooth` feature requires a tokio runtime, however).
