@@ -1,12 +1,13 @@
 use std::time::Duration;
 
+use macro_rules_attribute::apply;
 use vex_v5_serial::{
     Connection,
-    protocol::cdc2::system::{DashScreen, DashSelectPacket},
+    protocol::cdc2::system::DashSelectPacket,
     serial::{self, SerialError},
 };
 
-#[tokio::main]
+#[apply(smol_macros::main!)]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
@@ -25,7 +26,7 @@ async fn main() -> Result<(), SerialError> {
     connection
         .handshake(
             DashSelectPacket {
-                screen: DashScreen::Settings,
+                screen: 10,
                 port: 0,
             },
             Duration::from_millis(500),

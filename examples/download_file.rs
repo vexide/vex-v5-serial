@@ -1,6 +1,7 @@
 use std::{str::FromStr, time::Duration};
 
-use tokio::{fs::File, io::AsyncWriteExt, time::sleep};
+use macro_rules_attribute::apply;
+use smol::{Timer, fs::File, io::AsyncWriteExt};
 use vex_v5_serial::{
     Connection,
     commands::file::download_file,
@@ -13,7 +14,7 @@ use vex_v5_serial::{
     serial::{self, SerialError},
 };
 
-#[tokio::main]
+#[apply(smol_macros::main!)]
 async fn main() -> Result<(), SerialError> {
     // Initialize the logger
     simplelog::TermLogger::init(
@@ -46,7 +47,7 @@ async fn main() -> Result<(), SerialError> {
         )
         .await??;
 
-    sleep(Duration::from_millis(1000)).await;
+    Timer::after(Duration::from_millis(1000)).await;
 
     let file = "slot_1.bin";
 
@@ -64,7 +65,7 @@ async fn main() -> Result<(), SerialError> {
     )
     .await?;
 
-    let mut file = File::create_new(file).await?;
+    let mut file = File::create(file).await?;
     file.write_all(&download).await?;
 
     Ok(())

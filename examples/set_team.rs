@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use macro_rules_attribute::apply;
 use vex_v5_serial::{
     Connection,
     protocol::{
@@ -9,7 +10,7 @@ use vex_v5_serial::{
     serial::{self, SerialError},
 };
 
-#[tokio::main]
+#[apply(smol_macros::main!)]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Debug,

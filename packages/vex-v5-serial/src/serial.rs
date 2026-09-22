@@ -1,7 +1,7 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
 use async_serial::{AsyncSerialPort, AsyncSerialPortBuilder};
-use futures::{AsyncReadExt, AsyncWriteExt, FutureExt, io::BufReader, select};
+use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt, io::BufReader};
 use log::{debug, error, trace, warn};
 use std::time::Duration;
 use thiserror::Error;
@@ -462,7 +462,7 @@ impl Connection for SerialConnection {
 
     async fn recv<P: CdcReply>(&mut self, timeout: Duration) -> Result<P, SerialError> {
         // Return an error if the right packet is not received within the timeout
-        select! {
+        futures_util::select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
@@ -484,7 +484,7 @@ impl Connection for SerialConnection {
                     self.receive_one_packet().await?;
                 }
             }.fuse() => result,
-            _ = futures_timer::Delay::new(timeout).fuse() => Err(SerialError::Timeout)
+            _ = async_io::Timer::after(timeout).fuse() => Err(SerialError::Timeout)
         }
     }
 

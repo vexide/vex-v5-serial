@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use log::{error, info};
-use tokio::time::sleep;
+use macro_rules_attribute::apply;
+use smol::Timer;
 use vex_v5_serial::{
     Connection,
     protocol::{
@@ -11,7 +12,7 @@ use vex_v5_serial::{
     serial::{self, SerialError},
 };
 
-#[tokio::main]
+#[apply(smol_macros::main!)]
 async fn main() -> Result<(), SerialError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
@@ -51,7 +52,7 @@ async fn main() -> Result<(), SerialError> {
         )
         .await??;
 
-    sleep(Duration::from_secs(2)).await;
+    Timer::after(Duration::from_secs(2)).await;
 
     info!("Setting match mode to driver");
     connection
@@ -66,7 +67,7 @@ async fn main() -> Result<(), SerialError> {
         .await??;
 
     // 1 minute 45 seconds
-    sleep(Duration::from_secs(2)).await;
+    Timer::after(Duration::from_secs(2)).await;
 
     info!("Setting match mode to disabled");
     connection

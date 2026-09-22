@@ -1,5 +1,5 @@
 use crate::{Connection, ConnectionType, bluetooth, serial};
-use futures::{TryFutureExt, try_join};
+use futures_util::{TryFutureExt, try_join};
 use std::time::Duration;
 use thiserror::Error;
 use vex_cdc::{

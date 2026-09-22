@@ -1,12 +1,10 @@
 //! AI Vision
 
-use std::io::Read;
-
 use crate::{
     Decode, DecodeError, DecodeErrorKind, Encode, FixedString,
     cdc::cmds,
     cdc2::{cdc2_command_size, ecmds, frame_cdc2_command},
-    cdc2_pair, decode,
+    cdc2_pair,
 };
 
 // MARK: Status Packet
@@ -272,7 +270,7 @@ impl Encode for AI2ClearModelPacket {
 pub struct AI2ClearModelReplyPacket {}
 
 impl Decode for AI2ClearModelReplyPacket {
-    fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
+    fn decode(_: &mut &[u8]) -> Result<Self, DecodeError> {
         Ok(Self {})
     }
 }
@@ -309,7 +307,7 @@ pub enum AI2DetectionType {
 
 impl Decode for AI2DetectionType {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        Ok(match (u8::decode(data)?) {
+        Ok(match u8::decode(data)? {
             1 => Self::Color,
             2 => Self::Code,
             4 => Self::Object,
@@ -433,9 +431,9 @@ impl Decode for AI2TagObject {
         let words_a = <[u16; 3]>::decode(data)?;
         let words_b = <[u16; 3]>::decode(data)?;
         //x0/y0/x1/y1
-        let mut vals_a = decode_u12(words_a);
+        let vals_a = decode_u12(words_a);
         //x2/y2/x3/y3
-        let mut vals_b = decode_u12(words_b);
+        let vals_b = decode_u12(words_b);
 
         let remaining_bytes = AI2_OBJECT_SIZE - (2 + 12);
         *data = &data[remaining_bytes..];
@@ -473,7 +471,7 @@ impl Decode for AI2GetObjectsReplyPacket {
 
         for _ in 0..obj_count {
             let id = u8::decode(data)?;
-            match (AI2DetectionType::decode(data)?) {
+            match AI2DetectionType::decode(data)? {
                 AI2DetectionType::Code | AI2DetectionType::Color => {
                     let mut obj = AI2ColorCodeObject::decode(data)?;
                     obj.id = id;

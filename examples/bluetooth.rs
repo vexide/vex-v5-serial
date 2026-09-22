@@ -1,13 +1,14 @@
 use std::time::Duration;
 
+use macro_rules_attribute::apply;
 use rustyline::DefaultEditor;
 use vex_v5_serial::{
     Connection,
     bluetooth::{self, BluetoothError},
-    protocol::cdc2::system::{DashScreen, DashSelectPacket},
+    protocol::cdc2::system::DashSelectPacket,
 };
 
-#[tokio::main]
+#[apply(smol_macros::main!)]
 async fn main() -> Result<(), BluetoothError> {
     simplelog::TermLogger::init(
         log::LevelFilter::Info,
@@ -44,7 +45,7 @@ async fn main() -> Result<(), BluetoothError> {
     // Send a dash packet to test things out
     connection
         .send(DashSelectPacket {
-            screen: DashScreen::Config,
+            screen: 29,
             port: 0,
         })
         .await?;

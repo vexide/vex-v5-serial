@@ -6,10 +6,10 @@ use btleplug::api::{
     ValueNotification, WriteType,
 };
 use btleplug::platform::{Manager, Peripheral};
-use futures::{FutureExt, Stream};
+use futures_util::{FutureExt, Stream, StreamExt};
+// use futures::{FutureExt, Stream, StreamExt};
 use log::{debug, error, trace, warn};
 use thiserror::Error;
-use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::trim_packets;
@@ -267,7 +267,7 @@ impl Connection for BluetoothConnection {
 
     async fn recv<P: Decode>(&mut self, timeout: Duration) -> Result<P, BluetoothError> {
         // Return an error if the right packet is not received within the timeout
-        futures::select! {
+        futures_util::select! {
             result = async {
                 loop {
                     for packet in self.incoming_packets.iter_mut() {
@@ -289,7 +289,7 @@ impl Connection for BluetoothConnection {
                     self.receive_one_packet().await?;
                 }
             }.fuse() => result,
-            _ = futures_timer::Delay::new(timeout).fuse() => Err(BluetoothError::Timeout)
+            _ = FutureExt::fuse(async_io::Timer::after(timeout)) => Err(BluetoothError::Timeout)
         }
     }
 
