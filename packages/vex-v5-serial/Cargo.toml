@@ -12,7 +12,7 @@ authors = ["vexide", "Gavin Niederman <gavinniederman@gmail.com>", "Tropical"]
 [dependencies]
 # We depend on this because for some reason it fixes an issue with tokio-serial.
 vex-cdc = { workspace = true }
-log = "0.4.34"
+log = "0.4"
 thiserror = "2"
 
 futures-util = { version = "0.3", optional = true }
