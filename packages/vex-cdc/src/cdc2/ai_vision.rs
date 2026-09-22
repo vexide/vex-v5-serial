@@ -1,5 +1,7 @@
 //! AI Vision
 
+use alloc::vec::Vec;
+
 use crate::{
     Decode, DecodeError, DecodeErrorKind, Encode, FixedString,
     cdc::cmds,
@@ -465,9 +467,9 @@ pub struct AI2GetObjectsReplyPacket {
 impl Decode for AI2GetObjectsReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let obj_count = u8::decode(data)?;
-        let mut colors: Vec<AI2ColorCodeObject> = vec![];
-        let mut tags: Vec<AI2TagObject> = vec![];
-        let mut models: Vec<AI2ModelObject> = vec![];
+        let mut colors: Vec<AI2ColorCodeObject> = Vec::new();
+        let mut tags: Vec<AI2TagObject> = Vec::new();
+        let mut models: Vec<AI2ModelObject> = Vec::new();
 
         for _ in 0..obj_count {
             let id = u8::decode(data)?;
