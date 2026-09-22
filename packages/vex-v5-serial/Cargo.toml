@@ -15,7 +15,7 @@ vex-cdc = { workspace = true }
 log = "0.4"
 thiserror = "2"
 
-futures-util = { version = "0.3", optional = true }
+futures-util = { version = "0.3", features = ["io"], optional = true }
 async-serial = { version = "0.2.0", default-features = false, optional = true }
 serialport = { version = "4.9.0", optional = true, features = [
     "usbportinfo-interface",
