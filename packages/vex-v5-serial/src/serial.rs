@@ -1,7 +1,6 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
 use log::{debug, error, trace, warn};
-use serialport::{SerialPortInfo, SerialPortType};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::{
@@ -15,6 +14,9 @@ use vex_cdc::{
     cdc::CdcReply,
     cdc2::{Cdc2Ack, system::UserDataPacket},
 };
+
+// these are re-exported so consumers can access USB port info, because SerialPortType must be named to unwrap UsbPortInfo
+pub use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
 
 use crate::{Connection, ConnectionType, RawPacket, trim_packets};
 
@@ -85,7 +87,7 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             | EXP_BRAIN_USB_PID
             | AIR_CONTROLLER_USB_PID
             | AIR_HORNET_USB_PID
-            | AIM_USB_PID 
+            | AIM_USB_PID
             | AIV_USB_PID => {
                 // Check the product name for identifying information
                 // This will not work on windows
