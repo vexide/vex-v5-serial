@@ -6,6 +6,8 @@ This project provides a Rust implementation of the serial communications protoco
 
 > [!NOTE]
 > Information regarding the protocol is derived from the open-source [PROS-CLI project](https://github.com/purduesigbots/pros-cli) as well as JerryLum's reverse engineering efforts in [v5-serial-protocol](https://github.com/lemlib/v5-serial-protocol).
+> 
+> *Use this crate at your own risk!* We aren't responsible if you blow up your own hardware due to misusing this protocol and neither is VEX. If you have a problem, please open an issue *here* rather than bothering VEX support. They have better things to do.
 
 ## Features
 
