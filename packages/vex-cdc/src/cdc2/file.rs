@@ -414,7 +414,20 @@ impl Decode for FileDataReadReplyPacket {
 
 impl Decode for Result<FileDataReadReplyPacket, Cdc2Ack> {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
-        decode_cdc_reply_frame::<Self>(data)?;
+        let original = *data;
+        let payload_size = usize::from(decode_cdc_reply_frame::<Self>(data)?);
+        if payload_size < 4 || data.len() != payload_size {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::UnexpectedEnd));
+        }
+        let crc_offset = original.len() - 2;
+        let expected = crate::crc::VEX_CRC16.checksum(&original[..crc_offset]);
+        let value = u16::from_be_bytes([original[crc_offset], original[crc_offset + 1]]);
+        if value != expected {
+            return Err(DecodeError::new::<Self>(DecodeErrorKind::Checksum {
+                value,
+                expected,
+            }));
+        }
 
         let ecmd = u8::decode(data)?;
         if ecmd != ecmds::FILE_READ {
@@ -446,6 +459,49 @@ impl Decode for Result<FileDataReadReplyPacket, Cdc2Ack> {
 impl CdcReply for Result<FileDataReadReplyPacket, Cdc2Ack> {
     type Command = FileDataReadPacket;
     const CMD: u8 = cmds::USER_CDC;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(body: &[u8]) -> Vec<u8> {
+        let mut bytes = alloc::vec![0xaa, 0x55, 0x56, (body.len() + 3) as u8, 0x14];
+        bytes.extend_from_slice(body);
+        bytes.extend_from_slice(&crate::crc::VEX_CRC16.checksum(&bytes).to_be_bytes());
+        bytes
+    }
+
+    #[test]
+    fn read_reply_rejects_bad_crc_and_length() {
+        let bytes = frame(&[4, 0, 0, 0, 1, 2, 3, 4]);
+        let result = Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bytes.as_slice())
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.address, 4);
+        assert_eq!(result.data, [1, 2, 3, 4]);
+        for offset in 0..bytes.len() {
+            let mut bad = bytes.clone();
+            bad[offset] ^= 1;
+            assert!(
+                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bad.as_slice()).is_err()
+            );
+        }
+        for cut in 0..bytes.len() {
+            assert!(
+                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut &bytes[..cut]).is_err()
+            );
+        }
+        let mut extra = bytes.clone();
+        extra.push(0);
+        assert!(Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut extra.as_slice()).is_err());
+        let nack = frame(&[0xff]);
+        assert!(
+            Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut nack.as_slice())
+                .unwrap()
+                .is_err()
+        );
+    }
 }
 
 impl Cdc2Reply for Result<FileDataReadReplyPacket, Cdc2Ack> {
