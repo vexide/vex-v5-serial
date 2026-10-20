@@ -136,6 +136,26 @@ pub trait Connection {
     fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
 }
 
+// Allow a REPL client to borrow a transport while its owner guarantees cleanup.
+impl<C: Connection> Connection for &mut C {
+    type Error = C::Error;
+    fn connection_type(&self) -> ConnectionType {
+        (**self).connection_type()
+    }
+    async fn send(&mut self, packet: impl CdcCommand) -> Result<(), Self::Error> {
+        (**self).send(packet).await
+    }
+    async fn recv<P: CdcReply>(&mut self, timeout: Duration) -> Result<P, Self::Error> {
+        (**self).recv(timeout).await
+    }
+    async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        (**self).read_user(buf).await
+    }
+    async fn write_user(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        (**self).write_user(buf).await
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ConnectionType {
     Wired,
