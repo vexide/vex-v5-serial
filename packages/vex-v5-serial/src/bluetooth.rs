@@ -381,6 +381,17 @@ impl BluetoothConnection {
         .await
     }
 
+    /// AIM remote-status keepalive on an already authenticated owned connection.
+    /// This sends only the fixed read-only status query. Re-reading the pairing
+    /// characteristic for every 100 ms heartbeat starves image transfers. Normal
+    /// commands still check authentication; failed reads/writes are not retried.
+    pub async fn poll_aim_remote_status(&mut self) -> Result<(), BluetoothError> {
+        let packet = vex_cdc::cdc2::aim::RemoteStatusPacket;
+        let mut bytes = vec![0; packet.size()];
+        packet.encode(&mut bytes);
+        self.write_chunks(&self.system_rx, &bytes).await
+    }
+
     async fn write_chunks(
         &self,
         characteristic: &Characteristic,
