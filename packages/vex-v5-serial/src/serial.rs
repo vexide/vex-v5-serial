@@ -34,6 +34,9 @@ pub const AIR_CONTROLLER_USB_PID: u16 = 0x0a10;
 
 pub const AIM_USB_PID: u16 = 0x0700;
 
+/// The AIM's user port; interfaces 2 and 3 are its camera.
+const AIM_USER_INTERFACE: u8 = 4;
+
 pub const AIV_USB_PID: u16 = 0x0800;
 
 pub const V5_SERIAL_BAUDRATE: u32 = 115200;
@@ -93,6 +96,15 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
                         location -= 1; // macOS is 1-indexed
                     }
 
+                    if info.pid == AIM_USB_PID && location == AIM_USER_INTERFACE {
+                        debug!("Found a 'user' serial port over an AIM connection.");
+                        vex_ports.push(VexSerialPort {
+                            port_info: port.clone(),
+                            port_type: VexSerialPortType::User,
+                        });
+                        continue;
+                    }
+
                     match location {
                         0 => {
                             debug!("Found a 'system' serial port over a Brain connection.");
@@ -118,6 +130,11 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             // Unknown product
             _ => {}
         }
+    }
+
+    // Let the name-based fallbacks run if nothing matched.
+    if vex_ports.is_empty() {
+        return None;
     }
 
     Some(vex_ports)
@@ -567,4 +584,61 @@ pub enum SerialError {
 
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// macOS reports the CDC data interface, which is the communication interface + 1.
+    fn reported(interface: u8) -> u8 {
+        if cfg!(target_os = "macos") {
+            interface + 1
+        } else {
+            interface
+        }
+    }
+
+    fn usb_port(name: &str, pid: u16, interface: u8) -> SerialPortInfo {
+        SerialPortInfo {
+            port_name: name.to_string(),
+            port_type: SerialPortType::UsbPort(UsbPortInfo {
+                vid: VEX_USB_VID,
+                pid,
+                serial_number: None,
+                manufacturer: None,
+                product: None,
+                interface: Some(reported(interface)),
+            }),
+        }
+    }
+
+    #[test]
+    fn aim_maps_interface_4_to_user() {
+        let ports = [
+            usb_port("/dev/ttyACM0", AIM_USB_PID, 0),
+            usb_port("/dev/ttyACM1", AIM_USB_PID, 4),
+        ];
+        let found = types_by_location(&ports).unwrap();
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].port_type, VexSerialPortType::System);
+        assert_eq!(found[1].port_type, VexSerialPortType::User);
+    }
+
+    #[test]
+    fn brain_maps_interface_2_to_user() {
+        let ports = [
+            usb_port("/dev/ttyACM0", V5_BRAIN_USB_PID, 0),
+            usb_port("/dev/ttyACM1", V5_BRAIN_USB_PID, 2),
+        ];
+        let found = types_by_location(&ports).unwrap();
+        assert_eq!(found[0].port_type, VexSerialPortType::System);
+        assert_eq!(found[1].port_type, VexSerialPortType::User);
+    }
+
+    #[test]
+    fn unknown_interface_returns_none() {
+        let ports = [usb_port("/dev/ttyACM0", AIM_USB_PID, 9)];
+        assert!(types_by_location(&ports).is_none());
+    }
 }
