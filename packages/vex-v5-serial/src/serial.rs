@@ -536,7 +536,9 @@ impl Connection for SerialConnection {
 
     async fn write_user(&mut self, mut buf: &[u8]) -> Result<usize, SerialError> {
         if let Some((_, user_port)) = &mut self.user_port {
-            Ok(user_port.write(buf).await?)
+            user_port.write_all(buf).await?;
+            user_port.flush().await?;
+            Ok(buf.len())
         } else {
             let buf_len = buf.len();
             while !buf.is_empty() {
