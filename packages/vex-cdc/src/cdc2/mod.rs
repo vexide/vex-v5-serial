@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub mod ai_vision;
+pub mod aim;
 pub mod controller;
 pub mod factory;
 pub mod file;
