@@ -548,7 +548,7 @@ impl Connection for SerialConnection {
                 _ = self
                     .handshake(
                         UserDataPacket {
-                            channel: 2, // stdio channel
+                            channel: 1, // stdio channel
                             write: Some(
                                 FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
                                     .unwrap(),
