@@ -16,7 +16,6 @@ log = "0.4"
 thiserror = "2"
 
 futures-util = { version = "0.3", features = ["io"], optional = true }
-async-serial = { version = "0.2.0", default-features = false, optional = true }
 serialport = { version = "4.9.0", optional = true, features = [
     "usbportinfo-interface",
 ] }
@@ -26,13 +25,16 @@ uuid = { version = "1", default-features = false, optional = true }
 image = { version = "0.25.10", default-features = false, optional = true }
 flate2 = { version = "1.1.10", optional = true }
 
+[target.'cfg(windows)'.dependencies]
+blocking = { version = "1.7.0", optional = true }
+
 [features]
 default = ["serial", "bluetooth"]
 serial = [
     "dep:futures-util",
-    "dep:async-serial",
     "dep:async-io",
     "dep:serialport",
+    "dep:blocking"
 ]
 bluetooth = ["dep:futures-util", "dep:btleplug", "dep:uuid"]
 screen-commands = ["dep:image"]

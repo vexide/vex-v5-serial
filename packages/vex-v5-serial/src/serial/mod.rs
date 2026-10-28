@@ -1,6 +1,8 @@
 //! Implements discovering, opening, and interacting with vex devices connected over USB. This module does not have async support.
 
-use async_serial::{AsyncSerialPort, AsyncSerialPortBuilder};
+mod transport;
+
+use transport::{AsyncSerialPort, AsyncSerialPortBuilder};
 use futures_util::{AsyncReadExt, AsyncWriteExt, FutureExt, io::BufReader};
 use log::{debug, error, trace, warn};
 use std::time::Duration;
@@ -352,7 +354,7 @@ impl SerialConnection {
         Ok(Self {
             system_port: {
                 let stream =
-                    async_serial::new(&device.system_port.port_info.port_name, V5_SERIAL_BAUDRATE)
+                    serialport::new(&device.system_port.port_info.port_name, V5_SERIAL_BAUDRATE)
                         .timeout(timeout)
                         .parity(serialport::Parity::None)
                         .stop_bits(serialport::StopBits::One)
@@ -361,7 +363,7 @@ impl SerialConnection {
                 (device.system_port, stream)
             },
             user_port: if let Some(port) = device.user_port {
-                let stream = async_serial::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
+                let stream = serialport::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
                     .timeout(timeout)
                     .parity(serialport::Parity::None)
                     .stop_bits(serialport::StopBits::One)
