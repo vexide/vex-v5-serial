@@ -461,49 +461,6 @@ impl CdcReply for Result<FileDataReadReplyPacket, Cdc2Ack> {
     const CMD: u8 = cmds::USER_CDC;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn frame(body: &[u8]) -> Vec<u8> {
-        let mut bytes = alloc::vec![0xaa, 0x55, 0x56, (body.len() + 3) as u8, 0x14];
-        bytes.extend_from_slice(body);
-        bytes.extend_from_slice(&crate::crc::VEX_CRC16.checksum(&bytes).to_be_bytes());
-        bytes
-    }
-
-    #[test]
-    fn read_reply_rejects_bad_crc_and_length() {
-        let bytes = frame(&[4, 0, 0, 0, 1, 2, 3, 4]);
-        let result = Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bytes.as_slice())
-            .unwrap()
-            .unwrap();
-        assert_eq!(result.address, 4);
-        assert_eq!(result.data, [1, 2, 3, 4]);
-        for offset in 0..bytes.len() {
-            let mut bad = bytes.clone();
-            bad[offset] ^= 1;
-            assert!(
-                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bad.as_slice()).is_err()
-            );
-        }
-        for cut in 0..bytes.len() {
-            assert!(
-                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut &bytes[..cut]).is_err()
-            );
-        }
-        let mut extra = bytes.clone();
-        extra.push(0);
-        assert!(Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut extra.as_slice()).is_err());
-        let nack = frame(&[0xff]);
-        assert!(
-            Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut nack.as_slice())
-                .unwrap()
-                .is_err()
-        );
-    }
-}
-
 impl Cdc2Reply for Result<FileDataReadReplyPacket, Cdc2Ack> {
     const ECMD: u8 = ecmds::FILE_READ;
 }
@@ -1055,5 +1012,48 @@ impl Decode for ProgramStatusReplyPacket {
             slot: u8::decode(data)?,
             requested_slot: u8::decode(data)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(body: &[u8]) -> Vec<u8> {
+        let mut bytes = alloc::vec![0xaa, 0x55, 0x56, (body.len() + 3) as u8, 0x14];
+        bytes.extend_from_slice(body);
+        bytes.extend_from_slice(&crate::crc::VEX_CRC16.checksum(&bytes).to_be_bytes());
+        bytes
+    }
+
+    #[test]
+    fn read_reply_rejects_bad_crc_and_length() {
+        let bytes = frame(&[4, 0, 0, 0, 1, 2, 3, 4]);
+        let result = Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bytes.as_slice())
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.address, 4);
+        assert_eq!(result.data, [1, 2, 3, 4]);
+        for offset in 0..bytes.len() {
+            let mut bad = bytes.clone();
+            bad[offset] ^= 1;
+            assert!(
+                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut bad.as_slice()).is_err()
+            );
+        }
+        for cut in 0..bytes.len() {
+            assert!(
+                Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut &bytes[..cut]).is_err()
+            );
+        }
+        let mut extra = bytes.clone();
+        extra.push(0);
+        assert!(Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut extra.as_slice()).is_err());
+        let nack = frame(&[0xff]);
+        assert!(
+            Result::<FileDataReadReplyPacket, Cdc2Ack>::decode(&mut nack.as_slice())
+                .unwrap()
+                .is_err()
+        );
     }
 }
