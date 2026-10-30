@@ -23,9 +23,7 @@
 // SOFTWARE.
 
 use std::{
-    io,
-    ops::{Deref, DerefMut},
-    os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd},
+    fs::File, io, mem::ManuallyDrop, ops::{Deref, DerefMut}, os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, RawFd},
 };
 
 use async_io::{Async, IoSafe};
@@ -57,18 +55,36 @@ impl<T> DerefMut for IoSafeAdapter<T> {
     }
 }
 
-impl<T: io::Read> io::Read for IoSafeAdapter<T> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+impl<T: AsRawFd> IoSafeAdapter<T> {
+    fn file(&self) -> ManuallyDrop<File> {
+        // SAFETY: borrowed for the call only. ManuallyDrop prevents the file from closing.
+        ManuallyDrop::new(unsafe { File::from_raw_fd(self.0.as_raw_fd()) })
     }
 }
 
-impl<T: io::Write> io::Write for IoSafeAdapter<T> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+impl<T: AsRawFd> io::Read for IoSafeAdapter<T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        loop {
+            match self.file().read(buf) {
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                r => return r,
+            }
+        }
     }
+}
+
+impl<T: AsRawFd> io::Write for IoSafeAdapter<T> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        loop {
+            match self.file().write(buf) {
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                r => return r,
+            }
+        }
+    }
+    
     fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
+        Ok(())
     }
 }
 
