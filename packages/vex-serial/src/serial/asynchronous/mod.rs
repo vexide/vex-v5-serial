@@ -35,6 +35,7 @@ impl AsyncSerialConnection {
                     serialport::new(&device.system_port.port_info.port_name, V5_SERIAL_BAUDRATE)
                         .parity(serialport::Parity::None)
                         .stop_bits(serialport::StopBits::One)
+                        .timeout(Duration::from_secs(10))
                         .open_async()?;
 
                 (device.system_port, stream)
@@ -43,6 +44,7 @@ impl AsyncSerialConnection {
                 let stream = serialport::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
                     .parity(serialport::Parity::None)
                     .stop_bits(serialport::StopBits::One)
+                    .timeout(Duration::from_secs(10))
                     .open_async()?;
 
                 Some((port, BufReader::new(stream)))

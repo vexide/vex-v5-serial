@@ -38,6 +38,7 @@ impl SerialConnection {
                     serialport::new(&device.system_port.port_info.port_name, V5_SERIAL_BAUDRATE)
                         .parity(serialport::Parity::None)
                         .stop_bits(serialport::StopBits::One)
+                        .timeout(Duration::from_secs(10))
                         .open_native()?;
 
                 (device.system_port, stream)
@@ -46,6 +47,7 @@ impl SerialConnection {
                 let stream = serialport::new(&port.port_info.port_name, V5_SERIAL_BAUDRATE)
                     .parity(serialport::Parity::None)
                     .stop_bits(serialport::StopBits::One)
+                    .timeout(Duration::from_secs(10))
                     .open_native()?;
 
                 Some((port, BufReader::new(stream)))
@@ -192,6 +194,7 @@ impl Connection for SerialConnection {
                 .1
                 .set_timeout(remaining.max(Duration::from_millis(1)))?;
             self.receive_one_packet()?;
+            self.system_port.1.set_timeout(Duration::from_secs(10))?;
         }
     }
 
