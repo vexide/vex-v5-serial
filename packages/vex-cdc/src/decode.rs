@@ -29,8 +29,11 @@ impl core::fmt::Display for DecodeError {
 
 #[derive(Error, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecodeErrorKind {
-    #[error("Packet was too short.")]
+    #[error("Packet was unexpectedly too short.")]
     UnexpectedEnd,
+
+    #[error("Packet was unexpectedly too large.")]
+    TooLarge,
 
     #[error(
         "Could not decode {name} with unexpected byte. Found {value:x}, expected one of: {expected:x?}."

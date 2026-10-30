@@ -2,10 +2,7 @@
 
 use core::u8;
 
-use alloc::{
-    string::{String},
-    vec::Vec,
-};
+use alloc::{string::String, vec::Vec};
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
@@ -1014,13 +1011,8 @@ impl Decode for UserDataReplyPacket {
             let mut buf = heapless::Vec::new();
 
             for _ in 0..data_len {
-                let byte = u8::decode(data)?;
-
-                if byte == 0 {
-                    break;
-                }
-
-                buf.push(byte).expect("unexpectedly large UserDataReplyPacket payload");
+                buf.push(u8::decode(data)?)
+                    .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::TooLarge))?;
             }
 
             buf
