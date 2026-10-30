@@ -64,6 +64,16 @@ impl<T: Decode> DecodeWithLength for Vec<T> {
     }
 }
 
+impl<T: Decode, const N: usize> DecodeWithLength for heapless::Vec<T, N> {
+    fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError> {
+        let mut vec = heapless::Vec::new();
+        for _ in 0..len {
+            vec.push(T::decode(data)?);
+        }
+        Ok(vec)
+    }
+}
+
 /// A type that can be reconstructed (decoded) from a raw sequence of bytes.
 ///
 /// Implementors of this trait define how to parse their binary representation
