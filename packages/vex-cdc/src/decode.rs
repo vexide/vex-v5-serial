@@ -71,7 +71,8 @@ impl<T: Decode, const N: usize> DecodeWithLength for heapless::Vec<T, N> {
     fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError> {
         let mut vec = heapless::Vec::new();
         for _ in 0..len {
-            vec.push(T::decode(data)?);
+            vec.push(T::decode(data)?)
+                .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::TooLarge))?;
         }
         Ok(vec)
     }
