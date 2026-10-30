@@ -12,11 +12,11 @@ use log::{debug, error, trace, warn};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{ConnectionError, trim_packets};
+use crate::{ConnectionError, packet::{Frame, trim_packets}};
 
 use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
 
-use super::{Connection, ConnectionType, RawPacket};
+use super::{AsyncConnection, ConnectionType};
 
 /// The BLE GATT Service that V5 Brains provide
 pub const V5_SERVICE: Uuid = Uuid::from_u128(0x08590f7e_db05_467e_8757_72f6faeb13d5);
@@ -125,7 +125,7 @@ pub struct BluetoothConnection {
     pub pairing: Characteristic,
 
     notification_stream: Pin<Box<dyn Stream<Item = ValueNotification> + Send>>,
-    incoming_packets: Vec<RawPacket>,
+    incoming_packets: Vec<Frame>,
 }
 
 impl BluetoothConnection {
@@ -229,7 +229,7 @@ impl BluetoothConnection {
             if notification.uuid == CHARACTERISTIC_SYSTEM_TX {
                 let data = notification.value;
                 trace!("received packet: {:x?}", data);
-                let packet = RawPacket::new(data);
+                let packet = Frame::new(data);
                 self.incoming_packets.push(packet);
                 break;
             }
@@ -239,7 +239,7 @@ impl BluetoothConnection {
     }
 }
 
-impl Connection for BluetoothConnection {
+impl AsyncConnection for BluetoothConnection {
     type Error = BluetoothError;
 
     fn connection_type(&self) -> ConnectionType {

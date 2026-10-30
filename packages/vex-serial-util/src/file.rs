@@ -7,7 +7,7 @@ use std::{
 use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
 
-use crate::{Connection, ConnectionType};
+use vex_serial::{AsyncConnection, ConnectionType};
 
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
@@ -33,7 +33,7 @@ pub fn j2000_timestamp() -> i32 {
 pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
 pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;
 
-pub async fn download_file<C: Connection>(
+pub async fn download_file<C: AsyncConnection>(
     connection: &mut C,
     file_name: FixedString<23>,
     size: u32,
@@ -115,7 +115,7 @@ pub struct LinkedFile {
     pub vendor: FileVendor,
 }
 
-pub async fn upload_file<C: Connection + ?Sized>(
+pub async fn upload_file<C: AsyncConnection + ?Sized>(
     connection: &mut C,
     file_name: FixedString<23>,
     metadata: FileMetadata,
@@ -227,7 +227,7 @@ pub enum ProgramData {
     },
 }
 
-pub async fn upload_program<C: Connection + ?Sized>(
+pub async fn upload_program<C: AsyncConnection + ?Sized>(
     connection: &mut C,
     slot: u8,
     name: &str,
@@ -385,7 +385,7 @@ description={}",
 }
 
 /// Apply gzip compression to the given data
-fn compress_data(data: &mut Vec<u8>) {
+pub(crate) fn compress_data(data: &mut Vec<u8>) {
     let mut encoder = GzBuilder::new().write(Vec::new(), Compression::default());
     encoder.write_all(data).unwrap();
     *data = encoder.finish().unwrap();

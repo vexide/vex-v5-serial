@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use macro_rules_attribute::apply;
 use rustyline::DefaultEditor;
-use vex_v5_serial::{
-    Connection,
+use vex_serial::{
+    AsyncConnection,
     bluetooth::{self, BluetoothError},
     protocol::cdc2::system::DashSelectPacket,
 };

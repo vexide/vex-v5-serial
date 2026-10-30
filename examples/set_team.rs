@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use macro_rules_attribute::apply;
-use vex_v5_serial::{
-    Connection,
+use vex_serial::{
+    AsyncConnection,
     protocol::{
         FixedString,
         cdc2::system::{KeyValueLoadPacket, KeyValueSavePacket},
@@ -24,7 +24,7 @@ async fn main() -> Result<(), SerialError> {
     let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].connect(Duration::from_secs(30))?;
+    let mut connection = devices[0].connect_async()?;
 
     let old_teamnumber = connection
         .handshake(

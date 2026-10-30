@@ -1,0 +1,23 @@
+[package]
+name = "vex-serial-util"
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
+description = "Utility functions for doing operations with the vex-serial crate."
+repository = "https://github.com/vexide/vex-v5-serial"
+authors = ["vexide", "Gavin Niederman <gavinniederman@gmail.com>", "Tropical"]
+
+[dependencies]
+vex-cdc = { workspace = true }
+vex-serial = { workspace = true }
+log = "0.4"
+
+image = { version = "0.25.10", default-features = false, optional = true }
+flate2 = { version = "1.1.10", optional = true }
+
+[features]
+default = ["file", "screen", "blocking"]
+
+blocking = []
+file = ["dep:flate2"]
+screen = ["dep:image"]

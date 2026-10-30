@@ -3,8 +3,8 @@ use std::time::Duration;
 use log::{error, info};
 use macro_rules_attribute::apply;
 use smol::Timer;
-use vex_v5_serial::{
-    Connection,
+use vex_serial::{
+    AsyncConnection,
     protocol::{
         cdc::{ProductType, SystemVersionPacket},
         cdc2::controller::{CompetitionControlPacket, CompetitionMode},
@@ -26,7 +26,7 @@ async fn main() -> Result<(), SerialError> {
     let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].connect(Duration::from_secs(30))?;
+    let mut connection = devices[0].connect_async()?;
 
     let response = connection
         .handshake(SystemVersionPacket {}, Duration::from_millis(700), 5)

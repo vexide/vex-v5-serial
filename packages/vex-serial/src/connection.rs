@@ -1,89 +1,78 @@
-//! Crate for interacting with the Vex V5 Robot brain. Not affiliated with Innovation First Inc.
-
-pub use vex_cdc as protocol;
-
-use std::{future::Future, time::Instant};
-
-use log::{error, trace, warn};
 use std::time::Duration;
 
 use vex_cdc::{
-    Decode, DecodeError, DecodeErrorKind, FixedStringSizeError,
+    DecodeError, FixedStringSizeError,
     cdc::{CdcCommand, CdcReply},
     cdc2::Cdc2Ack,
 };
 
-#[cfg(any(feature = "screen-commands", feature = "file-commands"))]
-pub mod commands;
+/// Represents an open blocking connection to a VEX peripheral.
+#[allow(async_fn_in_trait)]
+pub trait Connection {
+    type Error: ConnectionError;
 
-#[cfg(feature = "bluetooth")]
-pub mod bluetooth;
-#[cfg(all(feature = "serial", feature = "bluetooth"))]
-pub mod generic;
-#[cfg(feature = "serial")]
-pub mod serial;
+    fn connection_type(&self) -> ConnectionType;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct RawPacket {
-    pub bytes: Vec<u8>,
-    pub used: bool,
-    pub timestamp: Instant,
-}
+    /// Sends a packet.
+    fn send(&mut self, packet: impl CdcCommand) -> Result<(), Self::Error>;
 
-impl RawPacket {
-    pub fn new(bytes: Vec<u8>) -> Self {
-        Self {
-            bytes,
-            used: false,
-            timestamp: Instant::now(),
-        }
-    }
+    /// Receives a packet.
+    fn recv<P: CdcReply>(&mut self, timeout: Duration) -> Result<P, Self::Error>;
 
-    pub fn is_obsolete(&self, timeout: Duration) -> bool {
-        self.timestamp.elapsed() > timeout || self.used
-    }
-
-    /// Decodes the packet into the given type.
+    /// Sends a packet and waits for a response.
     ///
-    /// If successful, marks the packet as used.
+    /// This function will retry the handshake `retries` times
+    /// before giving up and erroring with the error thrown on the last retry.
     ///
     /// # Note
     ///
-    /// This function will **NOT** fail if the packet has already been used.
-    pub fn decode_and_use<D: Decode>(&mut self) -> Option<Result<D, DecodeError>> {
-        match D::decode(&mut self.bytes.as_slice()) {
-            Ok(pkt) => {
-                self.used = true;
-                Some(Ok(pkt))
-            }
-            Err(err) => match err.kind() {
-                DecodeErrorKind::UnexpectedByte { name, .. } if name == "cmd" || name == "ecmd" => {
-                    None
+    /// This function will fail immediately if the given packet fails to encode.
+    fn handshake<P: CdcCommand + Clone>(
+        &mut self,
+        packet: P,
+        timeout: Duration,
+        retries: usize,
+    ) -> Result<P::Reply, Self::Error> {
+        let mut attempt = 0;
+
+        loop {
+            self.send(packet.clone())?;
+
+            match self.recv::<P::Reply>(timeout) {
+                Ok(decoded) => return Ok(decoded),
+                Err(e) if e.should_retry() && attempt < retries => {
+                    attempt += 1;
+                    log::warn!(
+                        "Handshake timed out while waiting for {}: {:?}. Retrying ({}/{})...",
+                        std::any::type_name::<P::Reply>(),
+                        e,
+                        attempt,
+                        retries
+                    );
                 }
-                _ => Some(Err(err)),
-            },
+                Err(e) => {
+                    log::error!(
+                        "Handshake failed after {} retries while waiting for {}: {:?}",
+                        retries,
+                        std::any::type_name::<P::Reply>(),
+                        e
+                    );
+                    return Err(e);
+                }
+            }
         }
     }
+
+    /// Read user program output.
+    fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error>;
+
+    /// Write to user program stdio.
+    fn write_user(&mut self, buf: &[u8]) -> Result<usize, Self::Error>;
 }
 
-/// Removes old and used packets from the incoming packets buffer.
-pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
-    trace!("Trimming packets. Length before: {}", packets.len());
-
-    // Remove packets that are obsolete
-    packets.retain(|packet| !packet.is_obsolete(Duration::from_secs(2)));
-
-    trace!("Trimmed packets. Length after: {}", packets.len());
-}
-
-/// An error type returned by something implementing [`Connection`].
-pub trait ConnectionError: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError> {
-    fn should_retry(&self) -> bool;
-}
-
-/// Represents an open connection to a VEX peripheral.
+/// Represents an open asynchronous connection to a VEX peripheral.
 #[allow(async_fn_in_trait)]
-pub trait Connection {
+pub trait AsyncConnection {
     type Error: ConnectionError;
 
     fn connection_type(&self) -> ConnectionType;
@@ -120,7 +109,7 @@ pub trait Connection {
                 Ok(decoded) => return Ok(decoded),
                 Err(e) if e.should_retry() && attempt < retries => {
                     attempt += 1;
-                    warn!(
+                    log::warn!(
                         "Handshake timed out while waiting for {}: {:?}. Retrying ({}/{})...",
                         std::any::type_name::<P::Reply>(),
                         e,
@@ -129,7 +118,7 @@ pub trait Connection {
                     );
                 }
                 Err(e) => {
-                    error!(
+                    log::error!(
                         "Handshake failed after {} retries while waiting for {}: {:?}",
                         retries,
                         std::any::type_name::<P::Reply>(),
@@ -146,6 +135,13 @@ pub trait Connection {
 
     /// Write to user program stdio.
     fn write_user(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>>;
+}
+
+/// An error type returned by something implementing [`Connection`].
+pub trait ConnectionError:
+    std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError>
+{
+    fn should_retry(&self) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -165,8 +161,7 @@ impl ConnectionType {
         matches!(self, ConnectionType::Bluetooth)
     }
 
-    #[allow(unused)]
-    pub(crate) fn max_chunk_size(&self, window_size: u16) -> u16 {
+    pub fn max_chunk_size(&self, window_size: u16) -> u16 {
         const USER_PROGRAM_CHUNK_SIZE: u16 = 4096;
 
         #[cfg(feature = "bluetooth")]

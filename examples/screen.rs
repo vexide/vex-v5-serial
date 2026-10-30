@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use macro_rules_attribute::apply;
-use vex_v5_serial::{
+use vex_serial::{
     Connection,
     protocol::cdc2::system::DashSelectPacket,
     serial::{self, SerialError},
@@ -21,7 +21,7 @@ async fn main() -> Result<(), SerialError> {
     let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].connect(Duration::from_secs(30))?;
+    let mut connection = devices[0].connect()?;
 
     connection
         .handshake(
@@ -31,8 +31,7 @@ async fn main() -> Result<(), SerialError> {
             },
             Duration::from_millis(500),
             10,
-        )
-        .await??;
+        )??;
 
     Ok(())
 }

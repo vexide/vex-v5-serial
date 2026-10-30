@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use log::info;
 
-use crate::Connection;
+use vex_serial::AsyncConnection;
 
 use vex_cdc::{
     FixedString,
@@ -14,7 +14,7 @@ use vex_cdc::{
 
 use super::file::download_file;
 
-pub async fn screen_capture<C: Connection>(
+pub async fn screen_capture<C: AsyncConnection>(
     connection: &mut C,
 ) -> Result<image::RgbImage, C::Error> {
     // Tell the brain we want to take a screenshot
@@ -56,7 +56,7 @@ pub async fn screen_capture<C: Connection>(
     Ok(image::GenericImageView::view(&image, 0, 0, 480, 272).to_image())
 }
 
-pub async fn mock_touch<C: Connection>(
+pub async fn mock_touch<C: AsyncConnection>(
     connection: &mut C,
     x: u16,
     y: u16,
@@ -77,7 +77,11 @@ pub async fn mock_touch<C: Connection>(
     Ok(())
 }
 
-pub async fn mock_tap<C: Connection>(connection: &mut C, x: u16, y: u16) -> Result<(), C::Error> {
+pub async fn mock_tap<C: AsyncConnection>(
+    connection: &mut C,
+    x: u16,
+    y: u16,
+) -> Result<(), C::Error> {
     mock_touch(connection, x, y, true).await?;
     mock_touch(connection, x, y, false).await?;
     Ok(())
