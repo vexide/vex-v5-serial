@@ -16,7 +16,7 @@ use vex_cdc::{
 // these are re-exported so consumers can access USB port info, because SerialPortType must be named to unwrap UsbPortInfo
 pub use serialport::{SerialPortInfo, SerialPortType, UsbPortInfo};
 
-use crate::{Connection, ConnectionType, RawPacket, trim_packets};
+use crate::{Connection, ConnectionError, ConnectionType, RawPacket, trim_packets};
 
 /// The USB vendor ID for VEX devices
 pub const VEX_USB_VID: u16 = 0x2888;
@@ -588,6 +588,12 @@ pub enum SerialError {
 
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
+}
+
+impl ConnectionError for SerialError {
+    fn should_retry(&self) -> bool {
+        matches!(self, Self::Timeout)
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use crate::{Connection, ConnectionType, bluetooth, serial};
+use crate::{Connection, ConnectionError, ConnectionType, bluetooth, serial};
 use futures_util::{TryFutureExt, try_join};
 use std::time::Duration;
 use thiserror::Error;
@@ -168,4 +168,10 @@ pub enum GenericError {
     PairingNotSupported,
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
+}
+
+impl ConnectionError for GenericError {
+    fn should_retry(&self) -> bool {
+        matches!(self, Self::SerialError(SerialError::Timeout) | Self::BluetoothError(BluetoothError::Timeout))
+    }
 }
