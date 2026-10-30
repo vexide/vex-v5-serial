@@ -181,7 +181,11 @@ impl AsyncConnection for AsyncSerialConnection {
 
     async fn read_user(&mut self, buf: &mut [u8]) -> Result<usize, SerialError> {
         if let Some((_, user_port)) = &mut self.user_port {
-            Ok(user_port.read(buf).await?)
+            Ok(match user_port.read(buf).await {
+                Ok(size) => size,
+                Err(e) if e.kind() == std::io::ErrorKind::TimedOut => 0,
+                Err(e) => return Err(e.into()),
+            })
         } else {
             let mut data = Vec::new();
             loop {
