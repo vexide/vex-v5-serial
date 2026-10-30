@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use log::info;
 
-use vex_serial::AsyncConnection;
+use vex_serial::Connection;
 
 use vex_cdc::{
     FixedString,
@@ -12,9 +12,9 @@ use vex_cdc::{
     },
 };
 
-use super::file::download_file;
+use crate::file::blocking::download_file;
 
-pub async fn screen_capture<C: AsyncConnection>(
+pub fn screen_capture<C: Connection>(
     connection: &mut C,
 ) -> Result<image::RgbImage, C::Error> {
     // Tell the brain we want to take a screenshot
@@ -24,7 +24,7 @@ pub async fn screen_capture<C: AsyncConnection>(
             Duration::from_millis(100),
             5,
         )
-        .await??;
+        ??;
 
     // Grab the image data
     let cap = download_file(
@@ -35,8 +35,7 @@ pub async fn screen_capture<C: AsyncConnection>(
         FileTransferTarget::Cbuf,
         0,
         Some(|progress| info!("Downloading screen: {:.2}%", progress)),
-    )
-    .await?;
+    )?;
 
     let colors = cap
         .chunks(4)
@@ -56,7 +55,7 @@ pub async fn screen_capture<C: AsyncConnection>(
     Ok(image::GenericImageView::view(&image, 0, 0, 480, 272).to_image())
 }
 
-pub async fn mock_touch<C: AsyncConnection>(
+pub fn mock_touch<C: Connection>(
     connection: &mut C,
     x: u16,
     y: u16,
@@ -72,17 +71,13 @@ pub async fn mock_touch<C: AsyncConnection>(
             Duration::from_millis(100),
             5,
         )
-        .await??;
+        ??;
 
     Ok(())
 }
 
-pub async fn mock_tap<C: AsyncConnection>(
-    connection: &mut C,
-    x: u16,
-    y: u16,
-) -> Result<(), C::Error> {
-    mock_touch(connection, x, y, true).await?;
-    mock_touch(connection, x, y, false).await?;
+pub async fn mock_tap<C: Connection>(connection: &mut C, x: u16, y: u16) -> Result<(), C::Error> {
+    mock_touch(connection, x, y, true)?;
+    mock_touch(connection, x, y, false)?;
     Ok(())
 }

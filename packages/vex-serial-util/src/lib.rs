@@ -1,5 +1,4 @@
-#[cfg(feature = "blocking")]
-pub mod blocking;
-
+#[cfg(feature = "async")]
 pub mod file;
+#[cfg(feature = "async")]
 pub mod screen;

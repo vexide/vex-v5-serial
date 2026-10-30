@@ -9,9 +9,8 @@ mod asynchronous;
 pub use asynchronous::AsyncSerialConnection;
 
 // these are re-exported so consumers can access USB port info, because SerialPortType must be named to unwrap UsbPortInfo
-pub use serialport::SerialPort;
+pub use serialport::{SerialPortInfo, SerialPortType};
 
-use serialport::{SerialPortInfo, SerialPortType};
 use thiserror::Error;
 use vex_cdc::{DecodeError, FixedStringSizeError, cdc2::Cdc2Ack};
 

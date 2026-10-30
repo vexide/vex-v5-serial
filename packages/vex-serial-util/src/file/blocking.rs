@@ -1,13 +1,11 @@
 use std::{
-    io::Write,
     str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration},
 };
 
-use flate2::{Compression, GzBuilder};
 use log::{debug, trace};
 
-use vex_serial::{AsyncConnection, ConnectionType};
+use vex_serial::{Connection, ConnectionType};
 
 use vex_cdc::{
     FixedString, VEX_CRC32, Version,
@@ -18,22 +16,9 @@ use vex_cdc::{
     },
 };
 
-/// The epoch of the serial protocol's timestamps.
-pub const J2000_EPOCH: u64 = 946684800;
+use super::{LinkedFile, PROS_HOT_BIN_LOAD_ADDR, ProgramData, compress_data, j2000_timestamp};
 
-pub fn j2000_timestamp() -> i32 {
-    let unix_timestamp_secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_secs();
-
-    (unix_timestamp_secs - J2000_EPOCH) as i32
-}
-
-pub const PROS_HOT_BIN_LOAD_ADDR: u32 = 0x7800000;
-pub const USER_PROGRAM_LOAD_ADDR: u32 = 0x3800000;
-
-pub async fn download_file<C: AsyncConnection>(
+pub fn download_file<C: Connection>(
     connection: &mut C,
     file_name: FixedString<23>,
     size: u32,
@@ -42,33 +27,31 @@ pub async fn download_file<C: AsyncConnection>(
     address: u32,
     mut progress_callback: Option<impl FnMut(f32) + Send>,
 ) -> Result<Vec<u8>, C::Error> {
-    let transfer_response = connection
-        .handshake(
-            FileTransferInitializePacket {
-                operation: FileTransferOperation::Read,
-                target,
-                vendor,
-                options: FileTransferOptions::None,
-                file_size: size,
-                write_file_crc: 0,
-                load_address: address,
-                metadata: FileMetadata {
-                    extension: FixedString::from_str("ini").unwrap(),
-                    extension_type: ExtensionType::EncryptedBinary,
-                    timestamp: 0,
-                    version: Version {
-                        major: 1,
-                        minor: 0,
-                        build: 0,
-                        beta: 0,
-                    },
+    let transfer_response = connection.handshake(
+        FileTransferInitializePacket {
+            operation: FileTransferOperation::Read,
+            target,
+            vendor,
+            options: FileTransferOptions::None,
+            file_size: size,
+            write_file_crc: 0,
+            load_address: address,
+            metadata: FileMetadata {
+                extension: FixedString::from_str("ini").unwrap(),
+                extension_type: ExtensionType::EncryptedBinary,
+                timestamp: 0,
+                version: Version {
+                    major: 1,
+                    minor: 0,
+                    build: 0,
+                    beta: 0,
                 },
-                file_name,
             },
-            Duration::from_millis(500),
-            5,
-        )
-        .await??;
+            file_name,
+        },
+        Duration::from_millis(500),
+        5,
+    )??;
 
     let max_chunk_size = connection
         .connection_type()
@@ -77,16 +60,14 @@ pub async fn download_file<C: AsyncConnection>(
     let mut data = Vec::with_capacity(transfer_response.file_size as usize);
     let mut offset = 0;
     loop {
-        let read = connection
-            .handshake(
-                FileDataReadPacket {
-                    address: address + offset,
-                    size: max_chunk_size,
-                },
-                Duration::from_millis(500),
-                5,
-            )
-            .await??;
+        let read = connection.handshake(
+            FileDataReadPacket {
+                address: address + offset,
+                size: max_chunk_size,
+            },
+            Duration::from_millis(500),
+            5,
+        )??;
 
         offset += read.data.len() as u32;
         let progress = (offset as f32 / transfer_response.file_size as f32) * 100.0;
@@ -110,12 +91,7 @@ pub async fn download_file<C: AsyncConnection>(
     Ok(data)
 }
 
-pub struct LinkedFile {
-    pub file_name: FixedString<23>,
-    pub vendor: FileVendor,
-}
-
-pub async fn upload_file<C: AsyncConnection + ?Sized>(
+pub fn upload_file<C: Connection + ?Sized>(
     connection: &mut C,
     file_name: FixedString<23>,
     metadata: FileMetadata,
@@ -130,38 +106,34 @@ pub async fn upload_file<C: AsyncConnection + ?Sized>(
     debug!("Uploading file: {}", file_name);
     let crc = VEX_CRC32.checksum(&data);
 
-    let transfer_response = connection
-        .handshake(
-            FileTransferInitializePacket {
-                operation: FileTransferOperation::Write,
-                target,
-                vendor,
-                options: FileTransferOptions::Overwrite,
-                file_size: data.len() as u32,
-                load_address: load_address,
-                write_file_crc: crc,
-                metadata,
-                file_name: file_name.clone(),
-            },
-            Duration::from_millis(500),
-            5,
-        )
-        .await?;
+    let transfer_response = connection.handshake(
+        FileTransferInitializePacket {
+            operation: FileTransferOperation::Write,
+            target,
+            vendor,
+            options: FileTransferOptions::Overwrite,
+            file_size: data.len() as u32,
+            load_address: load_address,
+            write_file_crc: crc,
+            metadata,
+            file_name: file_name.clone(),
+        },
+        Duration::from_millis(500),
+        5,
+    )?;
     debug!("transfer init responded");
     let transfer_response = transfer_response?;
 
     if let Some(linked_file) = linked_file {
-        connection
-            .handshake(
-                FileLinkPacket {
-                    vendor: linked_file.vendor,
-                    reserved: 0,
-                    required_file: linked_file.file_name,
-                },
-                Duration::from_millis(500),
-                5,
-            )
-            .await??;
+        connection.handshake(
+            FileLinkPacket {
+                vendor: linked_file.vendor,
+                reserved: 0,
+                required_file: linked_file.file_name,
+            },
+            Duration::from_millis(500),
+            5,
+        )??;
     }
 
     let window_size = transfer_response.window_size;
@@ -190,11 +162,9 @@ pub async fn upload_file<C: AsyncConnection + ?Sized>(
 
         // On bluetooth, we dont wait for the reply
         if connection.connection_type() == ConnectionType::Bluetooth {
-            connection.send(packet).await?;
+            connection.send(packet)?;
         } else {
-            connection
-                .handshake(packet, Duration::from_millis(500), 5)
-                .await??;
+            connection.handshake(packet, Duration::from_millis(500), 5)??;
         }
 
         offset += chunk.len() as u32;
@@ -204,30 +174,19 @@ pub async fn upload_file<C: AsyncConnection + ?Sized>(
         }
     }
 
-    _ = connection
-        .handshake(
-            FileTransferExitPacket {
-                action: after_upload,
-            },
-            Duration::from_millis(1000),
-            5,
-        )
-        .await??;
+    _ = connection.handshake(
+        FileTransferExitPacket {
+            action: after_upload,
+        },
+        Duration::from_millis(1000),
+        5,
+    )??;
 
     debug!("Successfully uploaded file: {}", file_name);
     Ok(())
 }
 
-#[derive(Debug)]
-pub enum ProgramData {
-    Monolith(Vec<u8>),
-    HotCold {
-        hot: Option<Vec<u8>>,
-        cold: Option<Vec<u8>>,
-    },
-}
-
-pub async fn upload_program<C: AsyncConnection + ?Sized>(
+pub fn upload_program<C: Connection + ?Sized>(
     connection: &mut C,
     slot: u8,
     name: &str,
@@ -282,8 +241,7 @@ description={}",
         None,
         FileExitAction::DoNothing,
         ini_callback.as_mut().map(|cb| |p| cb(p)),
-    )
-    .await?;
+    )?;
 
     let program_bin_name = format!("{base_file_name}.bin");
     let program_lib_name = format!("{base_file_name}_lib.bin");
@@ -331,8 +289,7 @@ description={}",
                 FileExitAction::DoNothing
             },
             lib_callback.as_mut().map(|cb| |p| cb(p)),
-        )
-        .await?;
+        )?;
     }
 
     if let Some(mut program_data) = program_data {
@@ -377,16 +334,8 @@ description={}",
             linked_file,
             after_upload,
             bin_callback.as_mut().map(|cb| |p| cb(p)),
-        )
-        .await?;
+        )?;
     }
 
     Ok(())
-}
-
-/// Apply gzip compression to the given data
-pub(crate) fn compress_data(data: &mut Vec<u8>) {
-    let mut encoder = GzBuilder::new().write(Vec::new(), Compression::default());
-    encoder.write_all(data).unwrap();
-    *data = encoder.finish().unwrap();
 }

@@ -16,8 +16,9 @@ image = { version = "0.25.10", default-features = false, optional = true }
 flate2 = { version = "1.1.10", optional = true }
 
 [features]
-default = ["file", "screen", "blocking"]
+default = ["file", "screen", "blocking", "async"]
 
+async = []
 blocking = []
 file = ["dep:flate2"]
 screen = ["dep:image"]
