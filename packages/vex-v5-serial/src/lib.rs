@@ -76,10 +76,15 @@ pub(crate) fn trim_packets(packets: &mut Vec<RawPacket>) {
     trace!("Trimmed packets. Length after: {}", packets.len());
 }
 
+/// An error type returned by something implementing [`Connection`].
+pub trait ConnectionError: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError> {
+    fn should_retry(&self) -> bool;
+}
+
 /// Represents an open connection to a VEX peripheral.
 #[allow(async_fn_in_trait)]
 pub trait Connection {
-    type Error: std::error::Error + From<DecodeError> + From<Cdc2Ack> + From<FixedStringSizeError>;
+    type Error: ConnectionError;
 
     fn connection_type(&self) -> ConnectionType;
 
@@ -106,27 +111,34 @@ pub trait Connection {
         timeout: Duration,
         retries: usize,
     ) -> Result<P::Reply, Self::Error> {
-        let mut last_error = None;
+        let mut attempt = 0;
 
-        for _ in 0..=retries {
+        loop {
             self.send(packet.clone()).await?;
+
             match self.recv::<P::Reply>(timeout).await {
                 Ok(decoded) => return Ok(decoded),
-                Err(e) => {
+                Err(e) if e.should_retry() && attempt < retries => {
+                    attempt += 1;
                     warn!(
-                        "Handshake failed while waiting for {}: {:?}. Retrying...",
+                        "Handshake timed out while waiting for {}: {:?}. Retrying ({}/{})...",
+                        std::any::type_name::<P::Reply>(),
+                        e,
+                        attempt,
+                        retries
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        "Handshake failed after {} retries while waiting for {}: {:?}",
+                        retries,
                         std::any::type_name::<P::Reply>(),
                         e
                     );
-                    last_error = Some(e);
+                    return Err(e);
                 }
             }
         }
-        error!(
-            "Handshake failed after {} retries with error: {:?}",
-            retries, last_error
-        );
-        Err(last_error.unwrap())
     }
 
     /// Read user program output.

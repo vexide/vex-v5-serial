@@ -12,7 +12,7 @@ use log::{debug, error, trace, warn};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::trim_packets;
+use crate::{ConnectionError, trim_packets};
 
 use vex_cdc::{Decode, DecodeError, Encode, FixedStringSizeError, cdc2::Cdc2Ack};
 
@@ -333,4 +333,10 @@ pub enum BluetoothError {
     PairingRequired,
     #[error(transparent)]
     FixedStringSizeError(#[from] FixedStringSizeError),
+}
+
+impl ConnectionError for BluetoothError {
+    fn should_retry(&self) -> bool {
+        matches!(self, Self::Timeout)
+    }
 }
