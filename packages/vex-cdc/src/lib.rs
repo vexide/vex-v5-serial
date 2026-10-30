@@ -38,6 +38,7 @@ pub use encode::Encode;
 pub use string::{FixedString, FixedStringSizeError};
 pub use varint::{VarU16, VarU16SizeError};
 pub use version::Version;
+pub use heapless::Vec as FixedVec;
 
 macro_rules! cdc2_pair {
     ($command_type:ty => $reply_type:ty, $cmd:expr, $ecmd:expr$(,)?) => {

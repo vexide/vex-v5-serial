@@ -8,9 +8,7 @@ use log::{debug, error, trace, warn};
 use std::time::Duration;
 use thiserror::Error;
 use vex_cdc::{
-    Decode, DecodeError, Encode, FixedString, FixedStringSizeError, VarU16,
-    cdc::CdcReply,
-    cdc2::{Cdc2Ack, system::UserDataPacket},
+    Decode, DecodeError, Encode, FixedStringSizeError, FixedVec, VarU16, cdc::CdcReply, cdc2::{Cdc2Ack, system::UserDataPacket},
 };
 
 // these are re-exported so consumers can access USB port info, because SerialPortType must be named to unwrap UsbPortInfo
@@ -132,11 +130,6 @@ fn types_by_location(ports: &[SerialPortInfo]) -> Option<Vec<VexSerialPort>> {
             // Unknown product
             _ => {}
         }
-    }
-
-    // Let the name-based fallbacks run if nothing matched.
-    if vex_ports.is_empty() {
-        return None;
     }
 
     Some(vex_ports)
@@ -517,14 +510,15 @@ impl Connection for SerialConnection {
                     .handshake(
                         UserDataPacket {
                             channel: 1, // stdio channel
-                            write: None,
+                            write: FixedVec::new(),
                         },
                         Duration::from_millis(100),
-                        1,
+                        0,
                     )
                     .await??;
-                if let Some(read) = fifo.data {
-                    data.extend(read.as_bytes());
+
+                if !fifo.data.is_empty() {
+                    data.extend(fifo.data);
                     break;
                 }
             }
@@ -549,13 +543,10 @@ impl Connection for SerialConnection {
                     .handshake(
                         UserDataPacket {
                             channel: 1, // stdio channel
-                            write: Some(
-                                FixedString::new(String::from_utf8(chunk.to_vec()).unwrap())
-                                    .unwrap(),
-                            ),
+                            write: FixedVec::from_slice(chunk).unwrap(),
                         },
                         Duration::from_millis(100),
-                        1,
+                        0,
                     )
                     .await??;
                 buf = rest;

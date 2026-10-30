@@ -29,8 +29,11 @@ impl core::fmt::Display for DecodeError {
 
 #[derive(Error, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DecodeErrorKind {
-    #[error("Packet was too short.")]
+    #[error("Packet was unexpectedly too short.")]
     UnexpectedEnd,
+
+    #[error("Packet was unexpectedly too large.")]
+    TooLarge,
 
     #[error(
         "Could not decode {name} with unexpected byte. Found {value:x}, expected one of: {expected:x?}."
@@ -59,6 +62,17 @@ impl<T: Decode> DecodeWithLength for Vec<T> {
         let mut vec = Vec::with_capacity(len);
         for _ in 0..len {
             vec.push(T::decode(data)?);
+        }
+        Ok(vec)
+    }
+}
+
+impl<T: Decode, const N: usize> DecodeWithLength for heapless::Vec<T, N> {
+    fn decode_with_len(data: &mut &[u8], len: usize) -> Result<Self, DecodeError> {
+        let mut vec = heapless::Vec::new();
+        for _ in 0..len {
+            vec.push(T::decode(data)?)
+                .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::TooLarge))?;
         }
         Ok(vec)
     }

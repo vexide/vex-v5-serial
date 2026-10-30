@@ -61,3 +61,13 @@ impl Encode for alloc::vec::Vec<u8> {
         self.as_slice().encode(data)
     }
 }
+
+impl<const N: usize> Encode for heapless::Vec<u8, N> {
+    fn size(&self) -> usize {
+        self.len()
+    }
+
+    fn encode(&self, data: &mut [u8]) {
+        self.as_slice().encode(data)
+    }
+}

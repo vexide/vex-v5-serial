@@ -2,10 +2,7 @@
 
 use core::u8;
 
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{string::String, vec::Vec};
 
 use crate::{
     Decode, DecodeError, DecodeWithLength, Encode, FixedString, Version,
@@ -981,23 +978,18 @@ pub struct UserDataPacket {
     pub channel: u8,
 
     /// Write (stdin) bytes.
-    pub write: Option<FixedString<224>>,
+    pub write: heapless::Vec<u8, 224>,
 }
 impl Encode for UserDataPacket {
     fn size(&self) -> usize {
-        cdc2_command_size(2 + self.write.as_ref().map(|write| write.size()).unwrap_or(0))
+        cdc2_command_size(2 + self.write.len())
     }
 
     fn encode(&self, data: &mut [u8]) {
         frame_cdc2_command(self, data, |data| {
             data[0] = self.channel;
-
-            if let Some(write) = &self.write {
-                data[1] = write.size() as u8;
-                write.encode(&mut data[2..]);
-            } else {
-                data[1] = 0;
-            }
+            data[1] = self.write.len() as u8;
+            self.write.encode(&mut data[2..]);
         })
     }
 }
@@ -1008,38 +1000,24 @@ pub struct UserDataReplyPacket {
     pub channel: u8,
 
     /// Bytes read from stdout.
-    pub data: Option<String>,
+    pub data: heapless::Vec<u8, 224>,
 }
 impl Decode for UserDataReplyPacket {
     fn decode(data: &mut &[u8]) -> Result<Self, DecodeError> {
         let channel = u8::decode(data)?;
         let data_len = data.len();
 
-        let read = if data_len > 0 {
-            Some({
-                let mut utf8 = alloc::vec![];
+        let buf = {
+            let mut buf = heapless::Vec::new();
 
-                for _ in 0..data_len {
-                    let byte = u8::decode(data)?;
+            for _ in 0..data_len {
+                buf.push(u8::decode(data)?)
+                    .map_err(|_| DecodeError::new::<Self>(DecodeErrorKind::TooLarge))?;
+            }
 
-                    if byte == 0 {
-                        break;
-                    }
-
-                    utf8.push(byte);
-                }
-
-                core::str::from_utf8(&utf8)
-                    .map_err(|e| DecodeError::new::<Self>(e.into()))?
-                    .to_string()
-            })
-        } else {
-            None
+            buf
         };
 
-        Ok(Self {
-            channel,
-            data: read,
-        })
+        Ok(Self { channel, data: buf })
     }
 }
