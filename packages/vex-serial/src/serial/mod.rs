@@ -55,6 +55,83 @@ pub enum VexSerialPortType {
     Controller,
 }
 
+// dodging serialport's libudev dependency on linux and doing this instead with nusb
+#[cfg(target_os = "linux")]
+fn available_ports_linux() -> Result<Vec<SerialPortInfo>, SerialError> {
+    use nusb::MaybeFuture;
+    use serialport::UsbPortInfo;
+
+    let mut ports = Vec::new();
+
+    // TODO(tropicaaal): maybe bad to block here? might need to split this between async/blocking on all platforms.
+    for dev in nusb::list_devices()
+        .wait()
+        .map_err(|e| SerialError::IoError(e.into()))?
+    {
+        if dev.vendor_id() != VEX_USB_VID {
+            continue;
+        }
+
+        // alright, brief explanation of what's going on here.
+        //
+        // We have a list of all currently connected physical devices. We need to:
+        //  a) find which devices expose USB CDC ACM (serial) interfaces and their interface number
+        //  b) map these CDC ACM interfaces to open tty devices in the form /dev/ttyACM<n>
+
+        let sysfs = dev.sysfs_path(); // example: /sys/devices/pci0000:00/.../usb1/x-y
+        let Some(dev_name) = sysfs.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        // the /sys/devices/ for our USB devices will contain a list of interfaces for each device
+        // if any are exposed.
+        let Ok(entries) = std::fs::read_dir(sysfs) else {
+            continue;
+        };
+
+        let mut found: Vec<(u8, String)> = Vec::new();
+        for entry in entries.flatten() {
+            // interface dirs are in the form "x-y:<config>.<interface>", and we want the
+            // interface number to distinguish user from system ports.
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else { continue };
+            let Some(rest) = name.strip_prefix(&format!("{dev_name}:")) else {
+                continue;
+            };
+            let Some(iface) = rest.rsplit('.').next().and_then(|s| s.parse::<u8>().ok()) else {
+                continue;
+            };
+
+            // A bound USB CDC ACM interface has a tty/ttyACMx child
+            let Ok(ttys) = std::fs::read_dir(entry.path().join("tty")) else {
+                continue;
+            };
+            for tty in ttys.flatten() {
+                if let Some(t) = tty.file_name().to_str() {
+                    found.push((iface, t.to_owned()));
+                }
+            }
+        }
+
+        // now convert it to something serialport-rs can understand. yay!
+        for (iface, tty) in found {
+            ports.push(SerialPortInfo {
+                port_name: format!("/dev/{tty}"),
+                port_type: SerialPortType::UsbPort(UsbPortInfo {
+                    vid: dev.vendor_id(),
+                    pid: dev.product_id(),
+                    serial_number: dev.serial_number().map(str::to_string),
+                    manufacturer: dev.manufacturer_string().map(str::to_string),
+                    product: dev.product_string().map(str::to_string),
+                    interface: Some(iface),
+                }),
+            });
+        }
+    }
+
+    Ok(ports)
+}
+
 /// Finds all connected V5 devices.
 pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
     // Find all vex ports, iterate using peekable.
@@ -114,7 +191,10 @@ pub fn find_devices() -> Result<Vec<SerialDevice>, SerialError> {
 /// Finds all available VEX serial ports that can be connected to.
 fn find_ports() -> Result<Vec<VexSerialPort>, SerialError> {
     // Get all available serial ports
-    let ports = serialport::available_ports()?;
+    let ports = cfg_select! {
+        target_os = "linux" => available_ports_linux(),
+        _ => serialport::available_ports(),
+    }?;
 
     // Create a vector that will contain all vex ports
     let mut filtered_ports = Vec::new();
