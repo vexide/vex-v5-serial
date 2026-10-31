@@ -4,18 +4,17 @@ edition = "2024"
 version = "0.0.1"
 
 [workspace]
-members = ["./packages/vex-v5-serial", "./packages/vex-cdc"]
+members = ["./packages/vex-serial", "./packages/vex-serial-util", "./packages/vex-cdc"]
 resolver = "3"
 
 [workspace.dependencies]
-vex-v5-serial = { version = "0.5.1", path = "packages/vex-v5-serial" }
+vex-serial = { version = "0.5.1", default-features = false, path = "packages/vex-serial" }
+vex-serial-util = { version = "0.0.1", path = "packages/vex-serial-util" }
 vex-cdc = { version = "0.1.0", path = "packages/vex-cdc" }
 
 [dev-dependencies]
-vex-v5-serial = { workspace = true, features = [
-    "file-commands",
-    "screen-commands",
-] }
+vex-serial = { workspace = true, features = ["serial-async", "serial-blocking", "bluetooth"] }
+vex-serial-util = { workspace = true, features = ["blocking", "file", "screen"] }
 log = "0.4.28"
 smol = "2.0.2"
 smol-macros = "0.1.1"

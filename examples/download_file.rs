@@ -2,9 +2,8 @@ use std::{str::FromStr, time::Duration};
 
 use macro_rules_attribute::apply;
 use smol::{Timer, fs::File, io::AsyncWriteExt};
-use vex_v5_serial::{
-    Connection,
-    commands::file::download_file,
+use vex_serial::{
+    AsyncConnection,
     protocol::{
         FixedString,
         cdc2::file::{
@@ -13,6 +12,7 @@ use vex_v5_serial::{
     },
     serial::{self, SerialError},
 };
+use vex_serial_util::file::download_file;
 
 #[apply(smol_macros::main!)]
 async fn main() -> Result<(), SerialError> {
@@ -29,7 +29,7 @@ async fn main() -> Result<(), SerialError> {
     let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].connect(Duration::from_secs(30))?;
+    let mut connection = devices[0].connect_async()?;
 
     // Swap radio to download channel.
     //

@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use log::info;
 use macro_rules_attribute::apply;
-use vex_v5_serial::{
-    Connection,
+use vex_serial::{
+    AsyncConnection,
     protocol::cdc2::system::DeviceStatusPacket,
     serial::{self, SerialError},
 };
@@ -21,7 +21,7 @@ async fn main() -> Result<(), SerialError> {
     let devices = serial::find_devices()?;
 
     // Open a connection to the device
-    let mut connection = devices[0].connect(Duration::from_secs(30))?;
+    let mut connection = devices[0].connect_async()?;
 
     let status = connection
         .handshake(DeviceStatusPacket {}, Duration::from_millis(500), 10)
